@@ -9,14 +9,11 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
  */
 
-package io.vertx.core.impl;
+package io.vertx.core.file.impl;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
 import io.vertx.core.VertxException;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.file.impl.FileSystemImpl;
 
 import java.io.Closeable;
 import java.io.File;
@@ -64,18 +61,16 @@ public class FileResolver {
   private static final String JAR_URL_SEP = "!/";
   private static final Pattern JAR_URL_SEP_PATTERN = Pattern.compile(JAR_URL_SEP);
 
-  private final Vertx vertx;
   private final File cwd;
   private File cacheDir;
   private Thread shutdownHook;
   private final boolean enableCaching;
 
-  public FileResolver(Vertx vertx) {
-    this(vertx, VertxOptions.DEFAULT_FILE_CACHING_ENABLED);
+  public FileResolver() {
+    this(VertxOptions.DEFAULT_FILE_CACHING_ENABLED);
   }
 
-  public FileResolver(Vertx vertx, boolean enableCaching) {
-    this.vertx = vertx;
+  public FileResolver(boolean enableCaching) {
     this.enableCaching = enableCaching;
     String cwdOverride = System.getProperty("vertx.cwd");
     if (cwdOverride != null) {
@@ -88,13 +83,18 @@ public class FileResolver {
     }
   }
 
-  public void close(Handler<AsyncResult<Void>> handler) {
-    deleteCacheDir(handler);
-    if (shutdownHook != null) {
-      // May throw IllegalStateException if called from other shutdown hook so ignore that
-      try {
-        Runtime.getRuntime().removeShutdownHook(shutdownHook);
-      } catch (IllegalStateException ignore) {
+  /**
+   * Close this file resolver, this is a blocking operation.
+   */
+  public void close() throws IOException {
+    deleteCacheDir();
+    synchronized (this) {
+      if (shutdownHook != null) {
+        // May throw IllegalStateException if called from other shutdown hook so ignore that
+        try {
+          Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        } catch (IllegalStateException ignore) {
+        }
       }
     }
   }
@@ -122,26 +122,44 @@ public class FileResolver {
         if (NON_UNIX_FILE_SEP) {
           fileName = fileName.replace(FILE_SEP, "/");
         }
+
+        //https://github.com/eclipse/vert.x/issues/2126
+        //Cache all elements in the parent directory if it exists
+        //this is so that listing the directory after an individual file has
+        //been read works.
+        String parentFileName = file.getParent();
+        if (parentFileName != null) {
+          URL directoryContents = cl.getResource(parentFileName);
+          if (directoryContents != null) {
+            unpackUrlResource(directoryContents, parentFileName, cl, true);
+          }
+        }
+
         URL url = cl.getResource(fileName);
         if (url != null) {
-          String prot = url.getProtocol();
-          switch (prot) {
-            case "file":
-              return unpackFromFileURL(url, fileName, cl);
-            case "jar":
-              return unpackFromJarURL(url, fileName, cl);
-            case "bundle": // Apache Felix, Knopflerfish
-            case "bundleentry": // Equinox
-            case "bundleresource": // Equinox
-              return unpackFromBundleURL(url);
-            default:
-              throw new IllegalStateException("Invalid url protocol: " + prot);
-          }
+          return unpackUrlResource(url, fileName, cl, false);
         }
       }
     }
     return file;
   }
+
+  private File unpackUrlResource(URL url, String fileName, ClassLoader cl, boolean isDir) {
+    String prot = url.getProtocol();
+    switch (prot) {
+      case "file":
+        return unpackFromFileURL(url, fileName, cl);
+      case "jar":
+        return unpackFromJarURL(url, fileName, cl);
+      case "bundle": // Apache Felix, Knopflerfish
+      case "bundleentry": // Equinox
+      case "bundleresource": // Equinox
+        return unpackFromBundleURL(url, isDir);
+      default:
+        throw new IllegalStateException("Invalid url protocol: " + prot);
+    }
+  }
+
 
   private synchronized File unpackFromFileURL(URL url, String fileName, ClassLoader cl) {
     File resource;
@@ -254,11 +272,11 @@ public class FileResolver {
    * @param url      the url
    * @return the extracted file
    */
-  private synchronized File unpackFromBundleURL(URL url) {
+  private synchronized File unpackFromBundleURL(URL url, boolean isDir) {
     try {
       File file = new File(cacheDir, url.getHost() + File.separator + url.getFile());
       file.getParentFile().mkdirs();
-      if (url.toExternalForm().endsWith("/")) {
+      if (url.toExternalForm().endsWith("/")  || isDir) {
         // Directory
         file.mkdirs();
       } else {
@@ -294,22 +312,29 @@ public class FileResolver {
       throw new IllegalStateException("Failed to create cache dir");
     }
     // Add shutdown hook to delete on exit
-    shutdownHook = new Thread(() -> {
-      CountDownLatch latch = new CountDownLatch(1);
-      deleteCacheDir(ar -> latch.countDown());
-      try {
-        latch.await(10, TimeUnit.SECONDS);
-      } catch (Exception ignore) {
-      }
-    });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
+    synchronized (this) {
+      shutdownHook = new Thread(() -> {
+        CountDownLatch latch = new CountDownLatch(1);
+        new Thread(() -> {
+          try {
+            deleteCacheDir();
+          } catch (IOException ignore) {
+          }
+          latch.countDown();
+        }).run();
+        try {
+          latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      });
+      Runtime.getRuntime().addShutdownHook(shutdownHook);
+    }
   }
 
-  private void deleteCacheDir(Handler<AsyncResult<Void>> handler) {
+  private void deleteCacheDir() throws IOException {
     if (cacheDir != null && cacheDir.exists()) {
-      vertx.fileSystem().deleteRecursive(cacheDir.getAbsolutePath(), true, handler);
-    } else {
-      handler.handle(Future.succeededFuture());
+      FileSystemImpl.delete(cacheDir.toPath(), true);
     }
   }
 }

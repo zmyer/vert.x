@@ -25,7 +25,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
@@ -80,7 +79,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
-import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -2694,10 +2692,7 @@ public class NetTest extends VertxTestBase {
   }
 
   private TestLoggerFactory testLogging() throws Exception {
-    InternalLoggerFactory prev = InternalLoggerFactory.getDefaultFactory();
-    TestLoggerFactory factory = new TestLoggerFactory();
-    InternalLoggerFactory.setDefaultFactory(factory);
-    try {
+	return TestUtils.testLogging(() -> {
       server.connectHandler(so -> {
         so.write("fizzbuzz").end();
       });
@@ -2707,10 +2702,7 @@ public class NetTest extends VertxTestBase {
         }));
       }));
       await();
-    } finally {
-      InternalLoggerFactory.setDefaultFactory(prev);
-    }
-    return factory;
+	});
   }
 
   /**
@@ -3026,8 +3018,8 @@ public class NetTest extends VertxTestBase {
   }
 
   @Test
-  public void testClientLocalAddress() throws Exception {
-    String expectedAddress = InetAddress.getLocalHost().getHostAddress();
+  public void testClientLocalAddress() {
+    String expectedAddress = TestUtils.loopbackAddress();
     NetClientOptions clientOptions = new NetClientOptions().setLocalAddress(expectedAddress);
     client.close();
     client = vertx.createNetClient(clientOptions);

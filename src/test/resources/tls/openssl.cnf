@@ -4,32 +4,32 @@ default_ca      = CA_root
 [ CA_root ]
 new_certs_dir    = root-ca
 database         = root-ca/index.txt
-default_md       = sha1
+default_md       = sha256
 policy           = policy_match
 serial           = root-ca/serial
-default_days     = 365
+default_days     = 3650
 crlnumber        = root-ca/crlnumber
-default_crl_days = 365
+default_crl_days = 3650
 
 [ CA_other ]
 new_certs_dir    = other-ca
 database         = other-ca/index.txt
-default_md       = sha1
+default_md       = sha256
 policy           = policy_match
 serial           = other-ca/serial
-default_days     = 365
+default_days     = 3650
 crlnumber        = other-ca/crlnumber
-default_crl_days = 365
+default_crl_days = 3650
 
 [ CA_int ]
 new_certs_dir    = int-ca
 database         = int-ca/index.txt
-default_md       = sha1
+default_md       = sha256
 policy           = policy_match
 serial           = int-ca/serial
-default_days     = 365
+default_days     = 3650
 crlnumber        = int-ca/crlnumber
-default_crl_days = 365
+default_crl_days = 3650
 
 [ policy_match ]
 countryName             = optional
@@ -38,6 +38,9 @@ organizationName        = optional
 organizationalUnitName  = optional
 commonName              = optional
 emailAddress            = optional
+
+[ cacert_ext ]
+basicConstraints = CA:TRUE
 
 [ req_ext ]
 subjectAltName    = @alt_names

@@ -12,6 +12,7 @@ package io.vertx.core.json;
 
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.shareddata.Shareable;
 import io.vertx.core.shareddata.impl.ClusterSerializable;
 
 import java.nio.charset.StandardCharsets;
@@ -34,7 +35,7 @@ import static java.time.format.DateTimeFormatter.ISO_INSTANT;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class JsonObject implements Iterable<Map.Entry<String, Object>>, ClusterSerializable {
+public class JsonObject implements Iterable<Map.Entry<String, Object>>, ClusterSerializable, Shareable {
 
   private Map<String, Object> map;
 
@@ -75,6 +76,8 @@ public class JsonObject implements Iterable<Map.Entry<String, Object>>, ClusterS
   /**
    * Create a JsonObject from the fields of a Java object.
    * Faster than calling `new JsonObject(Json.encode(obj))`.
+   * <p/
+   * Returns {@ode null} when {@code obj} is {@code null}.
    *
    * @param obj
    *          The object to convert to a JsonObject.
@@ -83,7 +86,11 @@ public class JsonObject implements Iterable<Map.Entry<String, Object>>, ClusterS
    */
   @SuppressWarnings("unchecked")
   public static JsonObject mapFrom(Object obj) {
-    return new JsonObject((Map<String, Object>) Json.mapper.convertValue(obj, Map.class));
+    if (obj == null) {
+      return null;
+    } else {
+      return new JsonObject((Map<String, Object>) Json.mapper.convertValue(obj, Map.class));
+    }
   }
 
   /**
@@ -784,6 +791,7 @@ public class JsonObject implements Iterable<Map.Entry<String, Object>>, ClusterS
    *
    * @return a copy of the object
    */
+  @Override
   public JsonObject copy() {
     Map<String, Object> copiedMap;
     if (map instanceof LinkedHashMap) {

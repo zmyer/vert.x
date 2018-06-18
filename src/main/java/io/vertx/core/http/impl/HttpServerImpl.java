@@ -38,10 +38,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
-import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
-import io.netty.handler.codec.http.websocketx.WebSocketVersion;
+import io.netty.handler.codec.http.websocketx.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslHandler;
@@ -219,7 +216,11 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
     return listen(port, "0.0.0.0", listenHandler);
   }
 
-  public synchronized HttpServer listen(int port, String host, Handler<AsyncResult<HttpServer>> listenHandler) {
+  public HttpServer listen(int port, String host, Handler<AsyncResult<HttpServer>> listenHandler) {
+    return listen(SocketAddress.inetSocketAddress(port, host), listenHandler);
+  }
+
+  public synchronized HttpServer listen(SocketAddress address, Handler<AsyncResult<HttpServer>> listenHandler) {
     if (requestStream.handler() == null && wsStream.handler() == null) {
       throw new IllegalStateException("Set request or websocket handler first");
     }
@@ -228,6 +229,8 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
     }
     listenContext = vertx.getOrCreateContext();
     listening = true;
+    String host = address.host() != null ? address.host() : "localhost";
+    int port = address.port();
     serverOrigin = (options.isSsl() ? "https" : "http") + "://" + host + ":" + port;
     List<HttpVersion> applicationProtocols = options.getAlpnVersions();
     if (listenContext.isWorkerContext()) {
@@ -329,16 +332,20 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
 
         addHandlers(this, listenContext);
         try {
-          bindFuture = AsyncResolveConnectHelper.doBind(vertx, SocketAddress.inetSocketAddress(port, host), bootstrap);
+          bindFuture = AsyncResolveConnectHelper.doBind(vertx, address, bootstrap);
           bindFuture.addListener(res -> {
             if (res.failed()) {
               vertx.sharedHttpServers().remove(id);
             } else {
               Channel serverChannel = res.result();
-              HttpServerImpl.this.actualPort = ((InetSocketAddress)serverChannel.localAddress()).getPort();
+	      if (serverChannel.localAddress() instanceof InetSocketAddress) {
+		HttpServerImpl.this.actualPort = ((InetSocketAddress)serverChannel.localAddress()).getPort();
+	      } else {
+		HttpServerImpl.this.actualPort = address.port();
+	      }
               serverChannelGroup.add(serverChannel);
               VertxMetrics metrics = vertx.metricsSPI();
-              this.metrics = metrics != null ? metrics.createMetrics(this, new SocketAddressImpl(port, host), options) : null;
+              this.metrics = metrics != null ? metrics.createHttpServerMetrics(options, address) : null;
             }
           });
         } catch (final Throwable t) {
@@ -360,7 +367,7 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
         this.actualPort = shared.actualPort;
         addHandlers(actualServer, listenContext);
         VertxMetrics metrics = vertx.metricsSPI();
-        this.metrics = metrics != null ? metrics.createMetrics(this, new SocketAddressImpl(port, host), options) : null;
+        this.metrics = metrics != null ? metrics.createHttpServerMetrics(options, address) : null;
       }
       actualServer.bindFuture.addListener(future -> {
         if (listenHandler != null) {
@@ -686,7 +693,8 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
             if (!closeFrameSent) {
               // Echo back close frame and close the connection once it was written.
               // This is specified in the WebSockets RFC 6455 Section  5.4.1
-              ch.writeAndFlush(wsFrame).addListener(ChannelFutureListener.CLOSE);
+              CloseWebSocketFrame closeFrame = new CloseWebSocketFrame(wsFrame.closeStatusCode(), wsFrame.closeReason());
+              ch.writeAndFlush(closeFrame).addListener(ChannelFutureListener.CLOSE);
               closeFrameSent = true;
             }
             conn.handleMessage(msg);

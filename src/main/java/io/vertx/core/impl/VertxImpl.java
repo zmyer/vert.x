@@ -38,6 +38,7 @@ import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.impl.EventBusImpl;
 import io.vertx.core.eventbus.impl.clustered.ClusteredEventBus;
 import io.vertx.core.file.FileSystem;
+import io.vertx.core.file.impl.FileResolver;
 import io.vertx.core.file.impl.FileSystemImpl;
 import io.vertx.core.file.impl.WindowsFileSystem;
 import io.vertx.core.http.HttpClient;
@@ -69,6 +70,7 @@ import io.vertx.core.spi.metrics.PoolMetrics;
 import io.vertx.core.spi.metrics.VertxMetrics;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -105,6 +107,17 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     System.setProperty("io.netty.noJdkZlibDecoder", "false");
   }
 
+  static VertxImpl vertx(VertxOptions options) {
+    VertxImpl vertx = new VertxImpl(options);
+    vertx.init();
+    return vertx;
+  }
+
+  static void clusteredVertx(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler) {
+    VertxImpl vertx = new VertxImpl(options);
+    vertx.initClustered(options, resultHandler);
+  }
+
   private final FileSystem fileSystem = getFileSystem();
   private final SharedData sharedData;
   private final VertxMetrics metrics;
@@ -121,28 +134,20 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   private final EventLoopGroup eventLoopGroup;
   private final EventLoopGroup acceptorEventLoopGroup;
   private final BlockedThreadChecker checker;
-  private final boolean haEnabled;
   private final AddressResolver addressResolver;
   private final AddressResolverOptions addressResolverOptions;
-  private EventBus eventBus;
-  private HAManager haManager;
+  private final EventBus eventBus;
+  private volatile HAManager haManager;
   private boolean closed;
   private volatile Handler<Throwable> exceptionHandler;
   private final Map<String, SharedWorkerPool> namedWorkerPools;
   private final int defaultWorkerPoolSize;
   private final long defaultWorkerMaxExecTime;
+  private final TimeUnit defaultWorkerMaxExecTimeUnit;
   private final CloseHooks closeHooks;
   private final Transport transport;
 
-  VertxImpl() {
-    this(new VertxOptions());
-  }
-
-  VertxImpl(VertxOptions options) {
-    this(options, null);
-  }
-
-  VertxImpl(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler) {
+  private VertxImpl(VertxOptions options) {
     // Sanity check
     if (Vertx.currentContext() != null) {
       log.warn("You're already on a Vert.x context, are you sure you want to create a new Vertx instance?");
@@ -158,10 +163,10 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
       transport = Transport.JDK;
     }
     closeHooks = new CloseHooks(log);
-    checker = new BlockedThreadChecker(options.getBlockedThreadCheckInterval(), options.getWarningExceptionTime());
-    eventLoopThreadFactory = new VertxThreadFactory("vert.x-eventloop-thread-", checker, false, options.getMaxEventLoopExecuteTime());
+    checker = new BlockedThreadChecker(options.getBlockedThreadCheckInterval(), options.getBlockedThreadCheckIntervalUnit(), options.getWarningExceptionTime(), options.getWarningExceptionTimeUnit());
+    eventLoopThreadFactory = new VertxThreadFactory("vert.x-eventloop-thread-", checker, false, options.getMaxEventLoopExecuteTime(), options.getMaxEventLoopExecuteTimeUnit());
     eventLoopGroup = transport.eventLoopGroup(options.getEventLoopPoolSize(), eventLoopThreadFactory, NETTY_IO_RATIO);
-    ThreadFactory acceptorEventLoopThreadFactory = new VertxThreadFactory("vert.x-acceptor-thread-", checker, false, options.getMaxEventLoopExecuteTime());
+    ThreadFactory acceptorEventLoopThreadFactory = new VertxThreadFactory("vert.x-acceptor-thread-", checker, false, options.getMaxEventLoopExecuteTime(), options.getMaxEventLoopExecuteTimeUnit());
     // The acceptor event loop thread needs to be from a different pool otherwise can get lags in accepted connections
     // under a lot of load
     acceptorEventLoopGroup = transport.eventLoopGroup(1, acceptorEventLoopThreadFactory, 100);
@@ -169,62 +174,58 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     metrics = initialiseMetrics(options);
 
     ExecutorService workerExec = Executors.newFixedThreadPool(options.getWorkerPoolSize(),
-        new VertxThreadFactory("vert.x-worker-thread-", checker, true, options.getMaxWorkerExecuteTime()));
-    PoolMetrics workerPoolMetrics = metrics != null ? metrics.createMetrics(workerExec, "worker", "vert.x-worker-thread", options.getWorkerPoolSize()) : null;
+        new VertxThreadFactory("vert.x-worker-thread-", checker, true, options.getMaxWorkerExecuteTime(), options.getMaxWorkerExecuteTimeUnit()));
+    PoolMetrics workerPoolMetrics = metrics != null ? metrics.createPoolMetrics("worker", "vert.x-worker-thread", options.getWorkerPoolSize()) : null;
     ExecutorService internalBlockingExec = Executors.newFixedThreadPool(options.getInternalBlockingPoolSize(),
-        new VertxThreadFactory("vert.x-internal-blocking-", checker, true, options.getMaxWorkerExecuteTime()));
-    PoolMetrics internalBlockingPoolMetrics = metrics != null ? metrics.createMetrics(internalBlockingExec, "worker", "vert.x-internal-blocking", options.getInternalBlockingPoolSize()) : null;
+        new VertxThreadFactory("vert.x-internal-blocking-", checker, true, options.getMaxWorkerExecuteTime(), options.getMaxWorkerExecuteTimeUnit()));
+    PoolMetrics internalBlockingPoolMetrics = metrics != null ? metrics.createPoolMetrics("worker", "vert.x-internal-blocking", options.getInternalBlockingPoolSize()) : null;
     internalBlockingPool = new WorkerPool(internalBlockingExec, internalBlockingPoolMetrics);
     namedWorkerPools = new HashMap<>();
     workerPool = new WorkerPool(workerExec, workerPoolMetrics);
     defaultWorkerPoolSize = options.getWorkerPoolSize();
     defaultWorkerMaxExecTime = options.getMaxWorkerExecuteTime();
+    defaultWorkerMaxExecTimeUnit = options.getMaxWorkerExecuteTimeUnit();
 
-    this.fileResolver = new FileResolver(this, options.isFileResolverCachingEnabled());
+    this.fileResolver = new FileResolver(options.isFileResolverCachingEnabled());
     this.addressResolverOptions = options.getAddressResolverOptions();
     this.addressResolver = new AddressResolver(this, options.getAddressResolverOptions());
     this.deploymentManager = new DeploymentManager(this);
-    this.haEnabled = options.isClustered() && options.isHAEnabled();
     if (options.isClustered()) {
       this.clusterManager = getClusterManager(options);
-      this.clusterManager.setVertx(this);
-      this.clusterManager.join(ar -> {
-        if (ar.failed()) {
-          log.error("Failed to join cluster", ar.cause());
-          resultHandler.handle(Future.failedFuture(ar.cause()));
-        } else {
-          // Provide a memory barrier as we are setting from a different thread
-          synchronized (VertxImpl.this) {
-            haManager = new HAManager(this, deploymentManager, clusterManager, options.getQuorumSize(),
-                                      options.getHAGroup(), haEnabled);
-            createAndStartEventBus(options, resultHandler);
-          }
-        }
-      });
+      this.eventBus = new ClusteredEventBus(this, options, clusterManager);
     } else {
       this.clusterManager = null;
-      createAndStartEventBus(options, resultHandler);
+      this.eventBus = new EventBusImpl(this);
     }
     this.sharedData = new SharedDataImpl(this, clusterManager);
   }
 
-  private void createAndStartEventBus(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler) {
-    if (options.isClustered()) {
-      eventBus = new ClusteredEventBus(this, options, clusterManager, haManager);
-    } else {
-      eventBus = new EventBusImpl(this);
-    }
-    eventBus.start(ar -> {
-      if (ar.succeeded()) {
-        if (metrics != null) {
-          // If the metric provider wants to use the event bus, it cannot use it in its constructor as the event bus
-          // may not be initialized yet. We invokes the eventBusInitialized so it can starts using the event bus.
-          metrics.eventBusInitialized(eventBus);
-        }
-        if (resultHandler != null) resultHandler.handle(Future.succeededFuture(this));
+  private void init() {
+    eventBus.start(ar -> {});
+  }
+
+  private void initClustered(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler) {
+    clusterManager.setVertx(this);
+    clusterManager.join(ar1 -> {
+      if (ar1.failed()) {
+        log.error("Failed to join cluster", ar1.cause());
+        resultHandler.handle(Future.failedFuture(ar1.cause()));
       } else {
-        log.error("Failed to start event bus", ar.cause());
-        if (resultHandler != null) resultHandler.handle(Future.failedFuture(ar.cause()));
+        haManager = new HAManager(this, deploymentManager, clusterManager, options.getQuorumSize(), options.getHAGroup(), options.isHAEnabled());
+        eventBus.start(ar2 -> {
+          AsyncResult<Vertx> res;
+          if (ar2.succeeded()) {
+            // Init the manager (i.e register listener and check the quorum)
+            // after the event bus has been fully started and updated its state
+            // it will have also set the clustered changed view handler on the ha manager
+            haManager.init();
+            res = Future.succeededFuture(this);
+          } else {
+            log.error("Failed to start event bus", ar2.cause());
+            res = Future.failedFuture(ar2.cause());
+          }
+          resultHandler.handle(res);
+        });
       }
     });
   }
@@ -301,13 +302,6 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   }
 
   public EventBus eventBus() {
-    if (eventBus == null) {
-      // If reading from different thread possibility that it's been set but not visible - so provide
-      // memory barrier
-      synchronized (this) {
-        return eventBus;
-      }
-    }
     return eventBus;
   }
 
@@ -404,7 +398,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
 
   @Override
   public DnsClient createDnsClient(int port, String host) {
-    return new DnsClientImpl(this, port, host, DnsClientOptions.DEFAULT_QUERY_TIMEOUT);
+    return createDnsClient(new DnsClientOptions().setHost(host).setPort(port));
   }
 
   @Override
@@ -419,10 +413,12 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     if (host == null || port < 0) {
       DnsResolverProvider provider = new DnsResolverProvider(this, addressResolverOptions);
       InetSocketAddress address = provider.nameServerAddresses().get(0);
-      host = address.getAddress().getHostAddress();
-      port = address.getPort();
+      // provide the host and port
+      options = new DnsClientOptions(options)
+      .setHost(address.getAddress().getHostAddress())
+      .setPort(address.getPort());
     }
-    return new DnsClientImpl(this, port, host, options.getQueryTimeout());
+    return new DnsClientImpl(this, options);
   }
 
   private VertxMetrics initialiseMetrics(VertxOptions options) {
@@ -435,7 +431,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
         }
       }
       if (factory != null) {
-        VertxMetrics metrics = factory.metrics(this, options);
+        VertxMetrics metrics = factory.metrics(options);
         Objects.requireNonNull(metrics, "The metric instance created from " + factory + " cannot be null");
         return metrics;
       }
@@ -444,31 +440,25 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   }
 
   private ClusterManager getClusterManager(VertxOptions options) {
-    if (options.isClustered()) {
-      if (options.getClusterManager() != null) {
-        return options.getClusterManager();
-      } else {
-        ClusterManager mgr;
-        String clusterManagerClassName = System.getProperty("vertx.cluster.managerClass");
-        if (clusterManagerClassName != null) {
-          // We allow specify a sys prop for the cluster manager factory which overrides ServiceLoader
-          try {
-            Class<?> clazz = Class.forName(clusterManagerClassName);
-            mgr = (ClusterManager) clazz.newInstance();
-          } catch (Exception e) {
-            throw new IllegalStateException("Failed to instantiate " + clusterManagerClassName, e);
-          }
-        } else {
-          mgr = ServiceHelper.loadFactoryOrNull(ClusterManager.class);
-          if (mgr == null) {
-            throw new IllegalStateException("No ClusterManagerFactory instances found on classpath");
-          }
+    ClusterManager mgr = options.getClusterManager();
+    if (mgr == null) {
+      String clusterManagerClassName = System.getProperty("vertx.cluster.managerClass");
+      if (clusterManagerClassName != null) {
+        // We allow specify a sys prop for the cluster manager factory which overrides ServiceLoader
+        try {
+          Class<?> clazz = Class.forName(clusterManagerClassName);
+          mgr = (ClusterManager) clazz.newInstance();
+        } catch (Exception e) {
+          throw new IllegalStateException("Failed to instantiate " + clusterManagerClassName, e);
         }
-        return mgr;
+      } else {
+        mgr = ServiceHelper.loadFactoryOrNull(ClusterManager.class);
+        if (mgr == null) {
+          throw new IllegalStateException("No ClusterManagerFactory instances found on classpath");
+        }
       }
-    } else {
-      return null;
     }
+    return mgr;
   }
 
   private long scheduleTimeout(ContextImpl context, Handler<Long> handler, long delay, boolean periodic) {
@@ -792,7 +782,14 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
 
   @SuppressWarnings("unchecked")
   private void deleteCacheDirAndShutdown(Handler<AsyncResult<Void>> completionHandler) {
-    fileResolver.close(res -> {
+    executeBlockingInternal(fut -> {
+      try {
+        fileResolver.close();
+        fut.complete();
+      } catch (IOException e) {
+        fut.tryFail(e);
+      }
+    }, ar -> {
 
       workerPool.close();
       internalBlockingPool.close();
@@ -828,16 +825,8 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     });
   }
 
-  private HAManager haManager() {
-    // If reading from different thread possibility that it's been set but not visible - so provide
-    // memory barrier
-    if (haManager == null && haEnabled) {
-      synchronized (this) {
-        return haManager;
-      }
-    } else {
-      return haManager;
-    }
+  public HAManager haManager() {
+    return haManager;
   }
 
   private class InternalTimerHandler implements Handler<Void>, Closeable {
@@ -1016,7 +1005,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     void release() {
       synchronized (VertxImpl.this) {
         if (--refCount == 0) {
-          releaseWorkerExecutor(name);
+          namedWorkerPools.remove(name);
           super.close();
         }
       }
@@ -1035,6 +1024,11 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
 
   @Override
   public synchronized WorkerExecutorImpl createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime) {
+    return createSharedWorkerExecutor(name, poolSize, maxExecuteTime, TimeUnit.NANOSECONDS);
+  }
+
+  @Override
+  public synchronized WorkerExecutorImpl createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime, TimeUnit maxExecuteTimeUnit) {
     if (poolSize < 1) {
       throw new IllegalArgumentException("poolSize must be > 0");
     }
@@ -1043,20 +1037,16 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     }
     SharedWorkerPool sharedWorkerPool = namedWorkerPools.get(name);
     if (sharedWorkerPool == null) {
-      ExecutorService workerExec = Executors.newFixedThreadPool(poolSize, new VertxThreadFactory(name + "-", checker, true, maxExecuteTime));
-      PoolMetrics workerMetrics = metrics != null ? metrics.createMetrics(workerExec, "worker", name, poolSize) : null;
+      ExecutorService workerExec = Executors.newFixedThreadPool(poolSize, new VertxThreadFactory(name + "-", checker, true, maxExecuteTime, maxExecuteTimeUnit));
+      PoolMetrics workerMetrics = metrics != null ? metrics.createPoolMetrics("worker", name, poolSize) : null;
       namedWorkerPools.put(name, sharedWorkerPool = new SharedWorkerPool(name, workerExec, workerMetrics));
     } else {
       sharedWorkerPool.refCount++;
     }
     ContextImpl context = getOrCreateContext();
-    WorkerExecutorImpl namedExec = new WorkerExecutorImpl(this, sharedWorkerPool, true);
+    WorkerExecutorImpl namedExec = new WorkerExecutorImpl(context, sharedWorkerPool);
     context.addCloseHook(namedExec);
     return namedExec;
-  }
-
-  synchronized void releaseWorkerExecutor(String name) {
-    namedWorkerPools.remove(name);
   }
 
   @Override

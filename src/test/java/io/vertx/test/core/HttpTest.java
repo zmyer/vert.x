@@ -15,7 +15,6 @@ import io.netty.handler.codec.compression.DecompressionException;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.Http2Exception;
-import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
@@ -33,10 +32,11 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.HttpVersion;
 import io.vertx.core.http.impl.HeadersAdaptor;
+import io.vertx.core.net.NetClient;
 import io.vertx.core.net.NetSocket;
+import io.vertx.core.net.SocketAddress;
 import io.vertx.test.netty.TestLoggerFactory;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -47,14 +47,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
-import java.net.InetAddress;
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -64,6 +58,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -128,6 +123,54 @@ public abstract class HttpTest extends HttpTestBase {
 
     await();
   }
+
+  @Test
+  public void testListenSocketAddress() {
+    NetClient netClient = vertx.createNetClient();
+    server = vertx.createHttpServer().requestHandler(req -> req.response().end());
+    SocketAddress sockAddress = SocketAddress.inetSocketAddress(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST);
+    server.listen(sockAddress, onSuccess(server -> {
+      netClient.connect(sockAddress, onSuccess(sock -> {
+        sock.handler(buf -> {
+          assertTrue("Response is not an http 200", buf.toString("UTF-8").startsWith("HTTP/1.1 200 OK"));
+          testComplete();
+        });
+        sock.write("GET / HTTP/1.1\r\n\r\n");
+      }));
+    }));
+
+    try {
+      await();
+    } finally {
+      netClient.close();
+    }
+  }
+
+  @Test
+  public void testListenDomainSocketAddress() throws Exception {
+    Vertx vx = Vertx.vertx(new VertxOptions().setPreferNativeTransport(true));
+    Assume.assumeTrue("Native transport must be enabled", vx.isNativeTransportEnabled());
+    NetClient netClient = vx.createNetClient();
+    HttpServer httpserver = vx.createHttpServer().requestHandler(req -> req.response().end());
+    File sockFile = TestUtils.tmpFile("vertx", ".sock");
+    SocketAddress sockAddress = SocketAddress.domainSocketAddress(sockFile.getAbsolutePath());
+    httpserver.listen(sockAddress, onSuccess(server -> {
+      netClient.connect(sockAddress, onSuccess(sock -> {
+        sock.handler(buf -> {
+          assertTrue("Response is not an http 200", buf.toString("UTF-8").startsWith("HTTP/1.1 200 OK"));
+          testComplete();
+        });
+        sock.write("GET / HTTP/1.1\r\n\r\n");
+      }));
+    }));
+
+    try {
+      await();
+    } finally {
+      vx.close();
+    }
+  }
+
 
   @Test
   public void testLowerCaseHeaders() {
@@ -3340,7 +3383,7 @@ public abstract class HttpTest extends HttpTestBase {
 
   @Test
   public void testClientLocalAddress() throws Exception {
-    String expectedAddress = InetAddress.getLocalHost().getHostAddress();
+    String expectedAddress = TestUtils.loopbackAddress();
     client.close();
     client = vertx.createHttpClient(createBaseClientOptions().setLocalAddress(expectedAddress));
     server.requestHandler(req -> {
@@ -3974,22 +4017,20 @@ public abstract class HttpTest extends HttpTestBase {
   }
 
   private TestLoggerFactory testLogging() throws Exception {
-    InternalLoggerFactory prev = InternalLoggerFactory.getDefaultFactory();
-    TestLoggerFactory factory = new TestLoggerFactory();
-    InternalLoggerFactory.setDefaultFactory(factory);
-    try {
-      server.requestHandler(req -> {
-        req.response().end();
-      });
-      startServer();
-      client.getNow(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath", resp -> {
-        testComplete();
-      });
-      await();
-    } finally {
-      InternalLoggerFactory.setDefaultFactory(prev);
-    }
-    return factory;
+    return TestUtils.testLogging(() -> {
+   	  try {
+        server.requestHandler(req -> {
+          req.response().end();
+        });
+        startServer();
+        client.getNow(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath", resp -> {
+          testComplete();
+        });
+        await();
+   	  } catch (Exception e) {
+   	    throw new RuntimeException(e);
+   	  }
+    });
   }
 
   @Test
@@ -4224,6 +4265,78 @@ public abstract class HttpTest extends HttpTestBase {
       headers.add(entry.getKey(), entry.getValue());
     }
     return headers;
+  }
+
+  @Test
+  public void testHttpClientRequestHeadersDontContainCROrLF() throws Exception {
+    server.requestHandler(req -> {
+      req.headers().forEach(header -> {
+        String name = header.getKey();
+        switch (name.toLowerCase()) {
+          case "host":
+          case ":method":
+          case ":path":
+          case ":scheme":
+          case ":authority":
+            break;
+          default:
+            fail("Unexpected header " + name);
+        }
+      });
+      testComplete();
+    });
+    startServer();
+    HttpClientRequest req = client.get(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, DEFAULT_TEST_URI, resp -> {});
+    List<BiConsumer<String, String>> list = Arrays.asList(
+      req::putHeader,
+      req.headers()::set,
+      req.headers()::add
+    );
+    list.forEach(cs -> {
+      try {
+        req.putHeader("header-name: header-value\r\nanother-header", "another-value");
+        fail();
+      } catch (IllegalArgumentException e) {
+      }
+    });
+    assertEquals(0, req.headers().size());
+    req.end();
+    await();
+  }
+
+  @Test
+  public void testHttpServerResponseHeadersDontContainCROrLF() throws Exception {
+    server.requestHandler(req -> {
+      List<BiConsumer<String, String>> list = Arrays.asList(
+        req.response()::putHeader,
+        req.response().headers()::set,
+        req.response().headers()::add
+      );
+      list.forEach(cs -> {
+        try {
+          cs.accept("header-name: header-value\r\nanother-header", "another-value");
+          fail();
+        } catch (IllegalArgumentException e) {
+        }
+      });
+      assertEquals(Collections.emptySet(), req.response().headers().names());
+      req.response().end();
+    });
+    startServer();
+    client.getNow(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, DEFAULT_TEST_URI, resp -> {
+      resp.headers().forEach(header -> {
+        String name = header.getKey();
+        switch (name.toLowerCase()) {
+          case ":status":
+          case "content-length":
+            break;
+          default:
+            fail("Unexpected header " + name);
+        }
+      });
+      testComplete();
+    });
+    await();
   }
 
   /*

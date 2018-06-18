@@ -17,6 +17,7 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.WorkerExecutor;
+import io.vertx.core.impl.VertxThread;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -26,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -62,7 +64,7 @@ public class NamedWorkerPoolTest extends VertxTestBase {
       testComplete();
     }));
     await();
-    blockedThreadWarning.expectMessage(poolName, maxWorkerExecuteTime);
+    blockedThreadWarning.expectMessage(poolName, maxWorkerExecuteTime, NANOSECONDS);
   }
 
   @Test
@@ -208,6 +210,26 @@ public class NamedWorkerPoolTest extends VertxTestBase {
   }
 
   @Test
+  public void testMaxExecuteTime() {
+    String poolName = "vert.x-" + TestUtils.randomAlphaString(10);
+    int poolSize = 5;
+    long maxExecuteTime = 60;
+    TimeUnit maxExecuteTimeUnit = TimeUnit.SECONDS;
+    WorkerExecutor worker = vertx.createSharedWorkerExecutor(poolName, poolSize, maxExecuteTime, maxExecuteTimeUnit);
+    worker.executeBlocking(f -> {
+      Thread t = Thread.currentThread();
+      assertTrue(t instanceof VertxThread);
+      VertxThread thread = (VertxThread) t;
+      assertEquals(maxExecuteTime, thread.getMaxExecTime());
+      assertEquals(maxExecuteTimeUnit, thread.getMaxExecTimeUnit());
+      f.complete();
+    }, res -> {
+      testComplete();
+    });
+    await();
+  }
+
+  @Test
   public void testCloseWorkerPool() throws Exception {
     String poolName = "vert.x-" + TestUtils.randomAlphaString(10);
     AtomicReference<Thread> thread = new AtomicReference<>();
@@ -227,22 +249,24 @@ public class NamedWorkerPoolTest extends VertxTestBase {
   @Test
   public void testDestroyWorkerPoolWhenVerticleUndeploys() throws Exception {
     String poolName = "vert.x-" + TestUtils.randomAlphaString(10);
-    AtomicReference<Thread> thread = new AtomicReference<>();
     CompletableFuture<String> deploymentIdRef = new CompletableFuture<>();
+    AtomicReference<WorkerExecutor> pool = new AtomicReference<>();
     vertx.deployVerticle(new AbstractVerticle() {
       @Override
       public void start() throws Exception {
-        WorkerExecutor pool = vertx.createSharedWorkerExecutor(poolName);
-        pool.executeBlocking(fut -> {
-          thread.set(Thread.currentThread());
-        }, ar -> {
-        });
+        pool.set(vertx.createSharedWorkerExecutor(poolName));
       }
     }, onSuccess(deploymentIdRef::complete));
-    assertWaitUntil(() -> thread.get() != null);
     String deploymentId = deploymentIdRef.get(20, SECONDS);
-    vertx.undeploy(deploymentId, onSuccess(v -> {}));
-    assertWaitUntil(() -> thread.get().getState() == Thread.State.TERMINATED);
+    vertx.undeploy(deploymentId, onSuccess(v -> {
+      try {
+        pool.get().<String>executeBlocking(fut -> fail(), null);
+        fail();
+      } catch (IllegalStateException ignore) {
+        testComplete();
+      }
+    }));
+    await();
   }
 
   @Test

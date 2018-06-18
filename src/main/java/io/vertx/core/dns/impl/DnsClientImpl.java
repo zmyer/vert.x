@@ -26,6 +26,7 @@ import io.netty.handler.codec.dns.DnsRecord;
 import io.netty.handler.codec.dns.DnsRecordType;
 import io.netty.handler.codec.dns.DnsResponse;
 import io.netty.handler.codec.dns.DnsSection;
+import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 import io.vertx.core.AsyncResult;
@@ -34,6 +35,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxException;
 import io.vertx.core.dns.DnsClient;
+import io.vertx.core.dns.DnsClientOptions;
 import io.vertx.core.dns.DnsException;
 import io.vertx.core.dns.DnsResponseCode;
 import io.vertx.core.dns.MxRecord;
@@ -66,29 +68,35 @@ public final class DnsClientImpl implements DnsClient {
   private final InetSocketAddress dnsServer;
   private final ContextInternal actualCtx;
   private final DatagramChannel channel;
-  private final long timeoutMillis;
+  private final DnsClientOptions options;
 
-  public DnsClientImpl(VertxInternal vertx, int port, String host, long timeoutMillis) {
-    if (timeoutMillis < 0) {
-      throw new IllegalArgumentException("DNS client timeout " + timeoutMillis + " must be > 0");
-    }
+  public DnsClientImpl(VertxInternal vertx, DnsClientOptions options) {
+    Objects.requireNonNull(options, "no null options accepted");
+    Objects.requireNonNull(options.getHost(), "no null host accepted");
 
+    this.options = new DnsClientOptions(options);
+    
     ContextInternal creatingContext = vertx.getContext();
     if (creatingContext != null && creatingContext.isMultiThreadedWorkerContext()) {
       throw new IllegalStateException("Cannot use DnsClient in a multi-threaded worker verticle");
     }
 
-    this.dnsServer = new InetSocketAddress(host, port);
+    this.dnsServer = new InetSocketAddress(options.getHost(), options.getPort());
+    if (this.dnsServer.isUnresolved()) {
+    	throw new IllegalArgumentException("Cannot resolve the host to a valid ip address");
+    }
     this.vertx = vertx;
-    this.timeoutMillis = timeoutMillis;
 
     Transport transport = vertx.transport();
     actualCtx = vertx.getOrCreateContext();
-    channel = transport.datagramChannel(InternetProtocolFamily.IPv4);
+    channel = transport.datagramChannel(this.dnsServer.getAddress() instanceof Inet4Address ? InternetProtocolFamily.IPv4 : InternetProtocolFamily.IPv6);
     channel.config().setOption(ChannelOption.DATAGRAM_CHANNEL_ACTIVE_ON_REGISTRATION, true);
     channel.config().setMaxMessagesPerRead(1);
     channel.config().setAllocator(PartialPooledByteBufAllocator.INSTANCE);
     actualCtx.nettyEventLoop().register(channel);
+    if (options.getLogActivity()) {
+      channel.pipeline().addLast("logging", new LoggingHandler());
+    }
     channel.pipeline().addLast(new DatagramDnsQueryEncoder());
     channel.pipeline().addLast(new DatagramDnsResponseDecoder());
     channel.pipeline().addLast(new SimpleChannelInboundHandler<DnsResponse>() {
@@ -255,7 +263,7 @@ public final class DnsClientImpl implements DnsClient {
     long timerID;
 
     public Query(String name, DnsRecordType[] types, Handler<AsyncResult<List<T>>> handler) {
-      this.msg = new DatagramDnsQuery(null, dnsServer, ThreadLocalRandom.current().nextInt()).setRecursionDesired(true);
+      this.msg = new DatagramDnsQuery(null, dnsServer, ThreadLocalRandom.current().nextInt()).setRecursionDesired(options.isRecursionDesired());
       for (DnsRecordType type: types) {
         msg.addRecord(DnsSection.QUESTION, new DefaultDnsQuestion(name, type, DnsRecord.CLASS_IN));
       }
@@ -301,7 +309,7 @@ public final class DnsClientImpl implements DnsClient {
 
     void run() {
       inProgressMap.put(msg.id(), this);
-      timerID = vertx.setTimer(timeoutMillis, id -> {
+      timerID = vertx.setTimer(options.getQueryTimeout(), id -> {
         timerID = -1;
         actualCtx.runOnContext(v -> {
           fail(new VertxException("DNS query timeout for " + name));

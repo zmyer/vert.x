@@ -29,6 +29,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This interface provides services for vert.x core internal use only
@@ -81,6 +82,9 @@ public interface VertxInternal extends Vertx {
   @Override
   WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime);
 
+  @Override
+  WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime, TimeUnit maxExecuteTimeUnit);
+
   void simulateKill();
 
   Deployment getDeployment(String deploymentID);
@@ -101,6 +105,8 @@ public interface VertxInternal extends Vertx {
   <T> void executeBlockingInternal(Handler<Future<T>> blockingCodeHandler, Handler<AsyncResult<T>> resultHandler);
 
   ClusterManager getClusterManager();
+
+  HAManager haManager();
 
   /**
    * Resolve an address (e.g. {@code vertx.io} into the first found A (IPv4) or AAAA (IPv6) record.

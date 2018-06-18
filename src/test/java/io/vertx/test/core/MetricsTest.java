@@ -25,7 +25,6 @@ import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.eventbus.ReplyFailure;
-import io.vertx.core.file.FileSystem;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
@@ -45,7 +44,6 @@ import io.vertx.test.fakemetrics.FakeHttpServerMetrics;
 import io.vertx.test.fakemetrics.FakeMetricsBase;
 import io.vertx.test.fakemetrics.FakeMetricsFactory;
 import io.vertx.test.fakemetrics.FakePoolMetrics;
-import io.vertx.test.fakemetrics.FakeVertxMetrics;
 import io.vertx.test.fakemetrics.HandlerMetric;
 import io.vertx.test.fakemetrics.HttpClientMetric;
 import io.vertx.test.fakemetrics.HttpServerMetric;
@@ -56,7 +54,6 @@ import io.vertx.test.fakemetrics.SocketMetric;
 import io.vertx.test.fakemetrics.WebSocketMetric;
 import org.junit.Test;
 
-import java.net.InetAddress;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -111,17 +108,6 @@ public class MetricsTest extends VertxTestBase {
   public void testSendMessageInCluster() {
     startNodes(2);
     testBroadcastMessage(vertices[0], new Vertx[]{vertices[1]}, false, false, true);
-  }
-
-  @Test
-  public void testEventBusInitializedWithCluster() {
-    startNodes(1);
-    assertWaitUntil(() -> FakeVertxMetrics.eventBus.get() != null);
-  }
-
-  @Test
-  public void testEventBusInitializedLocal() {
-    assertWaitUntil(() -> FakeVertxMetrics.eventBus.get() != null);
   }
 
   @Test
@@ -751,9 +737,9 @@ public class MetricsTest extends VertxTestBase {
         s2.listen(8080, ar2 -> {
           assertTrue(ar2.succeeded());
           FakeHttpServerMetrics metrics1 = FakeMetricsBase.getMetrics(ar1.result());
-          assertSame(ar1.result(), metrics1.server);
+          assertNotNull(metrics1);
           FakeHttpServerMetrics metrics2 = FakeMetricsBase.getMetrics(ar2.result());
-          assertSame(ar2.result(), metrics2.server);
+          assertNotNull(metrics2);
           testComplete();
         });
       });
@@ -765,13 +751,13 @@ public class MetricsTest extends VertxTestBase {
   }
 
   @Test
-  public void testHttpConnect1() throws Exception {
-    testHttpConnect("localhost", socketMetric -> assertEquals("localhost", socketMetric.remoteName));
+  public void testHttpConnect1() {
+    testHttpConnect(TestUtils.loopbackAddress(), socketMetric -> assertEquals(TestUtils.loopbackAddress(), socketMetric.remoteName));
   }
 
   @Test
-  public void testHttpConnect2() throws Exception {
-    testHttpConnect(InetAddress.getLocalHost().getHostAddress(), socketMetric -> assertEquals(socketMetric.remoteAddress.host(), socketMetric.remoteName));
+  public void testHttpConnect2() {
+    testHttpConnect(TestUtils.loopbackAddress(), socketMetric -> assertEquals(socketMetric.remoteAddress.host(), socketMetric.remoteName));
   }
 
   private void testHttpConnect(String host, Consumer<SocketMetric> checker) {

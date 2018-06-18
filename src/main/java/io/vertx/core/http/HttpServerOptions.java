@@ -12,15 +12,13 @@
 package io.vertx.core.http;
 
 import io.vertx.codegen.annotations.DataObject;
+import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.impl.Arguments;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * Represents options used by an {@link io.vertx.core.http.HttpServer} instance
@@ -399,6 +397,11 @@ public class HttpServerOptions extends NetServerOptions {
     return (HttpServerOptions) super.setSslEngineOptions(sslEngineOptions);
   }
 
+  @Override
+  public HttpServerOptions setEnabledSecureTransportProtocols(Set<String> enabledSecureTransportProtocols) {
+    return (HttpServerOptions) super.setEnabledSecureTransportProtocols(enabledSecureTransportProtocols);
+  }
+
   /**
    * @return true if the server supports gzip/deflate compression
    */
@@ -547,7 +550,8 @@ public class HttpServerOptions extends NetServerOptions {
   }
 
   /**
-   * Set the maximum HTTP chunk size
+   * Set the maximum HTTP chunk size that {@link HttpServerRequest#handler(Handler)} will receive
+   *
    * @param maxChunkSize the maximum chunk size
    * @return a reference to this, so the API can be used fluently
    */
@@ -557,8 +561,7 @@ public class HttpServerOptions extends NetServerOptions {
   }
 
   /**
-   * Returns the maximum HTTP chunk size
-   * @return the maximum HTTP chunk size
+   * @return the maximum HTTP chunk size that {@link HttpServerRequest#handler(Handler)} will receive
    */
   public int getMaxChunkSize() {
     return maxChunkSize;
