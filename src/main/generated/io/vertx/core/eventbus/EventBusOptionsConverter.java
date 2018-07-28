@@ -2,10 +2,12 @@ package io.vertx.core.eventbus;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Converter for {@link io.vertx.core.eventbus.EventBusOptions}.
- * NOTE: This class has been automatically generated from the {@link "io.vertx.core.eventbus.EventBusOptions} original class using Vert.x codegen.
+ * NOTE: This class has been automatically generated from the {@link io.vertx.core.eventbus.EventBusOptions} original class using Vert.x codegen.
  */
  class EventBusOptionsConverter {
 
@@ -94,6 +96,11 @@ import io.vertx.core.json.JsonArray;
         case "idleTimeout":
           if (member.getValue() instanceof Number) {
             obj.setIdleTimeout(((Number)member.getValue()).intValue());
+          }
+          break;
+        case "idleTimeoutUnit":
+          if (member.getValue() instanceof String) {
+            obj.setIdleTimeoutUnit(java.util.concurrent.TimeUnit.valueOf((String)member.getValue()));
           }
           break;
         case "jdkSslEngineOptions":
@@ -276,6 +283,9 @@ import io.vertx.core.json.JsonArray;
       json.put("host", obj.getHost());
     }
     json.put("idleTimeout", obj.getIdleTimeout());
+    if (obj.getIdleTimeoutUnit() != null) {
+      json.put("idleTimeoutUnit", obj.getIdleTimeoutUnit().name());
+    }
     if (obj.getJdkSslEngineOptions() != null) {
       json.put("jdkSslEngineOptions", obj.getJdkSslEngineOptions().toJson());
     }

@@ -77,10 +77,10 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
     // which means that the pool can contain
     // - maxWeight / http1Weight = 5 HTTP/1.1 connections
     // - maxWeight / http2Weight = 2 HTTP/2 connections
-    this.http1Weight = client.getOptions().getHttp2MaxPoolSize();
-    this.http2Weight = client.getOptions().getMaxPoolSize();
+    this.http1Weight = options.getHttp2MaxPoolSize();
+    this.http2Weight = options.getMaxPoolSize();
     this.weight = version == HttpVersion.HTTP_2 ? http2Weight : http1Weight;
-    this.http1MaxConcurrency = client.getOptions().isPipelining() ? client.getOptions().getPipeliningLimit() : 1;
+    this.http1MaxConcurrency = options.isPipelining() ? options.getPipeliningLimit() : 1;
     this.ssl = ssl;
     this.peerHost = peerHost;
     this.host = host;
@@ -106,6 +106,22 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
     }
   }
 
+  @Override
+  public void activate(HttpClientConnection conn) {
+    if (options.getIdleTimeout() > 0) {
+      ChannelPipeline pipeline = conn.channelHandlerContext().pipeline();
+      pipeline.addFirst("idle", new IdleStateHandler(0, 0, options.getIdleTimeout(), options.getIdleTimeoutUnit()));
+    }
+  }
+
+  @Override
+  public void deactivate(HttpClientConnection conn) {
+    if (options.getIdleTimeout() > 0) {
+      ChannelPipeline pipeline = conn.channelHandlerContext().pipeline();
+      pipeline.remove("idle");
+    }
+  }
+
   private void doConnect(
     ConnectionListener<HttpClientConnection> listener,
     ContextInternal context,
@@ -113,7 +129,7 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
 
     Bootstrap bootstrap = new Bootstrap();
     bootstrap.group(context.nettyEventLoop());
-    bootstrap.channel(client.getVertx().transport().channelType(false));
+    bootstrap.channelFactory(client.getVertx().transport().channelFactory(false));
 
     applyConnectionOptions(bootstrap);
 
@@ -157,7 +173,7 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
         });
       } else {
         if (version == HttpVersion.HTTP_2) {
-          if (client.getOptions().isHttp2ClearTextUpgrade()) {
+          if (options.isHttp2ClearTextUpgrade()) {
             applyHttp1xConnectionOptions(pipeline);
           } else {
             applyHttp2ConnectionOptions(pipeline);
@@ -174,7 +190,7 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
         Channel ch = res.result();
         if (!ssl) {
           if (version == HttpVersion.HTTP_2) {
-            if (client.getOptions().isHttp2ClearTextUpgrade()) {
+            if (options.isHttp2ClearTextUpgrade()) {
               http1xConnected(listener, version, host, port, false, context, ch, http2Weight, future);
             } else {
               http2Connected(listener, context, ch, future);
@@ -188,7 +204,7 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
       }
     };
 
-    channelProvider.connect(client.getVertx(), bootstrap, client.getOptions().getProxyOptions(), SocketAddress.inetSocketAddress(port, host), channelInitializer, channelHandler);
+    channelProvider.connect(client.getVertx(), bootstrap, options.getProxyOptions(), SocketAddress.inetSocketAddress(port, host), channelInitializer, channelHandler);
   }
 
   private void applyConnectionOptions(Bootstrap bootstrap) {
@@ -196,27 +212,22 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
   }
 
   private void applyHttp2ConnectionOptions(ChannelPipeline pipeline) {
-    if (client.getOptions().getIdleTimeout() > 0) {
-      pipeline.addLast("idle", new IdleStateHandler(0, 0, options.getIdleTimeout()));
-    }
+    // No specific options
   }
 
   private void applyHttp1xConnectionOptions(ChannelPipeline pipeline) {
-    if (client.getOptions().getLogActivity()) {
+    if (options.getLogActivity()) {
       pipeline.addLast("logging", new LoggingHandler());
     }
     pipeline.addLast("codec", new HttpClientCodec(
-      client.getOptions().getMaxInitialLineLength(),
-      client.getOptions().getMaxHeaderSize(),
-      client.getOptions().getMaxChunkSize(),
+      options.getMaxInitialLineLength(),
+      options.getMaxHeaderSize(),
+      options.getMaxChunkSize(),
       false,
       false,
-      client.getOptions().getDecoderInitialBufferSize()));
-    if (client.getOptions().isTryUseCompression()) {
+      options.getDecoderInitialBufferSize()));
+    if (options.isTryUseCompression()) {
       pipeline.addLast("inflater", new HttpContentDecompressor(true));
-    }
-    if (client.getOptions().getIdleTimeout() > 0) {
-      pipeline.addLast("idle", new IdleStateHandler(0, 0, client.getOptions().getIdleTimeout()));
     }
   }
 
@@ -266,10 +277,10 @@ class HttpChannelConnector implements ConnectionProvider<HttpClientConnection> {
                               Channel ch,
                               Future<ConnectResult<HttpClientConnection>> future) {
     try {
-      VertxHttp2ConnectionHandler<Http2ClientConnection> handler = Http2ClientConnection.createHttp2ConnectionHandler(client, metric, listener, context, (conn, concurrency) -> {
+      VertxHttp2ConnectionHandler<Http2ClientConnection> clientHandler = Http2ClientConnection.createHttp2ConnectionHandler(client, metric, listener, context, (conn, concurrency) -> {
         future.complete(new ConnectResult<>(conn, concurrency, ch, context, http2Weight));
       });
-      ch.pipeline().addLast(handler);
+      ch.pipeline().addLast("handler", clientHandler);
       ch.flush();
     } catch (Exception e) {
       connectFailed(ch, listener, e, future);

@@ -504,7 +504,6 @@ public class WebsocketTest extends VertxTestBase {
     server.listen(ar -> {
       assertTrue(ar.succeeded());
       client.websocketStream(DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, path).
-          exceptionHandler(t -> fail(t.getMessage())).
           handler(ws -> {
             ws.handler(buff -> {
               assertEquals(message, buff.toString("UTF-8"));
@@ -713,28 +712,32 @@ public class WebsocketTest extends VertxTestBase {
       assertEquals("upgrade", ws.headers().get("Connection"));
       AtomicInteger count = new AtomicInteger();
       ws.frameHandler(frame -> {
-        if (count.get() == 0) {
-          if (binary) {
-            assertTrue(frame.isBinary());
-            assertFalse(frame.isText());
+        if (frame.isClose()) {
+          testComplete();
+        } else {
+          if (count.get() == 0) {
+            if (binary) {
+              assertTrue(frame.isBinary());
+              assertFalse(frame.isText());
+            } else {
+              assertFalse(frame.isBinary());
+              assertTrue(frame.isText());
+            }
+            assertFalse(frame.isContinuation());
           } else {
             assertFalse(frame.isBinary());
-            assertTrue(frame.isText());
+            assertFalse(frame.isText());
+            assertTrue(frame.isContinuation());
           }
-          assertFalse(frame.isContinuation());
-        } else {
-          assertFalse(frame.isBinary());
-          assertFalse(frame.isText());
-          assertTrue(frame.isContinuation());
-        }
-        if (count.get() == frames - 1) {
-          assertTrue(frame.isFinal());
-        } else {
-          assertFalse(frame.isFinal());
-        }
-        ws.writeFrame(frame);
-        if (count.incrementAndGet() == frames) {
-          count.set(0);
+          if (count.get() == frames - 1) {
+            assertTrue(frame.isFinal());
+          } else {
+            assertFalse(frame.isFinal());
+          }
+          ws.writeFrame(frame);
+          if (count.incrementAndGet() == frames) {
+            count.set(0);
+          }
         }
       });
     });
@@ -763,7 +766,7 @@ public class WebsocketTest extends VertxTestBase {
               for (Buffer rec : received) {
                 assertEquals(rec, sent.get(pos++));
               }
-              testComplete();
+              ws.close();
             }
           });
 
@@ -813,6 +816,7 @@ public class WebsocketTest extends VertxTestBase {
 
   private void testWriteFinalFrame(boolean binary) throws Exception {
 
+    waitFor(2);
     String text = TestUtils.randomUnicodeString(100);
     Buffer data = TestUtils.randomBuffer(100);
 
@@ -831,11 +835,15 @@ public class WebsocketTest extends VertxTestBase {
 
     server = vertx.createHttpServer(new HttpServerOptions().setPort(DEFAULT_HTTP_PORT)).websocketHandler(ws ->
       ws.frameHandler(frame -> {
-        frameConsumer.accept(frame);
-        if (binary) {
-          ws.writeFinalBinaryFrame(frame.binaryData());
+        if (frame.isClose()) {
+          complete();
         } else {
-          ws.writeFinalTextFrame(frame.textData());
+          frameConsumer.accept(frame);
+          if (binary) {
+            ws.writeFinalBinaryFrame(frame.binaryData());
+          } else {
+            ws.writeFinalTextFrame(frame.textData());
+          }
         }
       })
     );
@@ -843,10 +851,13 @@ public class WebsocketTest extends VertxTestBase {
     server.listen(onSuccess(s ->
       client.websocket(DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", ws -> {
         ws.frameHandler(frame -> {
-          frameConsumer.accept(frame);
-          testComplete();
+          if (frame.isClose()) {
+            complete();
+          } else {
+            frameConsumer.accept(frame);
+            ws.close();
+          }
         });
-
         if (binary) {
           ws.writeFinalBinaryFrame(data);
         } else {
@@ -951,6 +962,121 @@ public class WebsocketTest extends VertxTestBase {
       });
     }));
     await();
+  }
+
+  @Test
+  // Test normal negotiation of websocket compression
+  public void testNormalWSDeflateFrameCompressionNegotiation() throws Exception {
+    String path = "/some/path";
+    Buffer buff = Buffer.buffer("AAA");
+
+    // Server should have basic compression enabled by default,
+    // client needs to ask for it
+    server = vertx.createHttpServer(new HttpServerOptions().setPort(HttpTestBase.DEFAULT_HTTP_PORT))
+        .websocketHandler(ws -> {
+          assertEquals("upgrade", ws.headers().get("Connection"));
+          assertEquals("deflate-frame", ws.headers().get("sec-websocket-extensions"));
+          ws.writeFrame(WebSocketFrame.binaryFrame(buff, true));
+        });
+
+    server.listen(ar -> {
+      assertTrue(ar.succeeded());
+
+      HttpClientOptions options = new HttpClientOptions();
+      options.setTryUsePerFrameWebsocketCompression(true);
+      client = vertx.createHttpClient(options);
+      client.websocket(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, path, ws -> {
+        final Buffer received = Buffer.buffer();
+        ws.handler(data -> {
+          received.appendBuffer(data);
+          if (received.length() == buff.length()) {
+            assertEquals(buff, received);
+            ws.close();
+            testComplete();
+          }
+        });
+      });
+    });
+    await();
+  }
+
+  @Test
+  // Test normal negotiation of websocket compression
+  public void testNormalWSPermessageDeflateCompressionNegotiation() throws Exception {
+	  String path = "/some/path";
+	  Buffer buff = Buffer.buffer("AAA");
+
+	  // Server should have basic compression enabled by default,
+	  // client needs to ask for it
+	  server = vertx.createHttpServer(new HttpServerOptions().setPort(DEFAULT_HTTP_PORT)).websocketHandler(ws -> {
+		  assertEquals("upgrade", ws.headers().get("Connection"));
+		  assertEquals("permessage-deflate;client_max_window_bits", ws.headers().get("sec-websocket-extensions"));
+		  ws.writeFrame(WebSocketFrame.binaryFrame(buff,  true));
+	  });
+
+	  server.listen(ar -> {
+		  assertTrue(ar.succeeded());
+
+		  HttpClientOptions options = new HttpClientOptions();
+	      options.setTryUsePerMessageWebsocketCompression(true);
+	      client = vertx.createHttpClient(options);
+		  client.websocket(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, path, ws -> {
+			  final Buffer received = Buffer.buffer();
+			  ws.handler(data -> {
+				  received.appendBuffer(data);
+		          if (received.length() == buff.length()) {
+		            assertEquals(buff, received);
+		            ws.close();
+		            testComplete();
+		          }
+			  });
+		  });
+	  });
+	  await();
+  }
+
+  @Test
+  // Test server accepting no compression
+  public void testConnectWithWebsocketComressionDisabled() throws Exception {
+	  String path = "/some/path";
+	  Buffer buff = Buffer.buffer("AAA");
+
+	  // Server should have basic compression enabled by default,
+	  // client needs to ask for it
+	  server = vertx.createHttpServer(new HttpServerOptions()
+			  .setPort(DEFAULT_HTTP_PORT)
+			  .setPerFrameWebsocketCompressionSupported(false)
+			  .setPerMessageWebsocketCompressionSupported(false)
+			  ).websocketHandler(ws -> {
+
+		  assertEquals("upgrade", ws.headers().get("Connection"));
+		  assertNull(ws.headers().get("sec-websocket-extensions"));
+
+		  ws.writeFrame(WebSocketFrame.binaryFrame(buff,  true));
+	  });
+
+
+	  server.listen(ar -> {
+		  assertTrue(ar.succeeded());
+
+		  HttpClientOptions options = new HttpClientOptions();
+
+	      client = vertx.createHttpClient(options);
+
+		  client.websocket(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, path, ws -> {
+
+			  final Buffer received = Buffer.buffer();
+			  ws.handler(data -> {
+				  received.appendBuffer(data);
+		          if (received.length() == buff.length()) {
+		            assertEquals(buff, received);
+		            ws.close();
+		            testComplete();
+		          }
+			  });
+		  });
+	  });
+	  await();
   }
 
   private void testValidSubProtocol(WebsocketVersion version) throws Exception {

@@ -13,22 +13,14 @@ package io.vertx.core.net.impl.transport;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelFactory;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
-import io.netty.channel.epoll.EpollChannelOption;
-import io.netty.channel.kqueue.KQueue;
-import io.netty.channel.kqueue.KQueueChannelOption;
-import io.netty.channel.kqueue.KQueueDatagramChannel;
-import io.netty.channel.kqueue.KQueueDomainSocketChannel;
-import io.netty.channel.kqueue.KQueueEventLoopGroup;
-import io.netty.channel.kqueue.KQueueServerDomainSocketChannel;
-import io.netty.channel.kqueue.KQueueServerSocketChannel;
-import io.netty.channel.kqueue.KQueueSocketChannel;
+import io.netty.channel.kqueue.*;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.InternetProtocolFamily;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.unix.DomainSocketAddress;
+import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.net.NetServerOptions;
 
 import java.net.InetSocketAddress;
@@ -84,26 +76,32 @@ class KQueueTransport extends Transport {
   }
 
   @Override
-  public Class<? extends Channel> channelType(boolean domain) {
+  public ChannelFactory<? extends Channel> channelFactory(boolean domain) {
     if (domain) {
-      return KQueueDomainSocketChannel.class;
+      return KQueueDomainSocketChannel::new;
     } else {
-      return KQueueSocketChannel.class;
+      return KQueueSocketChannel::new;
     }
   }
 
   @Override
-  public Class<? extends ServerChannel> serverChannelType(boolean domain) {
+  public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {
     if (domain) {
-      return KQueueServerDomainSocketChannel.class;
+      return KQueueServerDomainSocketChannel::new;
     } else {
-      return KQueueServerSocketChannel.class;
+      return KQueueServerSocketChannel::new;
     }
   }
 
   @Override
   public void configure(NetServerOptions options, ServerBootstrap bootstrap) {
-    bootstrap.option(EpollChannelOption.SO_REUSEPORT, options.isReusePort());
+    bootstrap.option(KQueueChannelOption.SO_REUSEPORT, options.isReusePort());
     super.configure(options, bootstrap);
+  }
+
+  @Override
+  public void configure(DatagramChannel channel, DatagramSocketOptions options) {
+    channel.config().setOption(KQueueChannelOption.SO_REUSEPORT, options.isReusePort());
+    super.configure(channel, options);
   }
 }

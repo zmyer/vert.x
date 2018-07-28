@@ -2,10 +2,12 @@ package io.vertx.core.cli;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Converter for {@link io.vertx.core.cli.Option}.
- * NOTE: This class has been automatically generated from the {@link "io.vertx.core.cli.Option} original class using Vert.x codegen.
+ * NOTE: This class has been automatically generated from the {@link io.vertx.core.cli.Option} original class using Vert.x codegen.
  */
  class OptionConverter {
 

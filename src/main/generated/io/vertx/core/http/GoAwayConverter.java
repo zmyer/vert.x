@@ -2,10 +2,12 @@ package io.vertx.core.http;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Converter for {@link io.vertx.core.http.GoAway}.
- * NOTE: This class has been automatically generated from the {@link "io.vertx.core.http.GoAway} original class using Vert.x codegen.
+ * NOTE: This class has been automatically generated from the {@link io.vertx.core.http.GoAway} original class using Vert.x codegen.
  */
  class GoAwayConverter {
 

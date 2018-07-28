@@ -2,10 +2,12 @@ package io.vertx.core.datagram;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Converter for {@link io.vertx.core.datagram.DatagramSocketOptions}.
- * NOTE: This class has been automatically generated from the {@link "io.vertx.core.datagram.DatagramSocketOptions} original class using Vert.x codegen.
+ * NOTE: This class has been automatically generated from the {@link io.vertx.core.datagram.DatagramSocketOptions} original class using Vert.x codegen.
  */
  class DatagramSocketOptionsConverter {
 

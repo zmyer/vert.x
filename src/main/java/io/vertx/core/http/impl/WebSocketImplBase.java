@@ -27,6 +27,7 @@ import io.vertx.core.net.SocketAddress;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.security.cert.X509Certificate;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -63,8 +64,8 @@ public abstract class WebSocketImplBase<S extends WebSocketBase> implements WebS
   WebSocketImplBase(VertxInternal vertx, Http1xConnectionBase conn, boolean supportsContinuation,
                               int maxWebSocketFrameSize, int maxWebSocketMessageSize) {
     this.supportsContinuation = supportsContinuation;
-    this.textHandlerID = UUID.randomUUID().toString();
-    this.binaryHandlerID = UUID.randomUUID().toString();
+    this.textHandlerID = "__vertx.ws." + UUID.randomUUID().toString();
+    this.binaryHandlerID = "__vertx.ws." + UUID.randomUUID().toString();
     this.conn = conn;
     this.maxWebSocketFrameSize = maxWebSocketFrameSize;
     this.maxWebSocketMessageSize = maxWebSocketMessageSize;
