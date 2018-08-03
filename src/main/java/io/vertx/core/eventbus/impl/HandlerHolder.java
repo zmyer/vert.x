@@ -17,6 +17,7 @@ import io.vertx.core.spi.metrics.EventBusMetrics;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class HandlerHolder<T> {
 
   private final EventBusMetrics metrics;
@@ -26,8 +27,9 @@ public class HandlerHolder<T> {
   private final boolean localOnly;
   private boolean removed;
 
+  // TODO: 2018/8/2 by zmyer
   public HandlerHolder(EventBusMetrics metrics, HandlerRegistration<T> handler, boolean replyHandler, boolean localOnly,
-                       Context context) {
+    Context context) {
     this.metrics = metrics;
     this.context = context;
     this.handler = handler;
@@ -58,10 +60,16 @@ public class HandlerHolder<T> {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     HandlerHolder that = (HandlerHolder) o;
-    if (handler != null ? !handler.equals(that.handler) : that.handler != null) return false;
+    if (handler != null ? !handler.equals(that.handler) : that.handler != null) {
+      return false;
+    }
     return true;
   }
 
@@ -85,5 +93,6 @@ public class HandlerHolder<T> {
   public boolean isLocalOnly() {
     return localOnly;
   }
-;
+
+  ;
 }

@@ -25,12 +25,13 @@ import io.vertx.core.Vertx;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public interface VerticleFactory {
 
   /**
    * Helper method to remove a prefix from an identifier string
    * @param identifer the identifier
-   * @return  The identifier without the prefix (if it had any)
+   * @return The identifier without the prefix (if it had any)
    */
   static String removePrefix(String identifer) {
     int pos = identifer.indexOf(':');
@@ -46,7 +47,7 @@ public interface VerticleFactory {
 
   /**
    * The order of the factory. If there is more than one matching verticle they will be tried in ascending order.
-   * @return  the order
+   * @return the order
    */
   default int order() {
     return 0;
@@ -66,6 +67,7 @@ public interface VerticleFactory {
    * thread instead of an event loop if this returns true
    * @return true if {@link #createVerticle(String, ClassLoader)} should be called on a worker thread.
    */
+  // TODO: 2018/8/1 by zmyer
   default boolean blockingCreate() {
     return false;
   }
@@ -80,7 +82,9 @@ public interface VerticleFactory {
    * @param classLoader  The classloader
    * @param resolution  A future which will receive the result of the resolution.
    */
-  default void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader, Future<String> resolution) {
+  // TODO: 2018/8/1 by zmyer
+  default void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader,
+    Future<String> resolution) {
     resolution.complete(identifier);
   }
 
@@ -88,6 +92,7 @@ public interface VerticleFactory {
    * Initialise the factory
    * @param vertx  The Vert.x instance
    */
+  // TODO: 2018/8/1 by zmyer
   default void init(Vertx vertx) {
   }
 
@@ -98,7 +103,7 @@ public interface VerticleFactory {
   }
 
   /**
-   * @return  The prefix for the factory, e.g. "java", or "js".
+   * @return The prefix for the factory, e.g. "java", or "js".
    */
   String prefix();
 
@@ -109,7 +114,7 @@ public interface VerticleFactory {
    *
    * @param verticleName  The verticle name
    * @param classLoader  The class loader
-   * @return  The instance
+   * @return The instance
    * @throws Exception
    */
   Verticle createVerticle(String verticleName, ClassLoader classLoader) throws Exception;

@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class SharedDataImpl implements SharedData {
 
   private static final long DEFAULT_LOCK_TIMEOUT = 10 * 1000;
@@ -126,9 +127,11 @@ public class SharedDataImpl implements SharedData {
     return (LocalMap<K, V>) localMaps.computeIfAbsent(name, n -> new LocalMapImpl<>(n, localMaps));
   }
 
+  // TODO: 2018/8/1 by zmyer
   @SuppressWarnings("unchecked")
   private <K, V> void getLocalAsyncMap(String name, Handler<AsyncResult<AsyncMap<K, V>>> resultHandler) {
-    LocalAsyncMapImpl<K, V> asyncMap = (LocalAsyncMapImpl<K, V>) localAsyncMaps.computeIfAbsent(name, n -> new LocalAsyncMapImpl<>(vertx));
+    LocalAsyncMapImpl<K, V> asyncMap = (LocalAsyncMapImpl<K, V>) localAsyncMaps.computeIfAbsent(name,
+      n -> new LocalAsyncMapImpl<>(vertx));
     resultHandler.handle(Future.succeededFuture(new WrappedAsyncMap<>(asyncMap)));
   }
 

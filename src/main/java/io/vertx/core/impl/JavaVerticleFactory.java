@@ -18,6 +18,7 @@ import io.vertx.core.spi.VerticleFactory;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class JavaVerticleFactory implements VerticleFactory {
 
   @Override
@@ -25,13 +26,14 @@ public class JavaVerticleFactory implements VerticleFactory {
     return "java";
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public Verticle createVerticle(String verticleName, ClassLoader classLoader) throws Exception {
     verticleName = VerticleFactory.removePrefix(verticleName);
-    Class clazz;
+    final Class clazz;
     if (verticleName.endsWith(".java")) {
-      CompilingClassLoader compilingLoader = new CompilingClassLoader(classLoader, verticleName);
-      String className = compilingLoader.resolveMainClassName();
+      final CompilingClassLoader compilingLoader = new CompilingClassLoader(classLoader, verticleName);
+      final String className = compilingLoader.resolveMainClassName();
       clazz = compilingLoader.loadClass(className);
     } else {
       clazz = classLoader.loadClass(verticleName);

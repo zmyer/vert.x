@@ -24,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/2 by zmyer
 public class HandlerManager<T> {
 
   @SuppressWarnings("unused")
@@ -44,16 +45,18 @@ public class HandlerManager<T> {
     return hasHandlers;
   }
 
+  // TODO: 2018/8/1 by zmyer
   public HandlerHolder<T> chooseHandler(EventLoop worker) {
-    Handlers<T> handlers = handlerMap.get(worker);
+    final Handlers<T> handlers = handlerMap.get(worker);
     return handlers == null ? null : handlers.chooseHandler();
   }
 
+  // TODO: 2018/8/1 by zmyer
   public synchronized void addHandler(T handler, ContextInternal context) {
-    EventLoop worker = context.nettyEventLoop();
+    final EventLoop worker = context.nettyEventLoop();
     availableWorkers.addWorker(worker);
     Handlers<T> handlers = new Handlers<>();
-    Handlers<T> prev = handlerMap.putIfAbsent(worker, handlers);
+    final Handlers<T> prev = handlerMap.putIfAbsent(worker, handlers);
     if (prev != null) {
       handlers = prev;
     }
@@ -77,11 +80,14 @@ public class HandlerManager<T> {
     availableWorkers.removeWorker(worker);
   }
 
+  // TODO: 2018/8/1 by zmyer
   private static final class Handlers<T> {
     private int pos;
     private final List<HandlerHolder<T>> list = new CopyOnWriteArrayList<>();
+
+    // TODO: 2018/8/1 by zmyer
     HandlerHolder<T> chooseHandler() {
-      HandlerHolder<T> handler = list.get(pos);
+      final HandlerHolder<T> handler = list.get(pos);
       pos++;
       checkPos();
       return handler;

@@ -14,7 +14,22 @@ package io.vertx.core.eventbus.impl;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.MessageCodec;
 import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.impl.codecs.*;
+import io.vertx.core.eventbus.impl.codecs.BooleanMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.BufferMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.ByteArrayMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.ByteMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.CharMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.DoubleMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.FloatMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.IntMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.JsonArrayMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.JsonObjectMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.LongMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.NullMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.PingMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.ReplyExceptionMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.ShortMessageCodec;
+import io.vertx.core.eventbus.impl.codecs.StringMessageCodec;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -25,6 +40,7 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class CodecManager {
 
   // The standard message codecs
@@ -43,18 +59,22 @@ public class CodecManager {
   public static final MessageCodec<Short, Short> SHORT_MESSAGE_CODEC = new ShortMessageCodec();
   public static final MessageCodec<Character, Character> CHAR_MESSAGE_CODEC = new CharMessageCodec();
   public static final MessageCodec<Byte, Byte> BYTE_MESSAGE_CODEC = new ByteMessageCodec();
-  public static final MessageCodec<ReplyException, ReplyException> REPLY_EXCEPTION_MESSAGE_CODEC = new ReplyExceptionMessageCodec();
+  public static final MessageCodec<ReplyException, ReplyException> REPLY_EXCEPTION_MESSAGE_CODEC =
+    new ReplyExceptionMessageCodec();
 
   private final MessageCodec[] systemCodecs;
   private final ConcurrentMap<String, MessageCodec> userCodecMap = new ConcurrentHashMap<>();
   private final ConcurrentMap<Class, MessageCodec> defaultCodecMap = new ConcurrentHashMap<>();
 
   public CodecManager() {
-    this.systemCodecs = codecs(NULL_MESSAGE_CODEC, PING_MESSAGE_CODEC, STRING_MESSAGE_CODEC, BUFFER_MESSAGE_CODEC, JSON_OBJECT_MESSAGE_CODEC, JSON_ARRAY_MESSAGE_CODEC,
+    this.systemCodecs = codecs(NULL_MESSAGE_CODEC, PING_MESSAGE_CODEC, STRING_MESSAGE_CODEC, BUFFER_MESSAGE_CODEC,
+      JSON_OBJECT_MESSAGE_CODEC, JSON_ARRAY_MESSAGE_CODEC,
       BYTE_ARRAY_MESSAGE_CODEC, INT_MESSAGE_CODEC, LONG_MESSAGE_CODEC, FLOAT_MESSAGE_CODEC, DOUBLE_MESSAGE_CODEC,
-      BOOLEAN_MESSAGE_CODEC, SHORT_MESSAGE_CODEC, CHAR_MESSAGE_CODEC, BYTE_MESSAGE_CODEC, REPLY_EXCEPTION_MESSAGE_CODEC);
+      BOOLEAN_MESSAGE_CODEC, SHORT_MESSAGE_CODEC, CHAR_MESSAGE_CODEC, BYTE_MESSAGE_CODEC,
+      REPLY_EXCEPTION_MESSAGE_CODEC);
   }
 
+  // TODO: 2018/8/2 by zmyer
   public MessageCodec lookupCodec(Object body, String codecName) {
     MessageCodec codec;
     if (codecName != null) {
@@ -158,7 +178,7 @@ public class CodecManager {
 
   private MessageCodec[] codecs(MessageCodec... codecs) {
     MessageCodec[] arr = new MessageCodec[codecs.length];
-    for (MessageCodec codec: codecs) {
+    for (MessageCodec codec : codecs) {
       arr[codec.systemCodecID()] = codec;
     }
     return arr;

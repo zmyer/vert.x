@@ -11,10 +11,22 @@
 
 package io.vertx.core.net.impl;
 
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelConfig;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.DefaultFileRegion;
+import io.netty.channel.FileRegion;
+import io.netty.channel.VoidChannelPromise;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedFile;
-import io.vertx.core.*;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.VertxException;
 import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.logging.Logger;
@@ -40,6 +52,7 @@ import java.net.InetSocketAddress;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public abstract class ConnectionBase {
 
   /**
@@ -61,6 +74,7 @@ public abstract class ConnectionBase {
   private int writeInProgress;
   private Object metric;
 
+  // TODO: 2018/8/2 by zmyer
   protected ConnectionBase(VertxInternal vertx, ChannelHandlerContext chctx, ContextInternal context) {
     this.vertx = vertx;
     this.chctx = chctx;
@@ -175,6 +189,7 @@ public abstract class ConnectionBase {
     config.setWriteBufferWaterMark(new WriteBufferWaterMark(size / 2, size));
   }
 
+  // TODO: 2018/8/1 by zmyer
   protected void checkContext() {
     // Sanity check
     if (context != vertx.getContext()) {
@@ -232,6 +247,7 @@ public abstract class ConnectionBase {
       vertx.runOnContext(closeHandler);
     }
   }
+
 
   protected abstract void handleInterestedOpsChanged();
 
@@ -332,20 +348,26 @@ public abstract class ConnectionBase {
 
   public String remoteName() {
     InetSocketAddress addr = (InetSocketAddress) chctx.channel().remoteAddress();
-    if (addr == null) return null;
+    if (addr == null) {
+      return null;
+    }
     // Use hostString that does not trigger a DNS resolution
     return addr.getHostString();
   }
 
   public SocketAddress remoteAddress() {
     InetSocketAddress addr = (InetSocketAddress) chctx.channel().remoteAddress();
-    if (addr == null) return null;
+    if (addr == null) {
+      return null;
+    }
     return new SocketAddressImpl(addr);
   }
 
   public SocketAddress localAddress() {
     InetSocketAddress addr = (InetSocketAddress) chctx.channel().localAddress();
-    if (addr == null) return null;
+    if (addr == null) {
+      return null;
+    }
     return new SocketAddressImpl(addr);
   }
 }

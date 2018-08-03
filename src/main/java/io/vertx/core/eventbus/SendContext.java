@@ -19,11 +19,12 @@ import io.vertx.codegen.annotations.VertxGen;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/2 by zmyer
 @VertxGen
 public interface SendContext<T> {
 
   /**
-   * @return  The message being sent
+   * @return The message being sent
    */
   Message<T> message();
 

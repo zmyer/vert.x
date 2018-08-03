@@ -24,6 +24,7 @@ import io.vertx.core.Handler;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen(concrete = false)
 public interface ReadStream<T> extends StreamBase {
 

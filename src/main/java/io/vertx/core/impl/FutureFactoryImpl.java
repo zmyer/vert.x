@@ -26,6 +26,7 @@ public class FutureFactoryImpl implements FutureFactory {
     return new FutureImpl<>();
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public <T> Future<T> succeededFuture() {
     @SuppressWarnings("unchecked")
@@ -33,6 +34,7 @@ public class FutureFactoryImpl implements FutureFactory {
     return fut;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public <T> Future<T> succeededFuture(T result) {
     return new SucceededFuture<>(result);

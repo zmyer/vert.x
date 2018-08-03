@@ -33,6 +33,7 @@ import java.util.List;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public abstract class AbstractVerticle implements Verticle {
 
 
@@ -61,6 +62,7 @@ public abstract class AbstractVerticle implements Verticle {
    * @param vertx  the deploying Vert.x instance
    * @param context  the context of the verticle
    */
+  // TODO: 2018/8/1 by zmyer
   @Override
   public void init(Vertx vertx, Context context) {
     this.vertx = vertx;
@@ -101,6 +103,7 @@ public abstract class AbstractVerticle implements Verticle {
    * @param startFuture  a future which should be called when verticle start-up is complete.
    * @throws Exception
    */
+  // TODO: 2018/8/1 by zmyer
   @Override
   public void start(Future<Void> startFuture) throws Exception {
     start();

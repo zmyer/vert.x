@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class BlockedThreadChecker {
 
   private static final Logger log = LoggerFactory.getLogger(BlockedThreadChecker.class);
@@ -32,7 +33,9 @@ public class BlockedThreadChecker {
   private final Map<VertxThread, Object> threads = new WeakHashMap<>();
   private final Timer timer; // Need to use our own timer - can't use event loop for this
 
-  BlockedThreadChecker(long interval, TimeUnit intervalUnit, long warningExceptionTime, TimeUnit warningExceptionTimeUnit) {
+  // TODO: 2018/8/1 by zmyer
+  BlockedThreadChecker(long interval, TimeUnit intervalUnit, long warningExceptionTime,
+    TimeUnit warningExceptionTimeUnit) {
     timer = new Timer("vertx-blocked-thread-checker", true);
     timer.schedule(new TimerTask() {
       @Override
@@ -46,7 +49,9 @@ public class BlockedThreadChecker {
             TimeUnit maxExecTimeUnit = thread.getMaxExecTimeUnit();
             long val = maxExecTimeUnit.convert(dur, TimeUnit.NANOSECONDS);
             if (execStart != 0 && val >= timeLimit) {
-              final String message = "Thread " + thread + " has been blocked for " + (dur / 1_000_000) + " ms, time limit is " + TimeUnit.MILLISECONDS.convert(timeLimit, maxExecTimeUnit) + " ms";
+              final String message =
+                "Thread " + thread + " has been blocked for " + (dur / 1_000_000) + " ms, time limit is " +
+                  TimeUnit.MILLISECONDS.convert(timeLimit, maxExecTimeUnit) + " ms";
               if (warningExceptionTimeUnit.convert(dur, TimeUnit.NANOSECONDS) <= warningExceptionTime) {
                 log.warn(message);
               } else {
@@ -61,6 +66,7 @@ public class BlockedThreadChecker {
     }, intervalUnit.toMillis(interval), intervalUnit.toMillis(interval));
   }
 
+  // TODO: 2018/8/1 by zmyer
   public synchronized void registerThread(VertxThread thread) {
     threads.put(thread, O);
   }

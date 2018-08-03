@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
+// TODO: 2018/8/1 by zmyer
 public final class VertxThread extends FastThreadLocalThread {
 
   private final boolean worker;
@@ -41,6 +42,7 @@ public final class VertxThread extends FastThreadLocalThread {
     this.context = context;
   }
 
+  // TODO: 2018/8/1 by zmyer
   public final void executeStart() {
     execStart = System.nanoTime();
   }

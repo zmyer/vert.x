@@ -11,7 +11,10 @@
 
 package io.vertx.core.impl.utils;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -26,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author <a href="http://tfox.org">Tim Fox</a>
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class ConcurrentCyclicSequence<T> implements Iterable<T>, Iterator<T> {
 
   private static final Object[] EMPTY_ARRAY = new Object[0];
@@ -90,11 +94,11 @@ public class ConcurrentCyclicSequence<T> implements Iterable<T>, Iterator<T> {
    */
   public ConcurrentCyclicSequence<T> remove(T element) {
     int len = elements.length;
-    for (int i = 0;i < len;i++) {
+    for (int i = 0; i < len; i++) {
       if (Objects.equals(element, elements[i])) {
         if (len > 1) {
           Object[] copy = new Object[len - 1];
-          System.arraycopy(elements,0, copy, 0, i);
+          System.arraycopy(elements, 0, copy, 0, i);
           System.arraycopy(elements, i + 1, copy, i, len - i - 1);
           return new ConcurrentCyclicSequence<>(pos.get() % copy.length, copy);
         } else {
@@ -121,14 +125,14 @@ public class ConcurrentCyclicSequence<T> implements Iterable<T>, Iterator<T> {
   public T next() {
     int len = elements.length;
     switch (len) {
-      case 0:
-        return null;
-      case 1:
-        return (T) elements[0];
-      default:
-        int p;
-        p = pos.getAndIncrement();
-        return (T) elements[Math.abs(p % len)];
+    case 0:
+      return null;
+    case 1:
+      return (T) elements[0];
+    default:
+      int p;
+      p = pos.getAndIncrement();
+      return (T) elements[Math.abs(p % len)];
     }
   }
 

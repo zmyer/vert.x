@@ -60,6 +60,7 @@ import java.util.function.Predicate;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>   7                                                                                     T
  */
+// TODO: 2018/8/1 by zmyer
 public class ClusteredEventBus extends EventBusImpl {
 
   private static final Logger log = LoggerFactory.getLogger(ClusteredEventBus.class);
@@ -67,7 +68,7 @@ public class ClusteredEventBus extends EventBusImpl {
   public static final String CLUSTER_PUBLIC_HOST_PROP_NAME = "vertx.cluster.public.host";
   public static final String CLUSTER_PUBLIC_PORT_PROP_NAME = "vertx.cluster.public.port";
 
-  private static final Buffer PONG = Buffer.buffer(new byte[]{(byte) 1});
+  private static final Buffer PONG = Buffer.buffer(new byte[]{ (byte) 1 });
   private static final String SERVER_ID_HA_KEY = "server_id";
   private static final String SUBS_MAP_NAME = "__vertx.subs";
 
@@ -82,15 +83,17 @@ public class ClusteredEventBus extends EventBusImpl {
   private ClusterNodeInfo nodeInfo;
   private NetServer server;
 
+  // TODO: 2018/8/1 by zmyer
   public ClusteredEventBus(VertxInternal vertx,
-                           VertxOptions options,
-                           ClusterManager clusterManager) {
+    VertxOptions options,
+    ClusterManager clusterManager) {
     super(vertx);
     this.options = options.getEventBusOptions();
     this.clusterManager = clusterManager;
     this.sendNoContext = vertx.getOrCreateContext();
   }
 
+  // TODO: 2018/8/1 by zmyer
   private NetServerOptions getServerOptions() {
     NetServerOptions serverOptions = new NetServerOptions(this.options.toJson());
     setCertOptions(serverOptions, options.getKeyCertOptions());
@@ -126,6 +129,7 @@ public class ClusteredEventBus extends EventBusImpl {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public void start(Handler<AsyncResult<Void>> resultHandler) {
     // Get the HA manager, it has been constructed but it's not yet initialized
@@ -143,7 +147,8 @@ public class ClusteredEventBus extends EventBusImpl {
             String serverHost = getClusterPublicHost(options);
             serverID = new ServerID(serverPort, serverHost);
             nodeInfo = new ClusterNodeInfo(clusterManager.getNodeID(), serverID);
-            haManager.addDataToAHAInfo(SERVER_ID_HA_KEY, new JsonObject().put("host", serverID.host).put("port", serverID.port));
+            haManager.addDataToAHAInfo(SERVER_ID_HA_KEY,
+              new JsonObject().put("host", serverID.host).put("port", serverID.port));
             if (resultHandler != null) {
               started = true;
               resultHandler.handle(Future.succeededFuture());
@@ -202,8 +207,8 @@ public class ClusteredEventBus extends EventBusImpl {
 
   @Override
   protected <T> void addRegistration(boolean newAddress, String address,
-                                     boolean replyHandler, boolean localOnly,
-                                     Handler<AsyncResult<Void>> completionHandler) {
+    boolean replyHandler, boolean localOnly,
+    Handler<AsyncResult<Void>> completionHandler) {
     if (newAddress && subs != null && !replyHandler && !localOnly) {
       // Propagate the information
       subs.add(address, nodeInfo, completionHandler);
@@ -215,7 +220,7 @@ public class ClusteredEventBus extends EventBusImpl {
 
   @Override
   protected <T> void removeRegistration(HandlerHolder<T> lastHolder, String address,
-                                        Handler<AsyncResult<Void>> completionHandler) {
+    Handler<AsyncResult<Void>> completionHandler) {
     if (lastHolder != null && subs != null && !lastHolder.isLocalOnly()) {
       ownSubs.remove(address);
       removeSub(address, nodeInfo, completionHandler);
@@ -269,6 +274,7 @@ public class ClusteredEventBus extends EventBusImpl {
     return !clusteredMessage.isFromWire();
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void setClusterViewChangedHandler(HAManager haManager) {
     haManager.setClusterViewChangedHandler(members -> {
       ownSubs.forEach(address -> {
@@ -279,11 +285,12 @@ public class ClusteredEventBus extends EventBusImpl {
         });
       });
 
-      subs.removeAllMatching((Serializable & Predicate<ClusterNodeInfo>) ci -> !members.contains(ci.nodeId), removeResult -> {
-        if (removeResult.failed()) {
-          log.warn("Error removing subs", removeResult.cause());
-        }
-      });
+      subs.removeAllMatching((Serializable & Predicate<ClusterNodeInfo>) ci -> !members.contains(ci.nodeId),
+        removeResult -> {
+          if (removeResult.failed()) {
+            log.warn("Error removing subs", removeResult.cause());
+          }
+        });
     });
   }
 
@@ -306,6 +313,7 @@ public class ClusteredEventBus extends EventBusImpl {
     return publicHost;
   }
 
+  // TODO: 2018/8/1 by zmyer
   private Handler<NetSocket> getServerHandler() {
     return socket -> {
       RecordParser parser = RecordParser.newFixed(4);

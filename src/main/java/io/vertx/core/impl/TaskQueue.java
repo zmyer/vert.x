@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
  * @author <a href="mailto:tim.fox@jboss.com">Tim Fox</a>
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class TaskQueue {
 
   static final Logger log = LoggerFactory.getLogger(TaskQueue.class);
@@ -78,7 +79,9 @@ public class TaskQueue {
         log.error("Caught unexpected Throwable", t);
       }
     }
-  };
+  }
+
+  ;
 
   /**
    * Run a task.

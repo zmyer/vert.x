@@ -29,6 +29,7 @@ import java.util.Objects;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @DataObject
 public class DeliveryOptions {
 
@@ -69,11 +70,11 @@ public class DeliveryOptions {
     JsonObject hdrs = json.getJsonObject("headers", null);
     if (hdrs != null) {
       headers = new CaseInsensitiveHeaders();
-      for (Map.Entry<String, Object> entry: hdrs) {
+      for (Map.Entry<String, Object> entry : hdrs) {
         if (!(entry.getValue() instanceof String)) {
           throw new IllegalStateException("Invalid type for message header value " + entry.getValue().getClass());
         }
-        headers.set(entry.getKey(), (String)entry.getValue());
+        headers.set(entry.getKey(), (String) entry.getValue());
       }
     }
   }
@@ -86,7 +87,9 @@ public class DeliveryOptions {
   public JsonObject toJson() {
     JsonObject json = new JsonObject();
     json.put("timeout", timeout);
-    if (codecName != null) json.put("codecName", codecName);
+    if (codecName != null) {
+      json.put("codecName", codecName);
+    }
     if (headers != null) {
       JsonObject hJson = new JsonObject();
       headers.entries().forEach(entry -> hJson.put(entry.getKey(), entry.getValue()));
@@ -102,7 +105,7 @@ public class DeliveryOptions {
    * When sending a message with a response handler a send timeout can be provided. If no response is received
    * within the timeout the handler will be called with a failure.
    *
-   * @return  the value of send timeout
+   * @return the value of send timeout
    */
   public long getSendTimeout() {
     return timeout;
@@ -112,7 +115,7 @@ public class DeliveryOptions {
    * Set the send timeout.
    *
    * @param timeout  the timeout value, in ms.
-   * @return  a reference to this, so the API can be used fluently
+   * @return a reference to this, so the API can be used fluently
    */
   public DeliveryOptions setSendTimeout(long timeout) {
     Arguments.require(timeout >= 1, "sendTimeout must be >= 1");
@@ -126,7 +129,7 @@ public class DeliveryOptions {
    * When sending or publishing a message a codec name can be provided. This must correspond with a previously registered
    * message codec. This allows you to send arbitrary objects on the event bus (e.g. POJOs).
    *
-   * @return  the codec name
+   * @return the codec name
    */
   public String getCodecName() {
     return codecName;
@@ -136,7 +139,7 @@ public class DeliveryOptions {
    * Set the codec name.
    *
    * @param codecName  the codec name
-   * @return  a reference to this, so the API can be used fluently
+   * @return a reference to this, so the API can be used fluently
    */
   public DeliveryOptions setCodecName(String codecName) {
     this.codecName = codecName;
@@ -151,7 +154,7 @@ public class DeliveryOptions {
    *
    * @param key  the header key
    * @param value  the header value
-   * @return  a reference to this, so the API can be used fluently
+   * @return a reference to this, so the API can be used fluently
    */
   public DeliveryOptions addHeader(String key, String value) {
     checkHeaders();
@@ -165,7 +168,7 @@ public class DeliveryOptions {
    * Set message headers from a multi-map.
    *
    * @param headers  the headers
-   * @return  a reference to this, so the API can be used fluently
+   * @return a reference to this, so the API can be used fluently
    */
   @GenIgnore
   public DeliveryOptions setHeaders(MultiMap headers) {
@@ -176,7 +179,7 @@ public class DeliveryOptions {
   /**
    * Get the message headers
    *
-   * @return  the headers
+   * @return the headers
    */
   @GenIgnore
   public MultiMap getHeaders() {

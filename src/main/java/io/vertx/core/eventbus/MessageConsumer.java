@@ -29,6 +29,7 @@ import io.vertx.core.streams.ReadStream;
  *
  * @author <a href="mailto:nscavell@redhat.com">Nick Scavelli</a>
  */
+// TODO: 2018/8/2 by zmyer
 @VertxGen
 public interface MessageConsumer<T> extends ReadStream<Message<T>> {
 

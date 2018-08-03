@@ -35,7 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static java.util.concurrent.TimeUnit.*;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  *
@@ -99,6 +100,7 @@ import static java.util.concurrent.TimeUnit.*;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class HAManager {
 
   private static final Logger log = LoggerFactory.getLogger(HAManager.class);
@@ -125,8 +127,9 @@ public class HAManager {
   private volatile boolean killed;
   private Consumer<Set<String>> clusterViewChangedHandler;
 
+  // TODO: 2018/8/1 by zmyer
   public HAManager(VertxInternal vertx, DeploymentManager deploymentManager,
-                   ClusterManager clusterManager, int quorumSize, String group, boolean enabled) {
+    ClusterManager clusterManager, int quorumSize, String group, boolean enabled) {
     this.vertx = vertx;
     this.deploymentManager = deploymentManager;
     this.clusterManager = clusterManager;
@@ -142,6 +145,7 @@ public class HAManager {
    * Initialize the ha manager, i.e register the node listener to propagates the node events and
    * start the quorum timer. The quorum will be checked as well.
    */
+  // TODO: 2018/8/1 by zmyer
   void init() {
     synchronized (haInfo) {
       clusterMap.put(nodeID, haInfo.encode());
@@ -151,6 +155,7 @@ public class HAManager {
       public void nodeAdded(String nodeID) {
         HAManager.this.nodeAdded(nodeID);
       }
+
       @Override
       public void nodeLeft(String leftNodeID) {
         HAManager.this.nodeLeft(leftNodeID);
@@ -189,9 +194,11 @@ public class HAManager {
       clusterMap.put(nodeID, haInfo.encode());
     }
   }
+
+  // TODO: 2018/8/1 by zmyer
   // Deploy an HA verticle
   public void deployVerticle(final String verticleName, DeploymentOptions deploymentOptions,
-                             final Handler<AsyncResult<String>> doneHandler) {
+    final Handler<AsyncResult<String>> doneHandler) {
     if (attainedQuorum) {
       doDeployVerticle(verticleName, deploymentOptions, doneHandler);
     } else {
@@ -252,6 +259,7 @@ public class HAManager {
     this.failoverCompleteHandler = failoverCompleteHandler;
   }
 
+  // TODO: 2018/8/1 by zmyer
   public void setClusterViewChangedHandler(Consumer<Set<String>> handler) {
     this.clusterViewChangedHandler = handler;
   }
@@ -269,8 +277,9 @@ public class HAManager {
     failDuringFailover = fail;
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void doDeployVerticle(final String verticleName, DeploymentOptions deploymentOptions,
-                                final Handler<AsyncResult<String>> doneHandler) {
+    final Handler<AsyncResult<String>> doneHandler) {
     final Handler<AsyncResult<String>> wrappedHandler = asyncResult -> {
       if (asyncResult.succeeded()) {
         // Tell the other nodes of the cluster about the verticle for HA purposes
@@ -285,6 +294,7 @@ public class HAManager {
     deploymentManager.deployVerticle(verticleName, deploymentOptions, wrappedHandler);
   }
 
+  // TODO: 2018/8/1 by zmyer
   // A node has joined the cluster
   // synchronize this in case the cluster manager is naughty and calls it concurrently
   private synchronized void nodeAdded(final String nodeID) {
@@ -294,6 +304,7 @@ public class HAManager {
     checkQuorumWhenAdded(nodeID, System.currentTimeMillis());
   }
 
+  // TODO: 2018/8/1 by zmyer
   // A node has left the cluster
   // synchronize this in case the cluster manager is naughty and calls it concurrently
   private synchronized void nodeLeft(String leftNodeID) {
@@ -317,7 +328,7 @@ public class HAManager {
       // We can determine this if there any ids in the cluster map which aren't in the node list
       List<String> nodes = clusterManager.getNodes();
 
-      for (Map.Entry<String, String> entry: clusterMap.entrySet()) {
+      for (Map.Entry<String, String> entry : clusterMap.entrySet()) {
         if (!leftNodeID.equals(entry.getKey()) && !nodes.contains(entry.getKey())) {
           JsonObject haInfo = new JsonObject(entry.getValue());
           checkFailover(entry.getKey(), haInfo);
@@ -326,6 +337,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void addHaInfoIfLost() {
     if (clusterManager.getNodes().contains(nodeID) && !clusterMap.containsKey(nodeID)) {
       synchronized (haInfo) {
@@ -334,6 +346,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private synchronized void checkQuorumWhenAdded(final String nodeID, final long start) {
     if (clusterMap.containsKey(nodeID)) {
       checkQuorum();
@@ -362,6 +375,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   // Check if there is a quorum for our group
   private void checkQuorum() {
     if (quorumSize == 0) {
@@ -392,6 +406,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   // Add some information on a deployment in the cluster so other nodes know about it
   private void addToHA(String deploymentID, String verticleName, DeploymentOptions deploymentOptions) {
     String encoded;
@@ -406,9 +421,10 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   // Add the deployment to an internal list of deploymentIDs - these will be executed when a quorum is attained
   private void addToHADeployList(final String verticleName, final DeploymentOptions deploymentOptions,
-                                 final Handler<AsyncResult<String>> doneHandler) {
+    final Handler<AsyncResult<String>> doneHandler) {
     toDeployOnQuorum.add(() -> {
       ContextInternal ctx = vertx.getContext();
       try {
@@ -418,8 +434,9 @@ public class HAManager {
         ContextImpl.setContext((ContextImpl) ctx);
       }
     });
-   }
+  }
 
+  // TODO: 2018/8/2 by zmyer
   private void checkHADeployments() {
     try {
       if (attainedQuorum) {
@@ -434,7 +451,7 @@ public class HAManager {
 
   // Undeploy any HA deploymentIDs now there is no quorum
   private void undeployHADeployments() {
-    for (String deploymentID: deploymentManager.deployments()) {
+    for (String deploymentID : deploymentManager.deployments()) {
       Deployment dep = deploymentManager.getDeployment(deploymentID);
       if (dep != null) {
         if (dep.deploymentOptions().isHa()) {
@@ -443,12 +460,16 @@ public class HAManager {
             ContextImpl.setContext(null);
             deploymentManager.undeployVerticle(deploymentID, result -> {
               if (result.succeeded()) {
-                log.info("Successfully undeployed HA deployment " + deploymentID + "-" + dep.verticleIdentifier() + " as there is no quorum");
+                log.info("Successfully undeployed HA deployment " + deploymentID + "-" + dep.verticleIdentifier() +
+                  " as there is no quorum");
                 addToHADeployList(dep.verticleIdentifier(), dep.deploymentOptions(), result1 -> {
                   if (result1.succeeded()) {
-                    log.info("Successfully redeployed verticle " + dep.verticleIdentifier() + " after quorum was re-attained");
+                    log.info(
+                      "Successfully redeployed verticle " + dep.verticleIdentifier() + " after quorum was re-attained");
                   } else {
-                    log.error("Failed to redeploy verticle " + dep.verticleIdentifier() + " after quorum was re-attained", result1.cause());
+                    log.error(
+                      "Failed to redeploy verticle " + dep.verticleIdentifier() + " after quorum was re-attained",
+                      result1.cause());
                   }
                 });
               } else {
@@ -463,6 +484,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/2 by zmyer
   // Deploy any deploymentIDs that are waiting for a quorum
   private void deployHADeployments() {
     int size = toDeployOnQuorum.size();
@@ -479,6 +501,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   // Handle failover
   private void checkFailover(String failedNodeID, JsonObject theHAInfo) {
     try {
@@ -487,9 +510,10 @@ public class HAManager {
       String chosen = chooseHashedNode(group, failedNodeID.hashCode());
       if (chosen != null && chosen.equals(this.nodeID)) {
         if (deployments != null && deployments.size() != 0) {
-          log.info("node" + nodeID + " says: Node " + failedNodeID + " has failed. This node will deploy " + deployments.size() + " deploymentIDs from that node.");
-          for (Object obj: deployments) {
-            JsonObject app = (JsonObject)obj;
+          log.info("node" + nodeID + " says: Node " + failedNodeID + " has failed. This node will deploy " +
+            deployments.size() + " deploymentIDs from that node.");
+          for (Object obj : deployments) {
+            JsonObject app = (JsonObject) obj;
             processFailover(app);
           }
         }
@@ -511,6 +535,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void checkSubs(String failedNodeID) {
     if (clusterViewChangedHandler == null) {
       return;
@@ -521,8 +546,9 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void runOnContextAndWait(Runnable runnable) {
-    CountDownLatch latch = new CountDownLatch(1);
+    final CountDownLatch latch = new CountDownLatch(1);
     // The testsuite requires that this is called on a Vert.x thread
     vertx.runOnContext(v -> {
       try {
@@ -581,11 +607,12 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   // Compute the failover node
   private String chooseHashedNode(String group, int hashCode) {
     List<String> nodes = clusterManager.getNodes();
     ArrayList<String> matchingMembers = new ArrayList<>();
-    for (String node: nodes) {
+    for (String node : nodes) {
       String sclusterInfo = clusterMap.get(node);
       if (sclusterInfo != null) {
         JsonObject clusterInfo = new JsonObject(sclusterInfo);
@@ -597,9 +624,9 @@ public class HAManager {
     }
     if (!matchingMembers.isEmpty()) {
       // Hashcodes can be -ve so make it positive
-      long absHash = (long)hashCode + Integer.MAX_VALUE;
+      long absHash = (long) hashCode + Integer.MAX_VALUE;
       long lpos = absHash % matchingMembers.size();
-      return matchingMembers.get((int)lpos);
+      return matchingMembers.get((int) lpos);
     } else {
       return null;
     }

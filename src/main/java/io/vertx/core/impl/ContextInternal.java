@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentMap;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public interface ContextInternal extends Context {
 
   static boolean isOnWorkerThread() {
@@ -54,7 +55,8 @@ public interface ContextInternal extends Context {
    * Like {@link #executeBlocking(Handler, boolean, Handler)} but uses the {@code queue} to order the tasks instead
    * of the internal queue of this context.
    */
-  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, TaskQueue queue, Handler<AsyncResult<T>> resultHandler);
+  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, TaskQueue queue,
+    Handler<AsyncResult<T>> resultHandler);
 
   /**
    * Execute an internal task on the internal blocking ordered executor.

@@ -51,6 +51,7 @@ import io.vertx.core.streams.ReadStream;
  * @author <a href="http://tfox.org">Tim Fox</a>
  * @author <a href="mailto:larsdtimm@gmail.com">Lars Timm</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface RecordParser extends Handler<Buffer>, ReadStream<Buffer> {
 
@@ -100,7 +101,7 @@ public interface RecordParser extends Handler<Buffer>, ReadStream<Buffer> {
    * @param delim  the initial delimiter buffer
    */
   static RecordParser newDelimited(Buffer delim) {
-    return RecordParserImpl.newDelimited(delim,null,  null);
+    return RecordParserImpl.newDelimited(delim, null, null);
   }
 
   /**
@@ -110,9 +111,9 @@ public interface RecordParser extends Handler<Buffer>, ReadStream<Buffer> {
    * @param delim  the initial delimiter buffer
    * @param output  handler that will receive the output
    */
-   static RecordParser newDelimited(Buffer delim, Handler<Buffer> output) {
-     return RecordParserImpl.newDelimited(delim, null, output);
-   }
+  static RecordParser newDelimited(Buffer delim, Handler<Buffer> output) {
+    return RecordParserImpl.newDelimited(delim, null, output);
+  }
 
   /**
    * Like {@link #newDelimited(Buffer)} but wraps the {@code stream}. The {@code stream} handlers will be set/unset

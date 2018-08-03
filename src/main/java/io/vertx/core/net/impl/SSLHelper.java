@@ -12,7 +12,13 @@
 package io.vertx.core.net.impl;
 
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.OpenSsl;
+import io.netty.handler.ssl.OpenSslServerContext;
+import io.netty.handler.ssl.OpenSslServerSessionContext;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.ClientAuth;
@@ -32,14 +38,31 @@ import io.vertx.core.net.SocketAddress;
 import io.vertx.core.net.TCPSSLOptions;
 import io.vertx.core.net.TrustOptions;
 
-import javax.net.ssl.*;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSessionContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509KeyManager;
+import javax.net.ssl.X509TrustManager;
 import java.io.ByteArrayInputStream;
 import java.security.cert.CRL;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -51,6 +74,7 @@ import java.util.stream.Stream;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class SSLHelper {
 
   /**
@@ -140,6 +164,7 @@ public class SSLHelper {
   private Map<Certificate, SslContext> sslContextMap = new ConcurrentHashMap<>();
   private boolean openSslSessionCacheEnabled = true;
 
+  // TODO: 2018/8/1 by zmyer
   public SSLHelper(HttpClientOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
     SSLEngineOptions sslEngineOptions = resolveEngineOptions(options);
     this.ssl = options.isSsl();
@@ -156,7 +181,8 @@ public class SSLHelper {
     if (options.isVerifyHost()) {
       this.endpointIdentificationAlgorithm = "HTTPS";
     }
-    this.openSslSessionCacheEnabled = (sslEngineOptions instanceof OpenSSLEngineOptions) && ((OpenSSLEngineOptions) sslEngineOptions).isSessionCacheEnabled();
+    this.openSslSessionCacheEnabled = (sslEngineOptions instanceof OpenSSLEngineOptions) &&
+      ((OpenSSLEngineOptions) sslEngineOptions).isSessionCacheEnabled();
   }
 
   public SSLHelper(HttpServerOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
@@ -172,7 +198,8 @@ public class SSLHelper {
     this.client = false;
     this.useAlpn = options.isUseAlpn();
     this.enabledProtocols = options.getEnabledSecureTransportProtocols();
-    this.openSslSessionCacheEnabled = (sslEngineOptions instanceof OpenSSLEngineOptions) && ((OpenSSLEngineOptions) sslEngineOptions).isSessionCacheEnabled();
+    this.openSslSessionCacheEnabled = (sslEngineOptions instanceof OpenSSLEngineOptions) &&
+      ((OpenSSLEngineOptions) sslEngineOptions).isSessionCacheEnabled();
     this.sni = options.isSni();
   }
 
@@ -190,7 +217,8 @@ public class SSLHelper {
     this.useAlpn = false;
     this.enabledProtocols = options.getEnabledSecureTransportProtocols();
     this.endpointIdentificationAlgorithm = options.getHostnameVerificationAlgorithm();
-    this.openSslSessionCacheEnabled = (sslEngineOptions instanceof OpenSSLEngineOptions) && ((OpenSSLEngineOptions) sslEngineOptions).isSessionCacheEnabled();
+    this.openSslSessionCacheEnabled = (sslEngineOptions instanceof OpenSSLEngineOptions) &&
+      ((OpenSSLEngineOptions) sslEngineOptions).isSessionCacheEnabled();
   }
 
   public SSLHelper(NetServerOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
@@ -206,7 +234,8 @@ public class SSLHelper {
     this.client = false;
     this.useAlpn = false;
     this.enabledProtocols = options.getEnabledSecureTransportProtocols();
-    this.openSslSessionCacheEnabled = (options.getSslEngineOptions() instanceof OpenSSLEngineOptions) && ((OpenSSLEngineOptions) options.getSslEngineOptions()).isSessionCacheEnabled();
+    this.openSslSessionCacheEnabled = (options.getSslEngineOptions() instanceof OpenSSLEngineOptions) &&
+      ((OpenSSLEngineOptions) options.getSslEngineOptions()).isSessionCacheEnabled();
     this.sni = options.isSni();
   }
 
@@ -279,17 +308,17 @@ public class SSLHelper {
       }
       if (useAlpn && applicationProtocols != null && applicationProtocols.size() > 0) {
         builder.applicationProtocolConfig(new ApplicationProtocolConfig(
-            ApplicationProtocolConfig.Protocol.ALPN,
-            ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-            ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-            applicationProtocols.stream().map(PROTOCOL_NAME_MAPPING::get).collect(Collectors.toList())
+          ApplicationProtocolConfig.Protocol.ALPN,
+          ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+          ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+          applicationProtocols.stream().map(PROTOCOL_NAME_MAPPING::get).collect(Collectors.toList())
         ));
       }
       SslContext ctx = builder.build();
-      if (ctx instanceof OpenSslServerContext){
+      if (ctx instanceof OpenSslServerContext) {
         SSLSessionContext sslSessionContext = ctx.sessionContext();
-        if (sslSessionContext instanceof OpenSslServerSessionContext){
-          ((OpenSslServerSessionContext)sslSessionContext).setSessionCacheEnabled(openSslSessionCacheEnabled);
+        if (sslSessionContext instanceof OpenSslServerSessionContext) {
+          ((OpenSslServerSessionContext) sslSessionContext).setSessionCacheEnabled(openSslSessionCacheEnabled);
         }
       }
       return ctx;
@@ -305,7 +334,7 @@ public class SSLHelper {
   private TrustManagerFactory getTrustMgrFactory(VertxInternal vertx, String serverName) throws Exception {
     TrustManager[] mgrs = null;
     if (trustAll) {
-      mgrs = new TrustManager[]{createTrustAllTrustManager()};
+      mgrs = new TrustManager[]{ createTrustAllTrustManager() };
     } else if (trustOptions != null) {
       if (serverName != null) {
         Function<String, TrustManager[]> mapper = trustOptions.trustManagerMapper(vertx);
@@ -330,9 +359,9 @@ public class SSLHelper {
     }
     if (crlPaths != null && crlValues != null && (crlPaths.size() > 0 || crlValues.size() > 0)) {
       Stream<Buffer> tmp = crlPaths.
-          stream().
-          map(path -> vertx.resolveFile(path).getAbsolutePath()).
-          map(vertx.fileSystem()::readFileBlocking);
+        stream().
+        map(path -> vertx.resolveFile(path).getAbsolutePath()).
+        map(vertx.fileSystem()::readFileBlocking);
       tmp = Stream.concat(tmp, crlValues.stream());
       CertificateFactory certificatefactory = CertificateFactory.getInstance("X.509");
       ArrayList<CRL> crls = new ArrayList<>();
@@ -350,7 +379,7 @@ public class SSLHelper {
    */
   private static TrustManager[] createUntrustRevokedCertTrustManager(TrustManager[] trustMgrs, ArrayList<CRL> crls) {
     trustMgrs = trustMgrs.clone();
-    for (int i = 0;i < trustMgrs.length;i++) {
+    for (int i = 0; i < trustMgrs.length; i++) {
       TrustManager trustMgr = trustMgrs[i];
       if (trustMgr instanceof X509TrustManager) {
         X509TrustManager x509TrustManager = (X509TrustManager) trustMgr;
@@ -360,11 +389,13 @@ public class SSLHelper {
             checkRevoked(x509Certificates);
             x509TrustManager.checkClientTrusted(x509Certificates, s);
           }
+
           @Override
           public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
             checkRevoked(x509Certificates);
             x509TrustManager.checkServerTrusted(x509Certificates, s);
           }
+
           private void checkRevoked(X509Certificate[] x509Certificates) throws CertificateException {
             for (X509Certificate cert : x509Certificates) {
               for (CRL crl : crls) {
@@ -374,6 +405,7 @@ public class SSLHelper {
               }
             }
           }
+
           @Override
           public X509Certificate[] getAcceptedIssuers() {
             return x509TrustManager.getAcceptedIssuers();
@@ -416,18 +448,18 @@ public class SSLHelper {
     engine.setEnabledProtocols(protocols.toArray(new String[protocols.size()]));
     if (!client) {
       switch (getClientAuth()) {
-        case REQUEST: {
-          engine.setWantClientAuth(true);
-          break;
-        }
-        case REQUIRED: {
-          engine.setNeedClientAuth(true);
-          break;
-        }
-        case NONE: {
-          engine.setNeedClientAuth(false);
-          break;
-        }
+      case REQUEST: {
+        engine.setWantClientAuth(true);
+        break;
+      }
+      case REQUIRED: {
+        engine.setNeedClientAuth(true);
+        break;
+      }
+      case NONE: {
+        engine.setNeedClientAuth(false);
+        break;
+      }
       }
     } else if (!endpointIdentificationAlgorithm.isEmpty()) {
       SSLParameters sslParameters = engine.getSSLParameters();
@@ -445,6 +477,7 @@ public class SSLHelper {
     return getContext(vertx, null);
   }
 
+  // TODO: 2018/8/1 by zmyer
   public SslContext getContext(VertxInternal vertx, String serverName) {
     if (serverName == null) {
       if (sslContext == null) {
@@ -469,13 +502,15 @@ public class SSLHelper {
       }
       try {
         TrustManagerFactory trustMgrFactory = getTrustMgrFactory(vertx, serverName);
-        return sslContextMap.computeIfAbsent(mgr.getCertificateChain(null)[0], s -> createContext(vertx, mgr, trustMgrFactory));
+        return sslContextMap.computeIfAbsent(mgr.getCertificateChain(null)[0],
+          s -> createContext(vertx, mgr, trustMgrFactory));
       } catch (Exception e) {
         throw new VertxException(e);
       }
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   // This is called to validate some of the SSL params as that only happens when the context is created
   public synchronized void validate(VertxInternal vertx) {
     if (ssl) {

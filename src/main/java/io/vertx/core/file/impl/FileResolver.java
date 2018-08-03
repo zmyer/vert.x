@@ -46,6 +46,7 @@ import java.util.zip.ZipFile;
  * @author <a href="http://tfox.org">Tim Fox</a>
  * @author <a href="https://github.com/rworsnop/">Rob Worsnop</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class FileResolver {
 
   public static final String DISABLE_FILE_CACHING_PROP_NAME = "vertx.disableFileCaching";
@@ -69,9 +70,10 @@ public class FileResolver {
     this(VertxOptions.DEFAULT_FILE_CACHING_ENABLED);
   }
 
+  // TODO: 2018/8/1 by zmyer
   public FileResolver(boolean enableCaching) {
     this.enableCaching = enableCaching;
-    String cwdOverride = System.getProperty("vertx.cwd");
+    final String cwdOverride = System.getProperty("vertx.cwd");
     if (cwdOverride != null) {
       cwd = new File(cwdOverride).getAbsoluteFile();
     } else {
@@ -146,17 +148,17 @@ public class FileResolver {
   private File unpackUrlResource(URL url, String fileName, ClassLoader cl, boolean isDir) {
     String prot = url.getProtocol();
     switch (prot) {
-      case "file":
-        return unpackFromFileURL(url, fileName, cl);
-      case "jar":
-        return unpackFromJarURL(url, fileName, cl);
-      case "bundle": // Apache Felix, Knopflerfish
-      case "bundleentry": // Equinox
-      case "bundleresource": // Equinox
-      case "resource":  // substratevm (graal native image)
-        return unpackFromBundleURL(url, isDir);
-      default:
-        throw new IllegalStateException("Invalid url protocol: " + prot);
+    case "file":
+      return unpackFromFileURL(url, fileName, cl);
+    case "jar":
+      return unpackFromJarURL(url, fileName, cl);
+    case "bundle": // Apache Felix, Knopflerfish
+    case "bundleentry": // Equinox
+    case "bundleresource": // Equinox
+    case "resource":  // substratevm (graal native image)
+      return unpackFromBundleURL(url, isDir);
+    default:
+      throw new IllegalStateException("Invalid url protocol: " + prot);
     }
   }
 
@@ -185,7 +187,7 @@ public class FileResolver {
     } else {
       cacheFile.mkdirs();
       String[] listing = resource.list();
-      for (String file: listing) {
+      for (String file : listing) {
         String subResource = fileName + "/" + file;
         URL url2 = cl.getResource(subResource);
         unpackFromFileURL(url2, subResource, cl);
@@ -276,7 +278,7 @@ public class FileResolver {
     try {
       File file = new File(cacheDir, url.getHost() + File.separator + url.getFile());
       file.getParentFile().mkdirs();
-      if (url.toExternalForm().endsWith("/")  || isDir) {
+      if (url.toExternalForm().endsWith("/") || isDir) {
         // Directory
         file.mkdirs();
       } else {
@@ -312,6 +314,7 @@ public class FileResolver {
     return cl;
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void setupCacheDir() {
     String cacheDirName = CACHE_DIR_BASE + "/file-cache-" + UUID.randomUUID().toString();
     cacheDir = new File(cacheDirName);
@@ -321,7 +324,7 @@ public class FileResolver {
     // Add shutdown hook to delete on exit
     synchronized (this) {
       shutdownHook = new Thread(() -> {
-        CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch latch = new CountDownLatch(1);
         new Thread(() -> {
           try {
             deleteCacheDir();
@@ -339,6 +342,7 @@ public class FileResolver {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void deleteCacheDir() throws IOException {
     if (cacheDir != null && cacheDir.exists()) {
       FileSystemImpl.delete(cacheDir.toPath(), true);

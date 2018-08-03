@@ -23,6 +23,7 @@ import io.vertx.core.metrics.Measured;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface WorkerExecutor extends Measured {
 
@@ -48,12 +49,14 @@ public interface WorkerExecutor extends Measured {
    *                 guarantees
    * @param <T> the type of the result
    */
-  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<@Nullable T>> resultHandler);
+  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
+    Handler<AsyncResult<@Nullable T>> resultHandler);
 
   /**
    * Like {@link #executeBlocking(Handler, boolean, Handler)} called with ordered = true.
    */
-  default <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, Handler<AsyncResult<@Nullable T>> resultHandler) {
+  default <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler,
+    Handler<AsyncResult<@Nullable T>> resultHandler) {
     executeBlocking(blockingCodeHandler, true, resultHandler);
   }
 

@@ -13,8 +13,6 @@ package io.vertx.core.impl;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
-import io.netty.util.concurrent.EventExecutorGroup;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.net.NetSocket;
@@ -34,6 +32,7 @@ import io.vertx.core.net.NetSocket;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public interface NetSocketInternal extends NetSocket {
 
   /**

@@ -16,7 +16,13 @@ import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -24,6 +30,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @DataObject(generateConverter = true, publicConverter = false)
 public abstract class TCPSSLOptions extends NetworkOptions {
 
@@ -79,7 +86,8 @@ public abstract class TCPSSLOptions extends NetworkOptions {
    * <p/>
    * "SSLv2Hello" is NOT enabled since it's disabled by default since JDK7
    */
-  public static final List<String> DEFAULT_ENABLED_SECURE_TRANSPORT_PROTOCOLS = Collections.unmodifiableList(Arrays.asList("TLSv1", "TLSv1.1", "TLSv1.2"));
+  public static final List<String> DEFAULT_ENABLED_SECURE_TRANSPORT_PROTOCOLS = Collections.unmodifiableList(
+    Arrays.asList("TLSv1", "TLSv1.1", "TLSv1.2"));
 
   /**
    * The default TCP_FASTOPEN value = false
@@ -135,16 +143,20 @@ public abstract class TCPSSLOptions extends NetworkOptions {
     this.soLinger = other.getSoLinger();
     this.usePooledBuffers = other.isUsePooledBuffers();
     this.idleTimeout = other.getIdleTimeout();
-    this.idleTimeoutUnit = other.getIdleTimeoutUnit() != null ? other.getIdleTimeoutUnit() : DEFAULT_IDLE_TIMEOUT_TIME_UNIT;
+    this.idleTimeoutUnit =
+      other.getIdleTimeoutUnit() != null ? other.getIdleTimeoutUnit() : DEFAULT_IDLE_TIMEOUT_TIME_UNIT;
     this.ssl = other.isSsl();
     this.keyCertOptions = other.getKeyCertOptions() != null ? other.getKeyCertOptions().clone() : null;
     this.trustOptions = other.getTrustOptions() != null ? other.getTrustOptions().clone() : null;
-    this.enabledCipherSuites = other.getEnabledCipherSuites() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(other.getEnabledCipherSuites());
+    this.enabledCipherSuites = other.getEnabledCipherSuites() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(
+      other.getEnabledCipherSuites());
     this.crlPaths = new ArrayList<>(other.getCrlPaths());
     this.crlValues = new ArrayList<>(other.getCrlValues());
     this.useAlpn = other.useAlpn;
     this.sslEngineOptions = other.sslEngineOptions != null ? other.sslEngineOptions.clone() : null;
-    this.enabledSecureTransportProtocols = other.getEnabledSecureTransportProtocols() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(other.getEnabledSecureTransportProtocols());
+    this.enabledSecureTransportProtocols =
+      other.getEnabledSecureTransportProtocols() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(
+        other.getEnabledSecureTransportProtocols());
     this.tcpFastOpen = other.isTcpFastOpen();
     this.tcpCork = other.isTcpCork();
     this.tcpQuickAck = other.isTcpQuickAck();
@@ -158,7 +170,7 @@ public abstract class TCPSSLOptions extends NetworkOptions {
   public TCPSSLOptions(JsonObject json) {
     super(json);
     init();
-    TCPSSLOptionsConverter.fromJson(json ,this);
+    TCPSSLOptionsConverter.fromJson(json, this);
   }
 
   /**
@@ -645,6 +657,7 @@ public abstract class TCPSSLOptions extends NetworkOptions {
   /**
    * @return wether {@code TCP_CORK} option is enabled
    */
+  // TODO: 2018/8/1 by zmyer
   public boolean isTcpCork() {
     return tcpCork;
   }
@@ -716,31 +729,73 @@ public abstract class TCPSSLOptions extends NetworkOptions {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof TCPSSLOptions)) return false;
-    if (!super.equals(o)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof TCPSSLOptions)) {
+      return false;
+    }
+    if (!super.equals(o)) {
+      return false;
+    }
 
     TCPSSLOptions that = (TCPSSLOptions) o;
 
-    if (idleTimeout != that.idleTimeout) return false;
-    if (idleTimeoutUnit != null ? !idleTimeoutUnit.equals(that.idleTimeoutUnit) : that.idleTimeoutUnit != null) return false;
-    if (soLinger != that.soLinger) return false;
-    if (ssl != that.ssl) return false;
-    if (tcpKeepAlive != that.tcpKeepAlive) return false;
-    if (tcpNoDelay != that.tcpNoDelay) return false;
-    if (tcpFastOpen != that.tcpFastOpen) return false;
-    if (tcpQuickAck != that.tcpQuickAck) return false;
-    if (tcpCork != that.tcpCork) return false;
-    if (usePooledBuffers != that.usePooledBuffers) return false;
-    if (crlPaths != null ? !crlPaths.equals(that.crlPaths) : that.crlPaths != null) return false;
-    if (crlValues != null ? !crlValues.equals(that.crlValues) : that.crlValues != null) return false;
-    if (enabledCipherSuites != null ? !enabledCipherSuites.equals(that.enabledCipherSuites) : that.enabledCipherSuites != null)
+    if (idleTimeout != that.idleTimeout) {
       return false;
-    if (keyCertOptions != null ? !keyCertOptions.equals(that.keyCertOptions) : that.keyCertOptions != null) return false;
-    if (trustOptions != null ? !trustOptions.equals(that.trustOptions) : that.trustOptions != null) return false;
-    if (useAlpn != that.useAlpn) return false;
-    if (sslEngineOptions != null ? !sslEngineOptions.equals(that.sslEngineOptions) : that.sslEngineOptions != null) return false;
-    if (!enabledSecureTransportProtocols.equals(that.enabledSecureTransportProtocols)) return false;
+    }
+    if (idleTimeoutUnit != null ? !idleTimeoutUnit.equals(that.idleTimeoutUnit) : that.idleTimeoutUnit != null) {
+      return false;
+    }
+    if (soLinger != that.soLinger) {
+      return false;
+    }
+    if (ssl != that.ssl) {
+      return false;
+    }
+    if (tcpKeepAlive != that.tcpKeepAlive) {
+      return false;
+    }
+    if (tcpNoDelay != that.tcpNoDelay) {
+      return false;
+    }
+    if (tcpFastOpen != that.tcpFastOpen) {
+      return false;
+    }
+    if (tcpQuickAck != that.tcpQuickAck) {
+      return false;
+    }
+    if (tcpCork != that.tcpCork) {
+      return false;
+    }
+    if (usePooledBuffers != that.usePooledBuffers) {
+      return false;
+    }
+    if (crlPaths != null ? !crlPaths.equals(that.crlPaths) : that.crlPaths != null) {
+      return false;
+    }
+    if (crlValues != null ? !crlValues.equals(that.crlValues) : that.crlValues != null) {
+      return false;
+    }
+    if (enabledCipherSuites != null ? !enabledCipherSuites.equals(that.enabledCipherSuites)
+      : that.enabledCipherSuites != null) {
+      return false;
+    }
+    if (keyCertOptions != null ? !keyCertOptions.equals(that.keyCertOptions) : that.keyCertOptions != null) {
+      return false;
+    }
+    if (trustOptions != null ? !trustOptions.equals(that.trustOptions) : that.trustOptions != null) {
+      return false;
+    }
+    if (useAlpn != that.useAlpn) {
+      return false;
+    }
+    if (sslEngineOptions != null ? !sslEngineOptions.equals(that.sslEngineOptions) : that.sslEngineOptions != null) {
+      return false;
+    }
+    if (!enabledSecureTransportProtocols.equals(that.enabledSecureTransportProtocols)) {
+      return false;
+    }
 
     return true;
   }
@@ -766,7 +821,7 @@ public abstract class TCPSSLOptions extends NetworkOptions {
     result = 31 * result + (useAlpn ? 1 : 0);
     result = 31 * result + (sslEngineOptions != null ? sslEngineOptions.hashCode() : 0);
     result = 31 * result + (enabledSecureTransportProtocols != null ? enabledSecureTransportProtocols
-        .hashCode() : 0);
+      .hashCode() : 0);
     return result;
   }
 }

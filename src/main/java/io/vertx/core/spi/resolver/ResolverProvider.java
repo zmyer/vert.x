@@ -17,8 +17,8 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxException;
 import io.vertx.core.dns.AddressResolverOptions;
 import io.vertx.core.impl.VertxImpl;
-import io.vertx.core.impl.resolver.DnsResolverProvider;
 import io.vertx.core.impl.resolver.DefaultResolverProvider;
+import io.vertx.core.impl.resolver.DnsResolverProvider;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public interface ResolverProvider {
 
   String DISABLE_DNS_RESOLVER_PROP_NAME = "vertx.disableDnsResolver";

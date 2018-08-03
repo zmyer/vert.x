@@ -24,6 +24,7 @@ import io.vertx.core.VertxOptions;
  * @author pidster
  *
  */
+// TODO: 2018/8/1 by zmyer
 public interface VertxFactory {
 
   Vertx vertx();

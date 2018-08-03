@@ -27,6 +27,7 @@ import java.util.List;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class AsyncResolveConnectHelper {
 
   private List<Handler<AsyncResult<Channel>>> handlers = new ArrayList<>();
@@ -45,9 +46,10 @@ public class AsyncResolveConnectHelper {
     }
   }
 
-  private synchronized void handle(ChannelFuture cf, AsyncResult<Channel> res) {
+  // TODO: 2018/8/1 by zmyer
+  private synchronized void handle(final ChannelFuture cf, final AsyncResult<Channel> res) {
     if (result == null) {
-      for (Handler<AsyncResult<Channel>> handler: handlers) {
+      for (final Handler<AsyncResult<Channel>> handler : handlers) {
         handler.handle(res);
       }
       future = cf;
@@ -63,13 +65,14 @@ public class AsyncResolveConnectHelper {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   public static AsyncResolveConnectHelper doBind(VertxInternal vertx, SocketAddress socketAddress,
-                                                 ServerBootstrap bootstrap) {
-    AsyncResolveConnectHelper asyncResolveConnectHelper = new AsyncResolveConnectHelper();
+    ServerBootstrap bootstrap) {
+    final AsyncResolveConnectHelper asyncResolveConnectHelper = new AsyncResolveConnectHelper();
     bootstrap.channelFactory(vertx.transport().serverChannelFactory(socketAddress.path() != null));
     if (socketAddress.path() != null) {
-      java.net.SocketAddress converted = vertx.transport().convert(socketAddress, true);
-      ChannelFuture future = bootstrap.bind(converted);
+      final java.net.SocketAddress converted = vertx.transport().convert(socketAddress, true);
+      final ChannelFuture future = bootstrap.bind(converted);
       future.addListener(f -> {
         if (f.isSuccess()) {
           asyncResolveConnectHelper.handle(future, Future.succeededFuture(future.channel()));
@@ -83,7 +86,7 @@ public class AsyncResolveConnectHelper {
         if (res.succeeded()) {
           // At this point the name is an IP address so there will be no resolve hit
           InetSocketAddress t = new InetSocketAddress(res.result(), socketAddress.port());
-          ChannelFuture future = bootstrap.bind(t);
+          final ChannelFuture future = bootstrap.bind(t);
           future.addListener(f -> {
             if (f.isSuccess()) {
               asyncResolveConnectHelper.handle(future, Future.succeededFuture(future.channel()));

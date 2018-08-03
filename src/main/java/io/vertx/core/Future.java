@@ -25,6 +25,7 @@ import java.util.function.Function;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface Future<T> extends AsyncResult<T>, Handler<AsyncResult<T>> {
 
@@ -45,7 +46,7 @@ public interface Future<T> extends AsyncResult<T>, Handler<AsyncResult<T>> {
    * Create a future that hasn't completed yet
    *
    * @param <T>  the result type
-   * @return  the future
+   * @return the future
    */
   static <T> Future<T> future() {
     return factory.future();
@@ -55,8 +56,9 @@ public interface Future<T> extends AsyncResult<T>, Handler<AsyncResult<T>> {
    * Create a succeeded future with a null result
    *
    * @param <T>  the result type
-   * @return  the future
+   * @return the future
    */
+  // TODO: 2018/8/1 by zmyer
   static <T> Future<T> succeededFuture() {
     return factory.succeededFuture();
   }
@@ -66,8 +68,9 @@ public interface Future<T> extends AsyncResult<T>, Handler<AsyncResult<T>> {
    *
    * @param result  the result
    * @param <T>  the result type
-   * @return  the future
+   * @return the future
    */
+  // TODO: 2018/8/1 by zmyer
   static <T> Future<T> succeededFuture(T result) {
     return factory.succeededFuture(result);
   }
@@ -77,7 +80,7 @@ public interface Future<T> extends AsyncResult<T>, Handler<AsyncResult<T>> {
    *
    * @param t  the failure cause as a Throwable
    * @param <T>  the result type
-   * @return  the future
+   * @return the future
    */
   static <T> Future<T> failedFuture(Throwable t) {
     return factory.failedFuture(t);
@@ -88,7 +91,7 @@ public interface Future<T> extends AsyncResult<T>, Handler<AsyncResult<T>> {
    *
    * @param failureMessage  the failure message
    * @param <T>  the result type
-   * @return  the future
+   * @return the future
    */
   static <T> Future<T> failedFuture(String failureMessage) {
     return factory.failureFuture(failureMessage);

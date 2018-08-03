@@ -29,6 +29,7 @@ import java.util.Map;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
 
   private static final Logger log = LoggerFactory.getLogger(ClusteredMessage.class);
@@ -45,7 +46,7 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
   }
 
   public ClusteredMessage(ServerID sender, String address, String replyAddress, MultiMap headers, U sentBody,
-                          MessageCodec<U, V> messageCodec, boolean send, EventBusImpl bus) {
+    MessageCodec<U, V> messageCodec, boolean send, EventBusImpl bus) {
     super(address, replyAddress, headers, sentBody, messageCodec, send, bus);
     this.sender = sender;
   }
@@ -106,7 +107,7 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
       // User codec
       writeString(buffer, messageCodec.name());
     }
-    buffer.appendByte(send ? (byte)0 : (byte)1);
+    buffer.appendByte(send ? (byte) 0 : (byte) 1);
     writeString(buffer, address);
     if (replyAddress != null) {
       writeString(buffer, replyAddress);
@@ -121,13 +122,14 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
     return buffer;
   }
 
+  // TODO: 2018/8/1 by zmyer
   public void readFromWire(Buffer buffer, CodecManager codecManager) {
     int pos = 0;
     // Overall Length already read when passed in here
     byte protocolVersion = buffer.getByte(pos);
     if (protocolVersion > WIRE_PROTOCOL_VERSION) {
       throw new IllegalStateException("Invalid wire protocol version " + protocolVersion +
-                                      " should be <= " + WIRE_PROTOCOL_VERSION);
+        " should be <= " + WIRE_PROTOCOL_VERSION);
     }
     pos++;
     byte systemCodecCode = buffer.getByte(pos);
@@ -188,7 +190,7 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
       buffer.appendInt(0);
       buffer.appendInt(headers.size());
       List<Map.Entry<String, String>> entries = headers.entries();
-      for (Map.Entry<String, String> entry: entries) {
+      for (Map.Entry<String, String> entry : entries) {
         writeString(buffer, entry.getKey());
         writeString(buffer, entry.getValue());
       }

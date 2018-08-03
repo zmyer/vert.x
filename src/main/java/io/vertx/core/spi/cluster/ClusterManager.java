@@ -40,6 +40,7 @@ import java.util.Map;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public interface ClusterManager {
 
   void setVertx(Vertx vertx);
@@ -94,7 +95,7 @@ public interface ClusterManager {
   /**
    * Is the cluster manager active?
    *
-   * @return  true if active, false otherwise
+   * @return true if active, false otherwise
    */
   boolean isActive();
 }

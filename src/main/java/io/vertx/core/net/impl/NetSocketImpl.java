@@ -53,8 +53,10 @@ import java.util.UUID;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
 
+  // TODO: 2018/8/1 by zmyer
   private static final Handler<Object> NULL_MSG_HANDLER = event -> {
     if (event instanceof ByteBuf) {
       ByteBuf byteBuf = (ByteBuf) event;
@@ -75,13 +77,15 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
   private boolean paused = false;
   private MessageConsumer registration;
 
+  // TODO: 2018/8/2 by zmyer
   public NetSocketImpl(VertxInternal vertx, ChannelHandlerContext channel, ContextInternal context,
-                       SSLHelper helper, TCPMetrics metrics) {
+    SSLHelper helper, TCPMetrics metrics) {
     this(vertx, channel, null, context, helper, metrics);
   }
 
-  public NetSocketImpl(VertxInternal vertx, ChannelHandlerContext channel, SocketAddress remoteAddress, ContextInternal context,
-                       SSLHelper helper, TCPMetrics metrics) {
+  public NetSocketImpl(VertxInternal vertx, ChannelHandlerContext channel, SocketAddress remoteAddress,
+    ContextInternal context,
+    SSLHelper helper, TCPMetrics metrics) {
     super(vertx, channel, context);
     this.helper = helper;
     this.writeHandlerID = "__vertx.net." + UUID.randomUUID().toString();
@@ -89,8 +93,9 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     this.metrics = metrics;
   }
 
+  // TODO: 2018/8/1 by zmyer
   synchronized void registerEventBusHandler() {
-    Handler<Message<Buffer>> writeHandler = msg -> write(msg.body());
+    final Handler<Message<Buffer>> writeHandler = msg -> write(msg.body());
     registration = vertx.eventBus().<Buffer>localConsumer(writeHandlerID).handler(writeHandler);
   }
 
@@ -198,6 +203,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     return this;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public boolean writeQueueFull() {
     return isNotWritable();
@@ -320,6 +326,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     return this;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   protected synchronized void handleInterestedOpsChanged() {
     checkContext();
@@ -344,6 +351,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   public synchronized void handleMessageReceived(Object msg) {
     checkContext();
     if (messageHandler != null) {
@@ -390,6 +398,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     super.writeToChannel(buff);
   }
 
+  // TODO: 2018/8/1 by zmyer
   private synchronized void callDrainHandler() {
     if (drainHandler != null) {
       if (!writeQueueFull()) {

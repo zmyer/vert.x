@@ -17,10 +17,11 @@ import io.vertx.core.json.JsonObject;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 class WorkerContext extends ContextImpl {
 
   WorkerContext(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID,
-                       JsonObject config, ClassLoader tccl) {
+    JsonObject config, ClassLoader tccl) {
     super(vertx, internalBlockingPool, workerPool, deploymentID, config, tccl);
   }
 
@@ -44,6 +45,7 @@ class WorkerContext extends ContextImpl {
     // NOOP
   }
 
+  // TODO: 2018/8/2 by zmyer
   // In the case of a worker context, the IO will always be provided on an event loop thread, not a worker thread
   // so we need to execute it on the worker thread
   @Override

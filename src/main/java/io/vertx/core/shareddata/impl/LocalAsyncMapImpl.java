@@ -27,12 +27,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.util.concurrent.TimeUnit.*;
-import static java.util.stream.Collectors.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 /**
  * @author Thomas Segismont
  */
+// TODO: 2018/8/1 by zmyer
 public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
 
   private final Vertx vertx;
@@ -55,7 +57,7 @@ public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void put(final K k, final V v, Handler<AsyncResult<Void>> resultHandler) {
-    Holder<V> previous = map.put(k, new Holder<>(v));
+    final Holder<V> previous = map.put(k, new Holder<>(v));
     if (previous != null && previous.expires()) {
       vertx.cancelTimer(previous.timerId);
     }
@@ -64,7 +66,7 @@ public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void putIfAbsent(K k, V v, Handler<AsyncResult<V>> resultHandler) {
-    Holder<V> h = map.putIfAbsent(k, new Holder<>(v));
+    final Holder<V> h = map.putIfAbsent(k, new Holder<>(v));
     resultHandler.handle(Future.succeededFuture(h == null ? null : h.value));
   }
 
@@ -72,7 +74,7 @@ public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
   public void put(K k, V v, long timeout, Handler<AsyncResult<Void>> completionHandler) {
     long timestamp = System.nanoTime();
     long timerId = vertx.setTimer(timeout, l -> removeIfExpired(k));
-    Holder<V> previous = map.put(k, new Holder<>(v, timerId, timeout, timestamp));
+    final Holder<V> previous = map.put(k, new Holder<>(v, timerId, timeout, timestamp));
     if (previous != null && previous.expires()) {
       vertx.cancelTimer(previous.timerId);
     }
@@ -87,7 +89,7 @@ public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
   public void putIfAbsent(K k, V v, long timeout, Handler<AsyncResult<V>> completionHandler) {
     long timestamp = System.nanoTime();
     long timerId = vertx.setTimer(timeout, l -> removeIfExpired(k));
-    Holder<V> existing = map.putIfAbsent(k, new Holder<>(v, timerId, timeout, timestamp));
+    final Holder<V> existing = map.putIfAbsent(k, new Holder<>(v, timerId, timeout, timestamp));
     if (existing != null) {
       if (existing.expires()) {
         vertx.cancelTimer(timerId);
@@ -100,7 +102,7 @@ public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void removeIfPresent(K k, V v, Handler<AsyncResult<Boolean>> resultHandler) {
-    AtomicBoolean result = new AtomicBoolean();
+    final AtomicBoolean result = new AtomicBoolean();
     map.computeIfPresent(k, (key, holder) -> {
       if (holder.value.equals(v)) {
         result.compareAndSet(false, true);
@@ -191,6 +193,7 @@ public class LocalAsyncMapImpl<K, V> implements AsyncMap<K, V> {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private static class Holder<V> {
     final V value;
     final long timerId;

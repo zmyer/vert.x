@@ -54,6 +54,7 @@ import java.util.List;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface Context {
 
@@ -116,7 +117,8 @@ public interface Context {
    *                 guarantees
    * @param <T> the type of the result
    */
-  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<@Nullable T>> resultHandler);
+  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
+    Handler<AsyncResult<@Nullable T>> resultHandler);
 
   /**
    * Invoke {@link #executeBlocking(Handler, boolean, Handler)} with order = true.
@@ -208,7 +210,7 @@ public interface Context {
   Vertx owner();
 
   /**
-   * @return  the number of instances of the verticle that were deployed in the deployment (if any) related
+   * @return the number of instances of the verticle that were deployed in the deployment (if any) related
    * to this context
    */
   int getInstanceCount();

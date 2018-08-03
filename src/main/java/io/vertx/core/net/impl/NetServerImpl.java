@@ -52,6 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
 
   private static final Logger log = LoggerFactory.getLogger(NetServerImpl.class);
@@ -79,6 +80,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
   private Handler<Void> endHandler;
   private Handler<Throwable> exceptionHandler;
 
+  // TODO: 2018/8/1 by zmyer
   public NetServerImpl(VertxInternal vertx, NetServerOptions options) {
     this.vertx = vertx;
     this.options = new NetServerOptions(options);
@@ -114,6 +116,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return handler;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public synchronized NetServer connectHandler(Handler<NetSocket> handler) {
     if (isListening()) {
@@ -123,6 +126,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return this;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public synchronized NetServer exceptionHandler(Handler<Throwable> handler) {
     if (isListening()) {
@@ -132,6 +136,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return this;
   }
 
+  // TODO: 2018/8/1 by zmyer
   protected void initChannel(ChannelPipeline pipeline) {
     if (logEnabled) {
       pipeline.addLast("logging", new LoggingHandler());
@@ -145,7 +150,9 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     }
   }
 
-  public synchronized void listen(Handler<NetSocket> handler, SocketAddress socketAddress, Handler<AsyncResult<Void>> listenHandler) {
+  // TODO: 2018/8/1 by zmyer
+  public synchronized void listen(Handler<NetSocket> handler, final SocketAddress socketAddress,
+    final Handler<AsyncResult<Void>> listenHandler) {
     if (handler == null) {
       throw new IllegalStateException("Set connect handler first");
     }
@@ -159,13 +166,13 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
 
     synchronized (vertx.sharedNetServers()) {
       this.actualPort = socketAddress.port(); // Will be updated on bind for a wildcard port
-      String hostOrPath = socketAddress.host() != null ? socketAddress.host() : socketAddress.path();
+      final String hostOrPath = socketAddress.host() != null ? socketAddress.host() : socketAddress.path();
       id = new ServerID(actualPort, hostOrPath);
-      NetServerImpl shared = vertx.sharedNetServers().get(id);
+      final NetServerImpl shared = vertx.sharedNetServers().get(id);
       if (shared == null || actualPort == 0) { // Wildcard port will imply a new actual server each time
         serverChannelGroup = new DefaultChannelGroup("vertx-acceptor-channels", GlobalEventExecutor.INSTANCE);
 
-        ServerBootstrap bootstrap = new ServerBootstrap();
+        final ServerBootstrap bootstrap = new ServerBootstrap();
         bootstrap.group(availableWorkers);
         sslHelper.validate(vertx);
 
@@ -199,7 +206,8 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
                         exceptionHandler.handle(future.cause());
                       });
                     } else {
-                      log.error("Client from origin " + ch.remoteAddress() + " failed to connect over ssl: " + future.cause());
+                      log.error(
+                        "Client from origin " + ch.remoteAddress() + " failed to connect over ssl: " + future.cause());
                     }
                   }
                 });
@@ -222,7 +230,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
               log.trace("Net server listening on " + (hostOrPath) + ":" + ch.localAddress());
               // Update port to actual port - wildcard port 0 might have been used
               if (NetServerImpl.this.actualPort != -1) {
-                NetServerImpl.this.actualPort = ((InetSocketAddress)ch.localAddress()).getPort();
+                NetServerImpl.this.actualPort = ((InetSocketAddress) ch.localAddress()).getPort();
               }
               NetServerImpl.this.id = new ServerID(NetServerImpl.this.actualPort, id.host);
               serverChannelGroup.add(ch);
@@ -239,7 +247,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
         } catch (Throwable t) {
           // Make sure we send the exception back through the handler (if any)
           if (listenHandler != null) {
-            vertx.runOnContext(v ->  listenHandler.handle(Future.failedFuture(t)));
+            vertx.runOnContext(v -> listenHandler.handle(Future.failedFuture(t)));
           } else {
             // No handler - log so user can see failure
             log.error(t);
@@ -256,7 +264,8 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
         actualServer = shared;
         this.actualPort = shared.actualPort();
         VertxMetrics metrics = vertx.metricsSPI();
-        this.metrics = metrics != null ? metrics.createNetServerMetrics(options, new SocketAddressImpl(id.port, id.host)) : null;
+        this.metrics = metrics != null ? metrics.createNetServerMetrics(options,
+          new SocketAddressImpl(id.port, id.host)) : null;
         actualServer.handlerManager.addHandler(new Handlers(handler, exceptionHandler), listenContext);
       }
 
@@ -308,6 +317,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return listen(localAddress, null);
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public synchronized NetServer listen(SocketAddress localAddress, Handler<AsyncResult<NetServer>> listenHandler) {
     listen(handler, localAddress, ar -> {
@@ -324,11 +334,13 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return this;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public NetServer listen(int port, String host, Handler<AsyncResult<NetServer>> listenHandler) {
     return listen(SocketAddress.inetSocketAddress(port, host), listenHandler);
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public synchronized NetServer listen(Handler<AsyncResult<NetServer>> listenHandler) {
     return listen(options.getPort(), options.getHost(), listenHandler);
@@ -431,19 +443,21 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
 
   }
 
+  // TODO: 2018/8/1 by zmyer
   private void connected(HandlerHolder<Handlers> handler, Channel ch) {
     NetServerImpl.this.initChannel(ch.pipeline());
 
-    VertxNetHandler nh = new VertxNetHandler(ctx -> new NetSocketImpl(vertx, ctx, handler.context, sslHelper, metrics)) {
+    final VertxNetHandler nh = new VertxNetHandler(
+      ctx -> new NetSocketImpl(vertx, ctx, handler.context, sslHelper, metrics)) {
       @Override
-      protected void handleMessage(NetSocketImpl connection, Object msg) {
+      protected void handleMessage(final NetSocketImpl connection, Object msg) {
         connection.handleMessageReceived(msg);
       }
     };
     nh.addHandler(conn -> socketMap.put(ch, conn));
     nh.removeHandler(conn -> socketMap.remove(ch));
     ch.pipeline().addLast("handler", nh);
-    NetSocketImpl sock = nh.getConnection();
+    final NetSocketImpl sock = nh.getConnection();
     handler.context.executeFromIO(v -> {
       if (metrics != null) {
         sock.metric(metrics.connected(sock.remoteAddress(), sock.remoteName()));
@@ -455,7 +469,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
 
   private void executeCloseDone(ContextInternal closeContext, Handler<AsyncResult<Void>> done, Exception e) {
     if (done != null) {
-      Future<Void> fut = e == null ? Future.succeededFuture() : Future.failedFuture(e);
+      final Future<Void> fut = e == null ? Future.succeededFuture() : Future.failedFuture(e);
       closeContext.runOnContext(v -> done.handle(fut));
     }
   }
@@ -465,6 +479,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
    *
    * @param bootstrap the Netty server bootstrap
    */
+  // TODO: 2018/8/1 by zmyer
   protected void applyConnectionOptions(ServerBootstrap bootstrap) {
     vertx.transport().configure(options, bootstrap);
   }
@@ -478,8 +493,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     super.finalize();
   }
 
-  /*
-          Needs to be protected using the NetServerImpl monitor as that protects the listening variable
+  /*Needs to be protected using the NetServerImpl monitor as that protects the listening variable
           In practice synchronized overhead should be close to zero assuming most access is from the same thread due
           to biased locks
         */
@@ -518,24 +532,37 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   static class Handlers {
     final Handler<NetSocket> connectionHandler;
     final Handler<Throwable> exceptionHandler;
+
+    // TODO: 2018/8/1 by zmyer
     public Handlers(Handler<NetSocket> connectionHandler, Handler<Throwable> exceptionHandler) {
       this.connectionHandler = connectionHandler;
       this.exceptionHandler = exceptionHandler;
     }
+
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
 
       Handlers that = (Handlers) o;
 
-      if (!Objects.equals(connectionHandler, that.connectionHandler)) return false;
-      if (!Objects.equals(exceptionHandler, that.exceptionHandler)) return false;
+      if (!Objects.equals(connectionHandler, that.connectionHandler)) {
+        return false;
+      }
+      if (!Objects.equals(exceptionHandler, that.exceptionHandler)) {
+        return false;
+      }
 
       return true;
     }
+
     public int hashCode() {
       int result = 0;
       if (connectionHandler != null) {

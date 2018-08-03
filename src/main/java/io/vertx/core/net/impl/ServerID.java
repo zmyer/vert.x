@@ -16,6 +16,7 @@ import java.io.Serializable;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class ServerID implements Serializable {
 
   public int port;
@@ -31,13 +32,21 @@ public class ServerID implements Serializable {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || !(o instanceof ServerID)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || !(o instanceof ServerID)) {
+      return false;
+    }
 
     ServerID serverID = (ServerID) o;
 
-    if (port != serverID.port) return false;
-    if (!host.equals(serverID.host)) return false;
+    if (port != serverID.port) {
+      return false;
+    }
+    if (!host.equals(serverID.host)) {
+      return false;
+    }
 
     return true;
   }

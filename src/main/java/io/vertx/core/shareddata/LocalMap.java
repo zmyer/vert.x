@@ -36,6 +36,7 @@ import java.util.function.Function;
  * @author <a href="http://tfox.org">Tim Fox</a>
  * @see Shareable
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface LocalMap<K, V> extends Map<K, V> {
 

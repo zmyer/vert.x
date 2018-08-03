@@ -11,25 +11,31 @@
 
 package io.vertx.core;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.ServiceLoader;
 
 /**
  * A helper class for loading factories from the classpath and from the vert.x OSGi bundle.
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class ServiceHelper {
 
-  public static <T> T loadFactory(Class<T> clazz) {
-    T factory = loadFactoryOrNull(clazz);
+  public static <T> T loadFactory(final Class<T> clazz) {
+    final T factory = loadFactoryOrNull(clazz);
     if (factory == null) {
       throw new IllegalStateException("Cannot find META-INF/services/" + clazz.getName() + " on classpath");
     }
     return factory;
   }
 
-  public static <T> T loadFactoryOrNull(Class<T> clazz) {
-    Collection<T> collection = loadFactories(clazz);
+  // TODO: 2018/8/1 by zmyer
+  public static <T> T loadFactoryOrNull(final Class<T> clazz) {
+    final Collection<T> collection = loadFactories(clazz);
     if (!collection.isEmpty()) {
       return collection.iterator().next();
     } else {
@@ -37,11 +43,12 @@ public class ServiceHelper {
     }
   }
 
-
+  // TODO: 2018/8/1 by zmyer
   public static <T> Collection<T> loadFactories(Class<T> clazz) {
     return loadFactories(clazz, null);
   }
 
+  // TODO: 2018/8/1 by zmyer
   public static <T> Collection<T> loadFactories(Class<T> clazz, ClassLoader classLoader) {
     List<T> list = new ArrayList<>();
     ServiceLoader<T> factories;

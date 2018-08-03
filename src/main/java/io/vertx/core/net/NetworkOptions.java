@@ -19,6 +19,7 @@ import io.vertx.core.json.JsonObject;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @DataObject(generateConverter = true, publicConverter = false)
 public abstract class NetworkOptions {
 
@@ -122,7 +123,7 @@ public abstract class NetworkOptions {
    * @return a reference to this, so the API can be used fluently
    */
   public NetworkOptions setSendBufferSize(int sendBufferSize) {
-    Arguments.require(sendBufferSize > 0  || sendBufferSize == DEFAULT_SEND_BUFFER_SIZE, "sendBufferSize must be > 0");
+    Arguments.require(sendBufferSize > 0 || sendBufferSize == DEFAULT_SEND_BUFFER_SIZE, "sendBufferSize must be > 0");
     this.sendBufferSize = sendBufferSize;
     return this;
   }
@@ -143,13 +144,14 @@ public abstract class NetworkOptions {
    * @return a reference to this, so the API can be used fluently
    */
   public NetworkOptions setReceiveBufferSize(int receiveBufferSize) {
-    Arguments.require(receiveBufferSize > 0 || receiveBufferSize == DEFAULT_RECEIVE_BUFFER_SIZE, "receiveBufferSize must be > 0");
+    Arguments.require(receiveBufferSize > 0 || receiveBufferSize == DEFAULT_RECEIVE_BUFFER_SIZE,
+      "receiveBufferSize must be > 0");
     this.receiveBufferSize = receiveBufferSize;
     return this;
   }
 
   /**
-   * @return  the value of reuse address
+   * @return the value of reuse address
    */
   public boolean isReuseAddress() {
     return reuseAddress;
@@ -166,7 +168,7 @@ public abstract class NetworkOptions {
   }
 
   /**
-   * @return  the value of traffic class
+   * @return the value of traffic class
    */
   public int getTrafficClass() {
     return trafficClass;
@@ -203,7 +205,7 @@ public abstract class NetworkOptions {
   }
 
   /**
-   * @return  the value of reuse address - only supported by native transports
+   * @return the value of reuse address - only supported by native transports
    */
   public boolean isReusePort() {
     return reusePort;
@@ -224,16 +226,30 @@ public abstract class NetworkOptions {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof NetworkOptions)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof NetworkOptions)) {
+      return false;
+    }
 
     NetworkOptions that = (NetworkOptions) o;
 
-    if (receiveBufferSize != that.receiveBufferSize) return false;
-    if (reuseAddress != that.reuseAddress) return false;
-    if (reusePort != that.reusePort) return false;
-    if (sendBufferSize != that.sendBufferSize) return false;
-    if (trafficClass != that.trafficClass) return false;
+    if (receiveBufferSize != that.receiveBufferSize) {
+      return false;
+    }
+    if (reuseAddress != that.reuseAddress) {
+      return false;
+    }
+    if (reusePort != that.reusePort) {
+      return false;
+    }
+    if (sendBufferSize != that.sendBufferSize) {
+      return false;
+    }
+    if (trafficClass != that.trafficClass) {
+      return false;
+    }
 
     return true;
   }

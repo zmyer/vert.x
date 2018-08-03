@@ -26,6 +26,7 @@ import java.util.function.Function;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public interface AsyncResult<T> {
 
   /**
@@ -123,7 +124,7 @@ public interface AsyncResult<T> {
    * @return the mapped async result
    */
   default <V> AsyncResult<V> mapEmpty() {
-    return map((V)null);
+    return map((V) null);
   }
 
   /**

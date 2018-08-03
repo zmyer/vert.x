@@ -36,6 +36,7 @@ import java.util.List;
  *
  * @author Janne Hietam&auml;ki
  */
+// TODO: 2018/8/1 by zmyer
 public class CompilingClassLoader extends ClassLoader {
 
   private static final Logger log = LoggerFactory.getLogger(CompilingClassLoader.class);
@@ -50,7 +51,7 @@ public class CompilingClassLoader extends ClassLoader {
       String[] array = props.split(",");
       List<String> compilerProps = new ArrayList<>(array.length);
 
-      for (String prop :array) {
+      for (String prop : array) {
         compilerProps.add(prop.trim());
       }
       COMPILER_OPTIONS = Collections.unmodifiableList(compilerProps);
@@ -61,6 +62,7 @@ public class CompilingClassLoader extends ClassLoader {
 
   private final JavaSourceContext javaSourceContext;
   private final MemoryFileManager fileManager;
+
   public CompilingClassLoader(ClassLoader loader, String sourceName) {
     super(loader);
     URL resource = getResource(sourceName);
@@ -75,33 +77,38 @@ public class CompilingClassLoader extends ClassLoader {
       throw new IllegalStateException("Failed to decode " + e.getMessage());
     }
     if (!sourceFile.canRead()) {
-      throw new RuntimeException("File not found: " + sourceFile.getAbsolutePath() + " current dir is: " + new File(".").getAbsolutePath());
+      throw new RuntimeException(
+        "File not found: " + sourceFile.getAbsolutePath() + " current dir is: " + new File(".").getAbsolutePath());
     }
 
     this.javaSourceContext = new JavaSourceContext(sourceFile);
 
     try {
       DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-      JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
+      final JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
       if (javaCompiler == null) {
         throw new RuntimeException("Unable to detect java compiler, make sure you're using a JDK not a JRE!");
       }
-      StandardJavaFileManager standardFileManager = javaCompiler.getStandardFileManager(null, null, null);
+      final StandardJavaFileManager standardFileManager = javaCompiler.getStandardFileManager(null,
+        null, null);
 
-      standardFileManager.setLocation(StandardLocation.SOURCE_PATH, Collections.singleton(javaSourceContext.getSourceRoot()));
+      standardFileManager.setLocation(StandardLocation.SOURCE_PATH,
+        Collections.singleton(javaSourceContext.getSourceRoot()));
       fileManager = new MemoryFileManager(loader, standardFileManager);
 
       // TODO - this needs to be fixed so it can compile classes from the classpath otherwise can't include
       // other .java resources from other modules
 
-      JavaFileObject javaFile = standardFileManager.getJavaFileForInput(StandardLocation.SOURCE_PATH, resolveMainClassName(), Kind.SOURCE);
-      JavaCompiler.CompilationTask task = javaCompiler.getTask(null, fileManager, diagnostics, COMPILER_OPTIONS, null, Collections.singleton(javaFile));
+      JavaFileObject javaFile = standardFileManager.getJavaFileForInput(StandardLocation.SOURCE_PATH,
+        resolveMainClassName(), Kind.SOURCE);
+      JavaCompiler.CompilationTask task = javaCompiler.getTask(null, fileManager, diagnostics, COMPILER_OPTIONS, null,
+        Collections.singleton(javaFile));
       boolean valid = task.call();
       if (valid) {
         for (Diagnostic<?> d : diagnostics.getDiagnostics()) {
           String code = d.getCode();
           if (code == null || (!code.startsWith("compiler.warn.annotation.method.not.found") &&
-              !"compiler.warn.proc.processor.incompatible.source.version".equals(code))) {
+            !"compiler.warn.proc.processor.incompatible.source.version".equals(code))) {
             log.info(d);
           }
         }

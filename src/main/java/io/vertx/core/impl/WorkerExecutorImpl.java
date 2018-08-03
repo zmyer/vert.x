@@ -11,7 +11,11 @@
 
 package io.vertx.core.impl;
 
-import io.vertx.core.*;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import io.vertx.core.spi.metrics.Metrics;
 import io.vertx.core.spi.metrics.MetricsProvider;
 import io.vertx.core.spi.metrics.PoolMetrics;
@@ -19,6 +23,7 @@ import io.vertx.core.spi.metrics.PoolMetrics;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
 
   private final Context ctx;
@@ -51,12 +56,14 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
     return pool;
   }
 
-  public synchronized <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<T>> asyncResultHandler) {
+  public synchronized <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
+    Handler<AsyncResult<T>> asyncResultHandler) {
     if (closed) {
       throw new IllegalStateException("Worker executor closed");
     }
     ContextImpl context = (ContextImpl) ctx.owner().getOrCreateContext();
-    context.executeBlocking(blockingCodeHandler, asyncResultHandler, pool.executor(), ordered ? context.orderedTasks : null, pool.metrics());
+    context.executeBlocking(blockingCodeHandler, asyncResultHandler, pool.executor(),
+      ordered ? context.orderedTasks : null, pool.metrics());
   }
 
   @Override

@@ -25,12 +25,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 class CloseHooks {
 
   private final Logger log;
   private boolean closeHooksRun;
   private Set<Closeable> closeHooks;
 
+  // TODO: 2018/8/1 by zmyer
   CloseHooks(Logger log) {
     this.log = log;
   }
@@ -78,12 +80,12 @@ class CloseHooks {
       }
     }
     if (copy != null && !copy.isEmpty()) {
-      int num = copy.size();
+      final int num = copy.size();
       if (num != 0) {
-        AtomicInteger count = new AtomicInteger();
-        AtomicBoolean failed = new AtomicBoolean();
-        for (Closeable hook : copy) {
-          Future<Void> a = Future.future();
+        final AtomicInteger count = new AtomicInteger();
+        final AtomicBoolean failed = new AtomicBoolean();
+        for (final Closeable hook : copy) {
+          final Future<Void> a = Future.future();
           a.setHandler(ar -> {
             if (ar.failed()) {
               if (failed.compareAndSet(false, true)) {

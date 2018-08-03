@@ -12,7 +12,11 @@
 package io.vertx.core;
 
 import io.netty.channel.EventLoopGroup;
-import io.vertx.codegen.annotations.*;
+import io.vertx.codegen.annotations.CacheReturn;
+import io.vertx.codegen.annotations.Fluent;
+import io.vertx.codegen.annotations.GenIgnore;
+import io.vertx.codegen.annotations.Nullable;
+import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.dns.DnsClient;
@@ -63,6 +67,7 @@ import java.util.function.Supplier;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface Vertx extends Measured {
 
@@ -381,7 +386,8 @@ public interface Vertx extends Measured {
    * invoking the default constructor of {@code verticleClass}.
    */
   @GenIgnore
-  void deployVerticle(Class<? extends Verticle> verticleClass, DeploymentOptions options, Handler<AsyncResult<String>> completionHandler);
+  void deployVerticle(Class<? extends Verticle> verticleClass, DeploymentOptions options,
+    Handler<AsyncResult<String>> completionHandler);
 
   /**
    * Like {@link #deployVerticle(Verticle, DeploymentOptions, Handler)} but {@link Verticle} instance is created by
@@ -393,7 +399,8 @@ public interface Vertx extends Measured {
    * Note that the supplier will be invoked on the caller thread.
    */
   @GenIgnore
-  void deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options, Handler<AsyncResult<String>> completionHandler);
+  void deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options,
+    Handler<AsyncResult<String>> completionHandler);
 
   /**
    * Deploy a verticle instance given a name.
@@ -516,7 +523,8 @@ public interface Vertx extends Measured {
    *                 guarantees
    * @param <T> the type of the result
    */
-  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<@Nullable T>> resultHandler);
+  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
+    Handler<AsyncResult<@Nullable T>> resultHandler);
 
   /**
    * Like {@link #executeBlocking(Handler, boolean, Handler)} called with ordered = true.
@@ -562,7 +570,8 @@ public interface Vertx extends Measured {
    * @param maxExecuteTimeUnit the value of unit of max worker execute time
    * @return the named worker executor
    */
-  WorkerExecutor createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime, TimeUnit maxExecuteTimeUnit);
+  WorkerExecutor createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime,
+    TimeUnit maxExecuteTimeUnit);
 
   /**
    * @return whether the native transport is used
@@ -582,7 +591,9 @@ public interface Vertx extends Measured {
   /**
    * @return the current default exception handler
    */
-  @Nullable @GenIgnore Handler<Throwable> exceptionHandler();
+  @Nullable
+  @GenIgnore
+  Handler<Throwable> exceptionHandler();
 
   VertxFactory factory = ServiceHelper.loadFactory(VertxFactory.class);
 }

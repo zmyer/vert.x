@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @DataObject(generateConverter = true, publicConverter = false)
 public class NetServerOptions extends TCPSSLOptions {
 
@@ -73,7 +74,8 @@ public class NetServerOptions extends TCPSSLOptions {
    *
    * @param other  the options to copy
    */
-  public NetServerOptions(NetServerOptions other) {
+  // TODO: 2018/8/2 by zmyer
+  public NetServerOptions(final NetServerOptions other) {
     super(other);
     this.port = other.getPort();
     this.host = other.getHost();
@@ -87,7 +89,7 @@ public class NetServerOptions extends TCPSSLOptions {
    *
    * @param json  the JSON
    */
-  public NetServerOptions(JsonObject json) {
+  public NetServerOptions(final JsonObject json) {
     super(json);
     init();
     NetServerOptionsConverter.fromJson(json, this);
@@ -99,7 +101,7 @@ public class NetServerOptions extends TCPSSLOptions {
    * @return the JSON
    */
   public JsonObject toJson() {
-    JsonObject json = super.toJson();
+    final JsonObject json = super.toJson();
     NetServerOptionsConverter.toJson(this, json);
     return json;
   }
@@ -409,17 +411,33 @@ public class NetServerOptions extends TCPSSLOptions {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof NetServerOptions)) return false;
-    if (!super.equals(o)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof NetServerOptions)) {
+      return false;
+    }
+    if (!super.equals(o)) {
+      return false;
+    }
 
     NetServerOptions that = (NetServerOptions) o;
 
-    if (acceptBacklog != that.acceptBacklog) return false;
-    if (clientAuth != that.clientAuth) return false;
-    if (port != that.port) return false;
-    if (host != null ? !host.equals(that.host) : that.host != null) return false;
-    if (sni != that.sni) return false;
+    if (acceptBacklog != that.acceptBacklog) {
+      return false;
+    }
+    if (clientAuth != that.clientAuth) {
+      return false;
+    }
+    if (port != that.port) {
+      return false;
+    }
+    if (host != null ? !host.equals(that.host) : that.host != null) {
+      return false;
+    }
+    if (sni != that.sni) {
+      return false;
+    }
 
     return true;
   }

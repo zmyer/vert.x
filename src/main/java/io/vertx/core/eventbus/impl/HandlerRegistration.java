@@ -11,7 +11,11 @@
 
 package io.vertx.core.eventbus.impl;
 
-import io.vertx.core.*;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.eventbus.ReplyException;
@@ -34,6 +38,7 @@ import java.util.Queue;
  * The internal state is protected using the synchronized keyword. If always used on the same event loop, then
  * we benefit from biased locking which makes the overhead of synchronized near zero.
  */
+// TODO: 2018/8/2 by zmyer
 public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Message<T>> {
 
   private static final Logger log = LoggerFactory.getLogger(HandlerRegistration.class);
@@ -60,9 +65,10 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
   private boolean paused;
   private Object metric;
 
+  // TODO: 2018/8/2 by zmyer
   public HandlerRegistration(Vertx vertx, EventBusMetrics metrics, EventBusImpl eventBus, String address,
-                             String repliedAddress, boolean localOnly,
-                             Handler<AsyncResult<Message<T>>> asyncResultHandler, long timeout) {
+    String repliedAddress, boolean localOnly,
+    Handler<AsyncResult<Message<T>>> asyncResultHandler, long timeout) {
     this.vertx = vertx;
     this.metrics = metrics;
     this.eventBus = eventBus;
@@ -75,7 +81,9 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
         if (metrics != null) {
           metrics.replyFailure(address, ReplyFailure.TIMEOUT);
         }
-        sendAsyncResultFailure(ReplyFailure.TIMEOUT, "Timed out after waiting " + timeout + "(ms) for a reply. address: " + address + ", repliedAddress: " + repliedAddress);
+        sendAsyncResultFailure(ReplyFailure.TIMEOUT,
+          "Timed out after waiting " + timeout + "(ms) for a reply. address: " + address + ", repliedAddress: " +
+            repliedAddress);
       });
     }
   }
@@ -104,13 +112,14 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
   public synchronized void completionHandler(Handler<AsyncResult<Void>> completionHandler) {
     Objects.requireNonNull(completionHandler);
     if (result != null) {
-      AsyncResult<Void> value = result;
+      final AsyncResult<Void> value = result;
       vertx.runOnContext(v -> completionHandler.handle(value));
     } else {
       this.completionHandler = completionHandler;
     }
   }
 
+  // TODO: 2018/8/2 by zmyer
   @Override
   public synchronized void unregister() {
     doUnregister(null);
@@ -122,17 +131,19 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
     doUnregister(completionHandler);
   }
 
+  // TODO: 2018/8/2 by zmyer
   public void sendAsyncResultFailure(ReplyFailure failure, String msg) {
     unregister();
     asyncResultHandler.handle(Future.failedFuture(new ReplyException(failure, msg)));
   }
 
+  // TODO: 2018/8/2 by zmyer
   private void doUnregister(Handler<AsyncResult<Void>> completionHandler) {
     if (timeoutID != -1) {
       vertx.cancelTimer(timeoutID);
     }
     if (endHandler != null) {
-      Handler<Void> theEndHandler = endHandler;
+      final Handler<Void> theEndHandler = endHandler;
       Handler<AsyncResult<Void>> handler = completionHandler;
       completionHandler = ar -> {
         theEndHandler.handle(null);
@@ -141,7 +152,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
         }
       };
     }
-    HandlerHolder<T> holder = registered;
+    final HandlerHolder<T> holder = registered;
     if (holder != null) {
       registered = null;
       eventBus.removeRegistration(holder, completionHandler);
@@ -150,6 +161,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
     }
   }
 
+  // TODO: 2018/8/2 by zmyer
   private void callCompletionHandlerAsync(Handler<AsyncResult<Void>> completionHandler) {
     if (completionHandler != null) {
       vertx.runOnContext(v -> completionHandler.handle(Future.succeededFuture()));
@@ -160,13 +172,14 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
     handlerContext = context;
   }
 
+  // TODO: 2018/8/2 by zmyer
   public synchronized void setResult(AsyncResult<Void> result) {
     this.result = result;
     if (completionHandler != null) {
       if (metrics != null && result.succeeded()) {
         metric = metrics.handlerRegistered(address, repliedAddress);
       }
-      Handler<AsyncResult<Void>> callback = completionHandler;
+      final Handler<AsyncResult<Void>> callback = completionHandler;
       vertx.runOnContext(v -> callback.handle(result));
     } else if (result.failed()) {
       log.error("Failed to propagate registration for handler " + handler + " and address " + address);
@@ -186,7 +199,9 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
           if (discardHandler != null) {
             discardHandler.handle(message);
           } else {
-            log.warn("Discarding message as more than " + maxBufferedMessages + " buffered in paused consumer. address: " + address);
+            log.warn(
+              "Discarding message as more than " + maxBufferedMessages + " buffered in paused consumer. address: " +
+                address);
           }
         }
         return;
@@ -208,7 +223,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
     boolean local = true;
     if (message instanceof ClusteredMessage) {
       // A bit hacky
-      ClusteredMessage cmsg = (ClusteredMessage)message;
+      ClusteredMessage cmsg = (ClusteredMessage) message;
       if (cmsg.isFromWire()) {
         local = false;
       }
@@ -258,6 +273,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
     this.discardHandler = handler;
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public synchronized MessageConsumer<T> handler(Handler<Message<T>> handler) {
     this.handler = handler;

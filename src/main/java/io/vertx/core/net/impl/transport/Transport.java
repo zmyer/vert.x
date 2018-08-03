@@ -13,7 +13,12 @@ package io.vertx.core.net.impl.transport;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFactory;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.FixedRecvByteBufAllocator;
+import io.netty.channel.ServerChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.InternetProtocolFamily;
@@ -37,6 +42,7 @@ import java.util.concurrent.ThreadFactory;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class Transport {
 
   /**
@@ -47,10 +53,11 @@ public class Transport {
   /**
    * The native transport, it may be {@code null} or failed.
    */
+  // TODO: 2018/8/1 by zmyer
   public static Transport nativeTransport() {
     Transport transport = null;
     try {
-      Transport epoll = new EpollTransport();
+      final Transport epoll = new EpollTransport();
       if (epoll.isAvailable()) {
         return epoll;
       } else {
@@ -60,7 +67,7 @@ public class Transport {
       // Jar not here
     }
     try {
-      Transport kqueue = new KQueueTransport();
+      final Transport kqueue = new KQueueTransport();
       if (kqueue.isAvailable()) {
         return kqueue;
       } else if (transport == null) {
@@ -115,6 +122,7 @@ public class Transport {
   /**
    * @return a new event loop group
    */
+  // TODO: 2018/8/1 by zmyer
   public EventLoopGroup eventLoopGroup(int nThreads, ThreadFactory threadFactory, int ioRatio) {
     NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(nThreads, threadFactory);
     eventLoopGroup.setIoRatio(ioRatio);
@@ -133,12 +141,12 @@ public class Transport {
    */
   public DatagramChannel datagramChannel(InternetProtocolFamily family) {
     switch (family) {
-      case IPv4:
-        return new NioDatagramChannel(InternetProtocolFamily.IPv4);
-      case IPv6:
-        return new NioDatagramChannel(InternetProtocolFamily.IPv6);
-      default:
-        throw new UnsupportedOperationException();
+    case IPv4:
+      return new NioDatagramChannel(InternetProtocolFamily.IPv4);
+    case IPv6:
+      return new NioDatagramChannel(InternetProtocolFamily.IPv6);
+    default:
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -187,7 +195,8 @@ public class Transport {
         try {
           channel.config().setNetworkInterface(NetworkInterface.getByName(options.getMulticastNetworkInterface()));
         } catch (SocketException e) {
-          throw new IllegalArgumentException("Could not find network interface with name " + options.getMulticastNetworkInterface());
+          throw new IllegalArgumentException(
+            "Could not find network interface with name " + options.getMulticastNetworkInterface());
         }
       }
     }
@@ -217,6 +226,7 @@ public class Transport {
     bootstrap.option(ChannelOption.SO_REUSEADDR, options.isReuseAddress());
   }
 
+  // TODO: 2018/8/1 by zmyer
   public void configure(NetServerOptions options, ServerBootstrap bootstrap) {
     bootstrap.childOption(ChannelOption.TCP_NODELAY, options.isTcpNoDelay());
     if (options.getSendBufferSize() != -1) {
@@ -224,7 +234,8 @@ public class Transport {
     }
     if (options.getReceiveBufferSize() != -1) {
       bootstrap.childOption(ChannelOption.SO_RCVBUF, options.getReceiveBufferSize());
-      bootstrap.childOption(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(options.getReceiveBufferSize()));
+      bootstrap.childOption(ChannelOption.RCVBUF_ALLOCATOR,
+        new FixedRecvByteBufAllocator(options.getReceiveBufferSize()));
     }
     if (options.getSoLinger() != -1) {
       bootstrap.childOption(ChannelOption.SO_LINGER, options.getSoLinger());

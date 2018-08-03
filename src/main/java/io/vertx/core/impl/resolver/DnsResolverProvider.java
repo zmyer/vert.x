@@ -20,7 +20,14 @@ import io.netty.resolver.HostsFileEntriesResolver;
 import io.netty.resolver.HostsFileParser;
 import io.netty.resolver.NameResolver;
 import io.netty.resolver.ResolvedAddressTypes;
-import io.netty.resolver.dns.*;
+import io.netty.resolver.dns.DefaultDnsCache;
+import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
+import io.netty.resolver.dns.DnsAddressResolverGroup;
+import io.netty.resolver.dns.DnsCache;
+import io.netty.resolver.dns.DnsNameResolverBuilder;
+import io.netty.resolver.dns.DnsServerAddressStream;
+import io.netty.resolver.dns.DnsServerAddressStreamProvider;
+import io.netty.resolver.dns.DnsServerAddresses;
 import io.netty.util.NetUtil;
 import io.netty.util.concurrent.EventExecutor;
 import io.vertx.core.Context;
@@ -53,6 +60,7 @@ import static io.netty.util.internal.ObjectUtil.intValue;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class DnsResolverProvider implements ResolverProvider {
 
   private final Vertx vertx;
@@ -82,7 +90,9 @@ public class DnsResolverProvider implements ResolverProvider {
           port = 53;
         }
         try {
-          serverList.add(new InetSocketAddress(InetAddress.getByAddress(NetUtil.createByteArrayFromIpAddressString(ipAddress)), port));
+          serverList.add(
+            new InetSocketAddress(InetAddress.getByAddress(NetUtil.createByteArrayFromIpAddressString(ipAddress)),
+              port));
         } catch (UnknownHostException e) {
           throw new VertxException(e);
         }
@@ -99,7 +109,8 @@ public class DnsResolverProvider implements ResolverProvider {
         all.add(address);
       }
     }
-    DnsServerAddresses nameServerAddresses = options.isRotateServers() ? DnsServerAddresses.rotational(serverList) : DnsServerAddresses.sequential(serverList);
+    DnsServerAddresses nameServerAddresses = options.isRotateServers() ? DnsServerAddresses.rotational(serverList)
+      : DnsServerAddresses.sequential(serverList);
     DnsServerAddressStreamProvider nameServerAddressProvider = hostname -> nameServerAddresses.stream();
 
     HostsFileEntries entries;
@@ -132,11 +143,14 @@ public class DnsResolverProvider implements ResolverProvider {
     this.vertx = vertx;
     this.resolverGroup = new AddressResolverGroup<InetSocketAddress>() {
       @Override
-      protected io.netty.resolver.AddressResolver<InetSocketAddress> newResolver(EventExecutor executor) throws Exception {
+      protected io.netty.resolver.AddressResolver<InetSocketAddress> newResolver(EventExecutor executor)
+        throws Exception {
         ChannelFactory<DatagramChannel> channelFactory = () -> vertx.transport().datagramChannel();
         DnsAddressResolverGroup group = new DnsAddressResolverGroup(channelFactory, nameServerAddressProvider) {
           @Override
-          protected NameResolver<InetAddress> newNameResolver(EventLoop eventLoop, ChannelFactory<? extends DatagramChannel> channelFactory, DnsServerAddressStreamProvider nameServerProvider) throws Exception {
+          protected NameResolver<InetAddress> newNameResolver(EventLoop eventLoop,
+            ChannelFactory<? extends DatagramChannel> channelFactory, DnsServerAddressStreamProvider nameServerProvider)
+            throws Exception {
             DnsNameResolverBuilder builder = new DnsNameResolverBuilder((EventLoop) executor);
             builder.hostsFileEntriesResolver(new HostsFileEntriesResolver() {
               @Override
@@ -147,20 +161,21 @@ public class DnsResolverProvider implements ResolverProvider {
                 }
                 return address;
               }
+
               InetAddress lookup(String inetHost, ResolvedAddressTypes resolvedAddressTypes) {
                 switch (resolvedAddressTypes) {
-                  case IPV4_ONLY:
-                    return entries.inet4Entries().get(inetHost);
-                  case IPV6_ONLY:
-                    return entries.inet6Entries().get(inetHost);
-                  case IPV4_PREFERRED:
-                    Inet4Address inet4Address = entries.inet4Entries().get(inetHost);
-                    return inet4Address != null? inet4Address : entries.inet6Entries().get(inetHost);
-                  case IPV6_PREFERRED:
-                    Inet6Address inet6Address = entries.inet6Entries().get(inetHost);
-                    return inet6Address != null? inet6Address : entries.inet4Entries().get(inetHost);
-                  default:
-                    throw new IllegalArgumentException("Unknown ResolvedAddressTypes " + resolvedAddressTypes);
+                case IPV4_ONLY:
+                  return entries.inet4Entries().get(inetHost);
+                case IPV6_ONLY:
+                  return entries.inet6Entries().get(inetHost);
+                case IPV4_PREFERRED:
+                  Inet4Address inet4Address = entries.inet4Entries().get(inetHost);
+                  return inet4Address != null ? inet4Address : entries.inet6Entries().get(inetHost);
+                case IPV6_PREFERRED:
+                  Inet6Address inet6Address = entries.inet6Entries().get(inetHost);
+                  return inet6Address != null ? inet6Address : entries.inet4Entries().get(inetHost);
+                default:
+                  throw new IllegalArgumentException("Unknown ResolvedAddressTypes " + resolvedAddressTypes);
                 }
               }
             });
@@ -195,6 +210,7 @@ public class DnsResolverProvider implements ResolverProvider {
   private static class ResolverRegistration {
     private final io.netty.resolver.AddressResolver<InetSocketAddress> resolver;
     private final EventLoop executor;
+
     ResolverRegistration(io.netty.resolver.AddressResolver<InetSocketAddress> resolver, EventLoop executor) {
       this.resolver = resolver;
       this.executor = executor;

@@ -33,6 +33,7 @@ import io.vertx.core.buffer.Buffer;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/2 by zmyer
 public interface MessageCodec<S, R> {
 
   /**
@@ -48,7 +49,7 @@ public interface MessageCodec<S, R> {
    *
    * @param pos  the position in the buffer where the message should be read from.
    * @param buffer  the buffer to read the message from
-   * @return  the read message
+   * @return the read message
    */
   R decodeFromWire(int pos, Buffer buffer);
 
@@ -57,7 +58,7 @@ public interface MessageCodec<S, R> {
    * the sent type S to the received type R
    *
    * @param s  the sent message
-   * @return  the transformed message
+   * @return the transformed message
    */
   R transform(S s);
 

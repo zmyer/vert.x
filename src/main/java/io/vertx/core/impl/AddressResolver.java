@@ -21,7 +21,6 @@ import io.vertx.core.impl.launcher.commands.ExecUtils;
 import io.vertx.core.spi.resolver.ResolverProvider;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
@@ -31,6 +30,7 @@ import java.util.regex.Pattern;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class AddressResolver {
 
   private static Pattern resolvOption(String regex) {
@@ -49,8 +49,8 @@ public class AddressResolver {
       File f = new File("/etc/resolv.conf");
       if (f.exists() && f.isFile()) {
         try {
-          String conf = new String(Files.readAllBytes(f.toPath()));
-          int ndotsOption = parseNdotsOptionFromResolvConf(conf);
+          final String conf = new String(Files.readAllBytes(f.toPath()));
+          final int ndotsOption = parseNdotsOptionFromResolvConf(conf);
           if (ndotsOption != -1) {
             ndots = ndotsOption;
           }
@@ -75,8 +75,10 @@ public class AddressResolver {
 
   public void resolveHostname(String hostname, Handler<AsyncResult<InetAddress>> resultHandler) {
     ContextInternal callback = (ContextInternal) vertx.getOrCreateContext();
-    io.netty.resolver.AddressResolver<InetSocketAddress> resolver = resolverGroup.getResolver(callback.nettyEventLoop());
-    io.netty.util.concurrent.Future<InetSocketAddress> fut = resolver.resolve(InetSocketAddress.createUnresolved(hostname, 0));
+    io.netty.resolver.AddressResolver<InetSocketAddress> resolver = resolverGroup.getResolver(
+      callback.nettyEventLoop());
+    io.netty.util.concurrent.Future<InetSocketAddress> fut = resolver.resolve(
+      InetSocketAddress.createUnresolved(hostname, 0));
     fut.addListener(a -> {
       callback.runOnContext(v -> {
         if (a.isSuccess()) {
@@ -97,9 +99,10 @@ public class AddressResolver {
     provider.close(doneHandler);
   }
 
+  // TODO: 2018/8/1 by zmyer
   public static int parseNdotsOptionFromResolvConf(String s) {
     int ndots = -1;
-    Matcher matcher = NDOTS_OPTIONS_PATTERN.matcher(s);
+    final Matcher matcher = NDOTS_OPTIONS_PATTERN.matcher(s);
     while (matcher.find()) {
       ndots = Integer.parseInt(matcher.group(1));
     }

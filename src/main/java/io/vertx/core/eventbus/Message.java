@@ -30,6 +30,7 @@ import io.vertx.core.MultiMap;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface Message<T> {
 
@@ -41,14 +42,14 @@ public interface Message<T> {
   /**
    * Multi-map of message headers. Can be empty
    *
-   * @return  the headers
+   * @return the headers
    */
   MultiMap headers();
 
   /**
    * The body of the message. Can be null.
    *
-   * @return  the body, or null.
+   * @return the body, or null.
    */
   @CacheReturn
   T body();

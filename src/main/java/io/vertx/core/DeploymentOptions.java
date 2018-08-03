@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @DataObject(generateConverter = true, publicConverter = false)
 public class DeploymentOptions {
 
@@ -119,7 +120,7 @@ public class DeploymentOptions {
   /**
    * Get the JSON configuration that will be passed to the verticle(s) when deployed.
    *
-   * @return  the JSON config
+   * @return the JSON config
    */
   public JsonObject getConfig() {
     return config;
@@ -223,7 +224,7 @@ public class DeploymentOptions {
    * <p>
    * Ignored if no isolation group is set.
    *
-   * @return  any extra classpath
+   * @return any extra classpath
    */
   public List<String> getExtraClasspath() {
     return extraClasspath;
@@ -244,7 +245,7 @@ public class DeploymentOptions {
   /**
    * Get the number of instances that should be deployed.
    *
-   * @return  the number of instances
+   * @return the number of instances
    */
   public int getInstances() {
     return instances;
@@ -378,7 +379,7 @@ public class DeploymentOptions {
   /**
    * Convert this to JSON
    *
-   * @return  the JSON
+   * @return the JSON
    */
   public JsonObject toJson() {
     JsonObject json = new JsonObject();
@@ -388,20 +389,36 @@ public class DeploymentOptions {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
 
     DeploymentOptions that = (DeploymentOptions) o;
 
-    if (worker != that.worker) return false;
-    if (multiThreaded != that.multiThreaded) return false;
-    if (ha != that.ha) return false;
-    if (instances != that.instances) return false;
-    if (config != null ? !config.equals(that.config) : that.config != null) return false;
-    if (isolationGroup != null ? !isolationGroup.equals(that.isolationGroup) : that.isolationGroup != null)
+    if (worker != that.worker) {
       return false;
-    if (extraClasspath != null ? !extraClasspath.equals(that.extraClasspath) : that.extraClasspath != null)
+    }
+    if (multiThreaded != that.multiThreaded) {
       return false;
+    }
+    if (ha != that.ha) {
+      return false;
+    }
+    if (instances != that.instances) {
+      return false;
+    }
+    if (config != null ? !config.equals(that.config) : that.config != null) {
+      return false;
+    }
+    if (isolationGroup != null ? !isolationGroup.equals(that.isolationGroup) : that.isolationGroup != null) {
+      return false;
+    }
+    if (extraClasspath != null ? !extraClasspath.equals(that.extraClasspath) : that.extraClasspath != null) {
+      return false;
+    }
     return !(isolatedClasses != null ? !isolatedClasses.equals(that.isolatedClasses) : that.isolatedClasses != null);
 
   }

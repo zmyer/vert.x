@@ -17,6 +17,7 @@ import io.vertx.core.eventbus.MessageCodec;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class PingMessageCodec implements MessageCodec<String, String> {
 
   @Override

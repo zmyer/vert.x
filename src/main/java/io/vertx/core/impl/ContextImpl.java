@@ -34,10 +34,11 @@ import java.util.concurrent.RejectedExecutionException;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 abstract class ContextImpl implements ContextInternal {
 
   private static EventLoop getEventLoop(VertxInternal vertx) {
-    EventLoopGroup group = vertx.getEventLoopGroup();
+    final EventLoopGroup group = vertx.getEventLoopGroup();
     if (group != null) {
       return group.next();
     } else {
@@ -69,13 +70,15 @@ abstract class ContextImpl implements ContextInternal {
   final TaskQueue orderedTasks;
   protected final TaskQueue internalOrderedTasks;
 
-  protected ContextImpl(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID, JsonObject config,
-                        ClassLoader tccl) {
+  // TODO: 2018/8/1 by zmyer
+  protected ContextImpl(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool,
+    String deploymentID, JsonObject config, ClassLoader tccl) {
     this(vertx, getEventLoop(vertx), internalBlockingPool, workerPool, deploymentID, config, tccl);
   }
 
-  protected ContextImpl(VertxInternal vertx, EventLoop eventLoop, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID, JsonObject config,
-                        ClassLoader tccl) {
+  // TODO: 2018/8/1 by zmyer
+  protected ContextImpl(VertxInternal vertx, EventLoop eventLoop, WorkerPool internalBlockingPool,
+    WorkerPool workerPool, String deploymentID, JsonObject config, ClassLoader tccl) {
     if (DISABLE_TCCL && !tccl.getClass().getName().equals("sun.misc.Launcher$AppClassLoader")) {
       log.warn("You have disabled TCCL checks but you have a custom TCCL to set.");
     }
@@ -100,6 +103,7 @@ abstract class ContextImpl implements ContextInternal {
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private static void setContext(VertxThread thread, ContextImpl context) {
     thread.setContext(context);
     if (!DISABLE_TCCL) {
@@ -162,6 +166,7 @@ abstract class ContextImpl implements ContextInternal {
     return !isEventLoopContext();
   }
 
+  // TODO: 2018/8/1 by zmyer
   static boolean isOnVertxThread(boolean worker) {
     Thread t = Thread.currentThread();
     if (t instanceof VertxThread) {
@@ -171,6 +176,7 @@ abstract class ContextImpl implements ContextInternal {
     return false;
   }
 
+  // TODO: 2018/8/1 by zmyer
   // This is called to execute code where the origin is IO (from Netty probably).
   // In such a case we should already be on an event loop thread (as Netty manages the event loops)
   // but check this anyway, then execute directly
@@ -179,6 +185,7 @@ abstract class ContextImpl implements ContextInternal {
     executeFromIO(null, task);
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
   public <T> void executeFromIO(T value, Handler<T> task) {
     if (THREAD_CHECKS) {
@@ -190,6 +197,7 @@ abstract class ContextImpl implements ContextInternal {
 
   protected abstract void checkCorrectThread();
 
+  // TODO: 2018/8/1 by zmyer
   // Run the task asynchronously on this same context
   @Override
   public void runOnContext(Handler<Void> task) {
@@ -227,12 +235,16 @@ abstract class ContextImpl implements ContextInternal {
 
   @Override
   public <T> void executeBlockingInternal(Handler<Future<T>> action, Handler<AsyncResult<T>> resultHandler) {
-    executeBlocking(action, resultHandler, internalBlockingPool.executor(), internalOrderedTasks, internalBlockingPool.metrics());
+    executeBlocking(action, resultHandler, internalBlockingPool.executor(), internalOrderedTasks,
+      internalBlockingPool.metrics());
   }
 
+  // TODO: 2018/8/1 by zmyer
   @Override
-  public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<T>> resultHandler) {
-    executeBlocking(blockingCodeHandler, resultHandler, workerPool.executor(), ordered ? orderedTasks : null, workerPool.metrics());
+  public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
+    Handler<AsyncResult<T>> resultHandler) {
+    executeBlocking(blockingCodeHandler, resultHandler, workerPool.executor(), ordered ? orderedTasks : null,
+      workerPool.metrics());
   }
 
   @Override
@@ -241,13 +253,15 @@ abstract class ContextImpl implements ContextInternal {
   }
 
   @Override
-  public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, TaskQueue queue, Handler<AsyncResult<T>> resultHandler) {
+  public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, TaskQueue queue,
+    Handler<AsyncResult<T>> resultHandler) {
     executeBlocking(blockingCodeHandler, resultHandler, workerPool.executor(), queue, workerPool.metrics());
   }
 
+  // TODO: 2018/8/1 by zmyer
   <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler,
-      Handler<AsyncResult<T>> resultHandler,
-      Executor exec, TaskQueue queue, PoolMetrics metrics) {
+    Handler<AsyncResult<T>> resultHandler,
+    Executor exec, TaskQueue queue, PoolMetrics metrics) {
     Object queueMetric = metrics != null ? metrics.submitted() : null;
     try {
       Runnable command = () -> {
@@ -259,7 +273,7 @@ abstract class ContextImpl implements ContextInternal {
         if (!DISABLE_TIMINGS) {
           current.executeStart();
         }
-        Future<T> res = Future.future();
+        final Future<T> res = Future.future();
         try {
           ContextImpl.setContext(this);
           blockingCodeHandler.handle(res);
@@ -299,6 +313,7 @@ abstract class ContextImpl implements ContextInternal {
     return contextData;
   }
 
+  // TODO: 2018/8/1 by zmyer
   protected <T> Runnable wrapTask(T arg, Handler<T> hTask, boolean checkThread, PoolMetrics metrics) {
     Object metric = metrics != null ? metrics.submitted() : null;
     return () -> {
@@ -312,17 +327,20 @@ abstract class ContextImpl implements ContextInternal {
     };
   }
 
+  // TODO: 2018/8/1 by zmyer
   protected <T> boolean executeTask(T arg, Handler<T> hTask, boolean checkThread) {
     Thread th = Thread.currentThread();
     if (!(th instanceof VertxThread)) {
-      throw new IllegalStateException("Uh oh! Event loop context executing with wrong thread! Expected " + contextThread + " got " + th);
+      throw new IllegalStateException(
+        "Uh oh! Event loop context executing with wrong thread! Expected " + contextThread + " got " + th);
     }
     VertxThread current = (VertxThread) th;
     if (THREAD_CHECKS && checkThread) {
       if (contextThread == null) {
         contextThread = current;
       } else if (contextThread != current && !contextThread.isWorker()) {
-        throw new IllegalStateException("Uh oh! Event loop context executing with wrong thread! Expected " + contextThread + " got " + current);
+        throw new IllegalStateException(
+          "Uh oh! Event loop context executing with wrong thread! Expected " + contextThread + " got " + current);
       }
     }
     if (!DISABLE_TIMINGS) {

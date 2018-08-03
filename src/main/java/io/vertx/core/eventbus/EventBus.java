@@ -30,6 +30,7 @@ import io.vertx.core.metrics.Measured;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface EventBus extends Measured {
 
@@ -79,7 +80,8 @@ public interface EventBus extends Measured {
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
-  <T> EventBus send(String address, Object message, DeliveryOptions options, Handler<AsyncResult<Message<T>>> replyHandler);
+  <T> EventBus send(String address, Object message, DeliveryOptions options,
+    Handler<AsyncResult<Message<T>>> replyHandler);
 
   /**
    * Publish a message.<p>

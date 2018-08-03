@@ -16,6 +16,7 @@ import io.vertx.codegen.annotations.VertxGen;
 /**
  * @author <a href="mailto:nscavell@redhat.com">Nick Scavelli</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen(concrete = false)
 public interface Measured {
 

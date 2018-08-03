@@ -19,6 +19,7 @@ package io.vertx.core;
  *
  *  @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @FunctionalInterface
 public interface Handler<E> {
 

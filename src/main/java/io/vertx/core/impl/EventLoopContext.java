@@ -20,20 +20,25 @@ import io.vertx.core.logging.LoggerFactory;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class EventLoopContext extends ContextImpl {
 
   private static final Logger log = LoggerFactory.getLogger(EventLoopContext.class);
 
-  EventLoopContext(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID, JsonObject config,
-                          ClassLoader tccl) {
+  // TODO: 2018/8/1 by zmyer
+  EventLoopContext(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID,
+    JsonObject config,
+    ClassLoader tccl) {
     super(vertx, internalBlockingPool, workerPool, deploymentID, config, tccl);
   }
 
-  public EventLoopContext(VertxInternal vertx, EventLoop eventLoop, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID, JsonObject config,
-                          ClassLoader tccl) {
+  public EventLoopContext(VertxInternal vertx, EventLoop eventLoop, WorkerPool internalBlockingPool,
+    WorkerPool workerPool, String deploymentID, JsonObject config,
+    ClassLoader tccl) {
     super(vertx, eventLoop, internalBlockingPool, workerPool, deploymentID, config, tccl);
   }
 
+  // TODO: 2018/8/1 by zmyer
   public void executeAsync(Handler<Void> task) {
     // No metrics, we are on the event loop.
     nettyEventLoop().execute(() -> executeTask(null, task, true));
@@ -55,7 +60,8 @@ public class EventLoopContext extends ContextImpl {
     if (!(current instanceof VertxThread)) {
       throw new IllegalStateException("Expected to be on Vert.x thread, but actually on: " + current);
     } else if (contextThread != null && current != contextThread) {
-      throw new IllegalStateException("Event delivered on unexpected thread " + current + " expected: " + contextThread);
+      throw new IllegalStateException(
+        "Event delivered on unexpected thread " + current + " expected: " + contextThread);
     }
   }
 

@@ -18,6 +18,7 @@ import io.vertx.codegen.annotations.VertxGen;
  * <p/>
  * Created by manishk on 10/2/2015.
  */
+// TODO: 2018/8/2 by zmyer
 @VertxGen
 public enum ClientAuth {
 

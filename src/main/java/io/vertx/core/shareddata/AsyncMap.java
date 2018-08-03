@@ -31,6 +31,7 @@ import java.util.Set;
  * implementing objects.
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface AsyncMap<K, V> {
 
@@ -99,7 +100,6 @@ public interface AsyncMap<K, V> {
    * @param resultHandler - this will be called some time later to signify the value has been removed
    */
   void removeIfPresent(K k, V v, Handler<AsyncResult<Boolean>> resultHandler);
-
 
   /**
    * Replace the entry only if it is currently mapped to some value

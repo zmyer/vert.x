@@ -23,6 +23,7 @@ import io.vertx.core.streams.WriteStream;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 @VertxGen
 public interface MessageProducer<T> extends WriteStream<T> {
 
@@ -32,7 +33,7 @@ public interface MessageProducer<T> extends WriteStream<T> {
    * Synonym for {@link #write(Object)}.
    *
    * @param message  the message to send
-   * @return  reference to this for fluency
+   * @return reference to this for fluency
    */
   MessageProducer<T> send(T message);
 

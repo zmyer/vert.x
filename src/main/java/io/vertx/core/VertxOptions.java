@@ -511,6 +511,7 @@ public class VertxOptions {
    *
    * @return the cluster manager.
    */
+  // TODO: 2018/8/1 by zmyer
   public ClusterManager getClusterManager() {
     return clusterManager;
   }
@@ -722,6 +723,7 @@ public class VertxOptions {
   /**
    * @return wether to prefer the native transport to the JDK transport
    */
+  // TODO: 2018/8/1 by zmyer
   public boolean getPreferNativeTransport() {
     return preferNativeTransport;
   }
@@ -811,33 +813,73 @@ public class VertxOptions {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
 
     VertxOptions that = (VertxOptions) o;
 
-    if (eventLoopPoolSize != that.eventLoopPoolSize) return false;
-    if (workerPoolSize != that.workerPoolSize) return false;
-    if (internalBlockingPoolSize != that.internalBlockingPoolSize) return false;
-    if (blockedThreadCheckInterval != that.blockedThreadCheckInterval) return false;
-    if (blockedThreadCheckIntervalUnit != that.blockedThreadCheckIntervalUnit) return false;
-    if (maxEventLoopExecuteTime != that.maxEventLoopExecuteTime) return false;
-    if (maxEventLoopExecuteTimeUnit != that.maxEventLoopExecuteTimeUnit) return false;
-    if (maxWorkerExecuteTime != that.maxWorkerExecuteTime) return false;
-    if (maxWorkerExecuteTimeUnit != that.maxWorkerExecuteTimeUnit) return false;
-    if (haEnabled != that.haEnabled) return false;
-    if (quorumSize != that.quorumSize) return false;
-    if (warningExceptionTime != that.warningExceptionTime) return false;
-    if (warningExceptionTimeUnit != that.warningExceptionTimeUnit) return false;
-    if (clusterManager != null ? !clusterManager.equals(that.clusterManager) : that.clusterManager != null)
+    if (eventLoopPoolSize != that.eventLoopPoolSize) {
       return false;
-    if (haGroup != null ? !haGroup.equals(that.haGroup) : that.haGroup != null) return false;
-    if (eventBusOptions != null ? !eventBusOptions.equals(that.eventBusOptions) : that.eventBusOptions != null)
+    }
+    if (workerPoolSize != that.workerPoolSize) {
       return false;
-    if (addressResolverOptions != null ? !addressResolverOptions.equals(that.addressResolverOptions) : that.addressResolverOptions != null)
+    }
+    if (internalBlockingPoolSize != that.internalBlockingPoolSize) {
       return false;
-    if (fileResolverCachingEnabled != that.fileResolverCachingEnabled) return false;
-    if (preferNativeTransport != that.preferNativeTransport) return false;
+    }
+    if (blockedThreadCheckInterval != that.blockedThreadCheckInterval) {
+      return false;
+    }
+    if (blockedThreadCheckIntervalUnit != that.blockedThreadCheckIntervalUnit) {
+      return false;
+    }
+    if (maxEventLoopExecuteTime != that.maxEventLoopExecuteTime) {
+      return false;
+    }
+    if (maxEventLoopExecuteTimeUnit != that.maxEventLoopExecuteTimeUnit) {
+      return false;
+    }
+    if (maxWorkerExecuteTime != that.maxWorkerExecuteTime) {
+      return false;
+    }
+    if (maxWorkerExecuteTimeUnit != that.maxWorkerExecuteTimeUnit) {
+      return false;
+    }
+    if (haEnabled != that.haEnabled) {
+      return false;
+    }
+    if (quorumSize != that.quorumSize) {
+      return false;
+    }
+    if (warningExceptionTime != that.warningExceptionTime) {
+      return false;
+    }
+    if (warningExceptionTimeUnit != that.warningExceptionTimeUnit) {
+      return false;
+    }
+    if (clusterManager != null ? !clusterManager.equals(that.clusterManager) : that.clusterManager != null) {
+      return false;
+    }
+    if (haGroup != null ? !haGroup.equals(that.haGroup) : that.haGroup != null) {
+      return false;
+    }
+    if (eventBusOptions != null ? !eventBusOptions.equals(that.eventBusOptions) : that.eventBusOptions != null) {
+      return false;
+    }
+    if (addressResolverOptions != null ? !addressResolverOptions.equals(that.addressResolverOptions)
+      : that.addressResolverOptions != null) {
+      return false;
+    }
+    if (fileResolverCachingEnabled != that.fileResolverCachingEnabled) {
+      return false;
+    }
+    if (preferNativeTransport != that.preferNativeTransport) {
+      return false;
+    }
     return !(metricsOptions != null ? !metricsOptions.equals(that.metricsOptions) : that.metricsOptions != null);
   }
 
@@ -869,27 +911,27 @@ public class VertxOptions {
   @Override
   public String toString() {
     return "VertxOptions{" +
-        "eventLoopPoolSize=" + eventLoopPoolSize +
-        ", workerPoolSize=" + workerPoolSize +
-        ", internalBlockingPoolSize=" + internalBlockingPoolSize +
-        ", blockedThreadCheckIntervalUnit=" + blockedThreadCheckIntervalUnit +
-        ", blockedThreadCheckInterval=" + blockedThreadCheckInterval +
-        ", maxEventLoopExecuteTimeUnit=" + maxEventLoopExecuteTimeUnit +
-        ", maxEventLoopExecuteTime=" + maxEventLoopExecuteTime +
-        ", maxWorkerExecuteTimeUnit=" + maxWorkerExecuteTimeUnit +
-        ", maxWorkerExecuteTime=" + maxWorkerExecuteTime +
-        ", clusterManager=" + clusterManager +
-        ", haEnabled=" + haEnabled +
-        ", fileCachingEnabled=" + fileResolverCachingEnabled +
-        ", preferNativeTransport=" + preferNativeTransport +
-        ", quorumSize=" + quorumSize +
-        ", haGroup='" + haGroup + '\'' +
-        ", metrics=" + metricsOptions +
-        ", addressResolver=" + addressResolverOptions.toJson() +
-        ", addressResolver=" + addressResolverOptions.toJson() +
-        ", eventbus=" + eventBusOptions.toJson() +
-        ", warningExceptionTimeUnit=" + warningExceptionTimeUnit +
-        ", warningExceptionTime=" + warningExceptionTime +
-        '}';
+      "eventLoopPoolSize=" + eventLoopPoolSize +
+      ", workerPoolSize=" + workerPoolSize +
+      ", internalBlockingPoolSize=" + internalBlockingPoolSize +
+      ", blockedThreadCheckIntervalUnit=" + blockedThreadCheckIntervalUnit +
+      ", blockedThreadCheckInterval=" + blockedThreadCheckInterval +
+      ", maxEventLoopExecuteTimeUnit=" + maxEventLoopExecuteTimeUnit +
+      ", maxEventLoopExecuteTime=" + maxEventLoopExecuteTime +
+      ", maxWorkerExecuteTimeUnit=" + maxWorkerExecuteTimeUnit +
+      ", maxWorkerExecuteTime=" + maxWorkerExecuteTime +
+      ", clusterManager=" + clusterManager +
+      ", haEnabled=" + haEnabled +
+      ", fileCachingEnabled=" + fileResolverCachingEnabled +
+      ", preferNativeTransport=" + preferNativeTransport +
+      ", quorumSize=" + quorumSize +
+      ", haGroup='" + haGroup + '\'' +
+      ", metrics=" + metricsOptions +
+      ", addressResolver=" + addressResolverOptions.toJson() +
+      ", addressResolver=" + addressResolverOptions.toJson() +
+      ", eventbus=" + eventBusOptions.toJson() +
+      ", warningExceptionTimeUnit=" + warningExceptionTimeUnit +
+      ", warningExceptionTime=" + warningExceptionTime +
+      '}';
   }
 }

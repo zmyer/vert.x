@@ -14,7 +14,11 @@ package io.vertx.core.eventbus.impl;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
-import io.vertx.core.eventbus.*;
+import io.vertx.core.eventbus.DeliveryOptions;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageCodec;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -25,6 +29,7 @@ import java.util.Map;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class MessageImpl<U, V> implements Message<V> {
 
   private static final Logger log = LoggerFactory.getLogger(MessageImpl.class);
@@ -41,9 +46,10 @@ public class MessageImpl<U, V> implements Message<V> {
   public MessageImpl() {
   }
 
+  // TODO: 2018/8/2 by zmyer
   public MessageImpl(String address, String replyAddress, MultiMap headers, U sentBody,
-                     MessageCodec<U, V> messageCodec,
-                     boolean send, EventBusImpl bus) {
+    MessageCodec<U, V> messageCodec,
+    boolean send, EventBusImpl bus) {
     this.messageCodec = messageCodec;
     this.address = address;
     this.replyAddress = replyAddress;
@@ -61,7 +67,7 @@ public class MessageImpl<U, V> implements Message<V> {
     if (other.headers != null) {
       List<Map.Entry<String, String>> entries = other.headers.entries();
       this.headers = new CaseInsensitiveHeaders();
-      for (Map.Entry<String, String> entry: entries) {
+      for (Map.Entry<String, String> entry : entries) {
         this.headers.add(entry.getKey(), entry.getValue());
       }
     }
@@ -129,7 +135,8 @@ public class MessageImpl<U, V> implements Message<V> {
   @Override
   public <R> void reply(Object message, DeliveryOptions options, Handler<AsyncResult<Message<R>>> replyHandler) {
     if (replyAddress != null) {
-      sendReply(bus.createMessage(true, replyAddress, options.getHeaders(), message, options.getCodecName()), options, replyHandler);
+      sendReply(bus.createMessage(true, replyAddress, options.getHeaders(), message, options.getCodecName()), options,
+        replyHandler);
     }
   }
 
@@ -150,7 +157,8 @@ public class MessageImpl<U, V> implements Message<V> {
     this.bus = bus;
   }
 
-  protected <R> void sendReply(MessageImpl msg, DeliveryOptions options, Handler<AsyncResult<Message<R>>> replyHandler) {
+  protected <R> void sendReply(MessageImpl msg, DeliveryOptions options,
+    Handler<AsyncResult<Message<R>>> replyHandler) {
     if (bus != null) {
       bus.sendReply(msg, this, options, replyHandler);
     }

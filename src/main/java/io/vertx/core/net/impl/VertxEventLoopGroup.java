@@ -11,20 +11,26 @@
 
 package io.vertx.core.net.impl;
 
-import io.netty.channel.*;
-import io.netty.util.concurrent.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.EventLoop;
+import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.AbstractEventExecutorGroup;
+import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.Future;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/1 by zmyer
 @SuppressWarnings("deprecation")
 public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implements EventLoopGroup {
 
@@ -140,6 +146,7 @@ public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implem
     }
   }
 
+  // TODO: 2018/8/1 by zmyer
   private static class EventLoopHolder {
     int count = 1;
     final EventLoop worker;
@@ -150,12 +157,18 @@ public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implem
 
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
 
       EventLoopHolder that = (EventLoopHolder) o;
 
-      if (worker != null ? !worker.equals(that.worker) : that.worker != null) return false;
+      if (worker != null ? !worker.equals(that.worker) : that.worker != null) {
+        return false;
+      }
 
       return true;
     }

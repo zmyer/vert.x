@@ -27,9 +27,14 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author Thomas Segismont
  */
+// TODO: 2018/8/1 by zmyer
 public class LocalAsyncLocks {
 
-  private enum Status {WAITING, ACQUIRED, TIMED_OUT}
+  private enum Status {
+    WAITING,
+    ACQUIRED,
+    TIMED_OUT
+  }
 
   private class LockWaiter {
 

@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class WorkerPool {
 
   private final ExecutorService pool;

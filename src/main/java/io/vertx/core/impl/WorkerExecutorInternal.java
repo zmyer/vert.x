@@ -17,6 +17,7 @@ import io.vertx.core.WorkerExecutor;
 /**
  * @author Thomas Segismont
  */
+// TODO: 2018/8/1 by zmyer
 public interface WorkerExecutorInternal extends WorkerExecutor, Closeable {
   Vertx vertx();
 

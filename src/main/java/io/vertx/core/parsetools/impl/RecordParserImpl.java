@@ -23,6 +23,7 @@ import java.util.Objects;
  * @author <a href="http://tfox.org">Tim Fox</a>
  * @author <a href="mailto:larsdtimm@gmail.com">Lars Timm</a>
  */
+// TODO: 2018/8/1 by zmyer
 public class RecordParserImpl implements RecordParser {
 
   private Buffer buff;
@@ -145,6 +146,7 @@ public class RecordParserImpl implements RecordParser {
    *
    * @param size  the new record size
    */
+  // TODO: 2018/8/1 by zmyer
   public void fixedSizeMode(int size) {
     Arguments.require(size > 0, "Size must be > 0");
     delimited = false;

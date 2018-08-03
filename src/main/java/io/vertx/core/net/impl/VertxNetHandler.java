@@ -11,22 +11,20 @@
 
 package io.vertx.core.net.impl;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 
-import java.util.Map;
 import java.util.function.Function;
 
 /**
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
+// TODO: 2018/8/1 by zmyer
 public abstract class VertxNetHandler extends VertxHandler<NetSocketImpl> {
 
   private final Function<ChannelHandlerContext, NetSocketImpl> connectionFactory;
 
-  public VertxNetHandler(Function<ChannelHandlerContext, NetSocketImpl> connectionFactory) {
+  public VertxNetHandler(final Function<ChannelHandlerContext, NetSocketImpl> connectionFactory) {
     this.connectionFactory = connectionFactory;
   }
 
@@ -39,6 +37,7 @@ public abstract class VertxNetHandler extends VertxHandler<NetSocketImpl> {
     setConnection(connectionFactory.apply(ctx));
   }
 
+  // TODO: 2018/8/2 by zmyer
   @Override
   protected Object decode(Object msg, ByteBufAllocator allocator) throws Exception {
     return msg;
