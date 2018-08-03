@@ -188,11 +188,11 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
               if (sslHelper.isSSL()) {
                 io.netty.util.concurrent.Future<Channel> handshakeFuture;
                 if (options.isSni()) {
-                  VertxSniHandler sniHandler = new VertxSniHandler(sslHelper, vertx);
+                  final VertxSniHandler sniHandler = new VertxSniHandler(sslHelper, vertx);
                   handshakeFuture = sniHandler.handshakeFuture();
                   ch.pipeline().addFirst("ssl", sniHandler);
                 } else {
-                  SslHandler sslHandler = new SslHandler(sslHelper.createEngine(vertx));
+                  final SslHandler sslHandler = new SslHandler(sslHelper.createEngine(vertx));
                   handshakeFuture = sslHandler.handshakeFuture();
                   ch.pipeline().addFirst("ssl", sslHandler);
                 }
@@ -226,7 +226,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
           bindFuture = AsyncResolveConnectHelper.doBind(vertx, socketAddress, bootstrap);
           bindFuture.addListener(res -> {
             if (res.succeeded()) {
-              Channel ch = res.result();
+              final Channel ch = res.result();
               log.trace("Net server listening on " + (hostOrPath) + ":" + ch.localAddress());
               // Update port to actual port - wildcard port 0 might have been used
               if (NetServerImpl.this.actualPort != -1) {
@@ -297,6 +297,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     close(null);
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   public NetServer listen(int port, String host) {
     return listen(port, host, null);
@@ -328,6 +329,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return this;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   public NetServer listen() {
     listen((Handler<AsyncResult<NetServer>>) null);
@@ -417,14 +419,15 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return metrics;
   }
 
-  private void actualClose(ContextInternal closeContext, Handler<AsyncResult<Void>> done) {
+  // TODO: 2018/8/3 by zmyer
+  private void actualClose(final ContextInternal closeContext, final Handler<AsyncResult<Void>> done) {
     if (id != null) {
       vertx.sharedNetServers().remove(id);
     }
 
-    ContextInternal currCon = vertx.getContext();
+    final ContextInternal currCon = vertx.getContext();
 
-    for (NetSocketImpl sock : socketMap.values()) {
+    for (final NetSocketImpl sock : socketMap.values()) {
       sock.close();
     }
 
@@ -433,7 +436,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
       throw new IllegalStateException("Context was changed");
     }
 
-    ChannelGroupFuture fut = serverChannelGroup.close();
+    final ChannelGroupFuture fut = serverChannelGroup.close();
     fut.addListener(cg -> {
       if (metrics != null) {
         metrics.close();
@@ -467,7 +470,9 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     });
   }
 
-  private void executeCloseDone(ContextInternal closeContext, Handler<AsyncResult<Void>> done, Exception e) {
+  // TODO: 2018/8/3 by zmyer
+  private void executeCloseDone(final ContextInternal closeContext, final Handler<AsyncResult<Void>> done, Exception
+    e) {
     if (done != null) {
       final Future<Void> fut = e == null ? Future.succeededFuture() : Future.failedFuture(e);
       closeContext.runOnContext(v -> done.handle(fut));
@@ -484,6 +489,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     vertx.transport().configure(options, bootstrap);
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   protected void finalize() throws Throwable {
     // Make sure this gets cleaned up if there are no more references to it
@@ -493,10 +499,12 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     super.finalize();
   }
 
-  /*Needs to be protected using the NetServerImpl monitor as that protects the listening variable
-          In practice synchronized overhead should be close to zero assuming most access is from the same thread due
-          to biased locks
-        */
+  /**
+   * Needs to be protected using the NetServerImpl monitor as that protects the listening variable
+   In practice synchronized overhead should be close to zero assuming most access is from the same thread due
+   to biased locks
+   */
+  // TODO: 2018/8/3 by zmyer
   private class NetSocketStream implements ReadStream<NetSocket> {
 
     @Override

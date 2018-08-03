@@ -76,6 +76,7 @@ public abstract class VertxHandler<C extends ConnectionBase> extends ChannelDupl
     return this;
   }
 
+  // TODO: 2018/8/3 by zmyer
   public C getConnection() {
     return conn;
   }

@@ -34,6 +34,7 @@ public class AsyncResolveConnectHelper {
   private ChannelFuture future;
   private AsyncResult<Channel> result;
 
+  // TODO: 2018/8/3 by zmyer
   public synchronized void addListener(Handler<AsyncResult<Channel>> handler) {
     if (result != null) {
       if (future != null) {

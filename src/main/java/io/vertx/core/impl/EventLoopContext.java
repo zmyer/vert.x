@@ -54,6 +54,7 @@ public class EventLoopContext extends ContextImpl {
     return false;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   protected void checkCorrectThread() {
     Thread current = Thread.currentThread();

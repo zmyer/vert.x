@@ -22,6 +22,7 @@ import io.vertx.core.net.impl.SocketAddressImpl;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/8/3 by zmyer
 @VertxGen
 public interface SocketAddress {
 

@@ -165,6 +165,7 @@ public class Transport {
    * @return the type for server channel
    * @param domain whether to create a server unix domain channel or a regular server socket channel
    */
+  // TODO: 2018/8/3 by zmyer
   public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {
     if (domain) {
       throw new IllegalArgumentException();

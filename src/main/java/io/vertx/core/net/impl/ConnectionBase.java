@@ -88,6 +88,7 @@ public abstract class ConnectionBase {
    * @param obj the object to encode
    * @return the encoded message
    */
+  // TODO: 2018/8/3 by zmyer
   protected Object encode(Object obj) {
     return obj;
   }
@@ -111,6 +112,7 @@ public abstract class ConnectionBase {
     }
   }
 
+  // TODO: 2018/8/3 by zmyer
   private void write(Object msg, ChannelPromise promise) {
     msg = encode(msg);
     if (read || writeInProgress > 0) {
@@ -122,6 +124,7 @@ public abstract class ConnectionBase {
     }
   }
 
+  // TODO: 2018/8/3 by zmyer
   public synchronized void writeToChannel(Object msg, ChannelPromise promise) {
     // Make sure we serialize all the messages as this method can be called from various threads:
     // two "sequential" calls to writeToChannel (we can say that as it is synchronized) should preserve
@@ -134,6 +137,7 @@ public abstract class ConnectionBase {
     }
   }
 
+  // TODO: 2018/8/3 by zmyer
   private void queueForWrite(Object msg, ChannelPromise promise) {
     writeInProgress++;
     context.runOnContext(v -> {
@@ -144,6 +148,7 @@ public abstract class ConnectionBase {
     });
   }
 
+  // TODO: 2018/8/3 by zmyer
   public void writeToChannel(Object obj) {
     writeToChannel(obj, voidPromise);
   }
@@ -185,7 +190,7 @@ public abstract class ConnectionBase {
   }
 
   public void doSetWriteQueueMaxSize(int size) {
-    ChannelConfig config = chctx.channel().config();
+    final ChannelConfig config = chctx.channel().config();
     config.setWriteBufferWaterMark(new WriteBufferWaterMark(size / 2, size));
   }
 
@@ -271,6 +276,7 @@ public abstract class ConnectionBase {
     return !isSSL();
   }
 
+  // TODO: 2018/8/3 by zmyer
   public void reportBytesRead(long numberOfBytes) {
     NetworkMetrics metrics = metrics();
     if (metrics != null) {
@@ -347,7 +353,7 @@ public abstract class ConnectionBase {
   }
 
   public String remoteName() {
-    InetSocketAddress addr = (InetSocketAddress) chctx.channel().remoteAddress();
+    final InetSocketAddress addr = (InetSocketAddress) chctx.channel().remoteAddress();
     if (addr == null) {
       return null;
     }
@@ -356,7 +362,7 @@ public abstract class ConnectionBase {
   }
 
   public SocketAddress remoteAddress() {
-    InetSocketAddress addr = (InetSocketAddress) chctx.channel().remoteAddress();
+    final InetSocketAddress addr = (InetSocketAddress) chctx.channel().remoteAddress();
     if (addr == null) {
       return null;
     }
@@ -364,7 +370,7 @@ public abstract class ConnectionBase {
   }
 
   public SocketAddress localAddress() {
-    InetSocketAddress addr = (InetSocketAddress) chctx.channel().localAddress();
+    final InetSocketAddress addr = (InetSocketAddress) chctx.channel().localAddress();
     if (addr == null) {
       return null;
     }

@@ -42,7 +42,7 @@ public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implem
     if (workers.isEmpty()) {
       throw new IllegalStateException();
     } else {
-      EventLoop worker = workers.get(pos).worker;
+      final EventLoop worker = workers.get(pos).worker;
       pos++;
       checkPos();
       return worker;
@@ -85,7 +85,7 @@ public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implem
   }
 
   public synchronized void addWorker(EventLoop worker) {
-    EventLoopHolder holder = findHolder(worker);
+    final EventLoopHolder holder = findHolder(worker);
     if (holder == null) {
       workers.add(new EventLoopHolder(worker));
     } else {
@@ -113,8 +113,8 @@ public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implem
   }
 
   private EventLoopHolder findHolder(EventLoop worker) {
-    EventLoopHolder wh = new EventLoopHolder(worker);
-    for (EventLoopHolder holder : workers) {
+    final EventLoopHolder wh = new EventLoopHolder(worker);
+    for (final EventLoopHolder holder : workers) {
       if (holder.equals(wh)) {
         return holder;
       }
@@ -124,7 +124,7 @@ public final class VertxEventLoopGroup extends AbstractEventExecutorGroup implem
 
   public synchronized void removeWorker(EventLoop worker) {
     //TODO can be optimised
-    EventLoopHolder holder = findHolder(worker);
+    final EventLoopHolder holder = findHolder(worker);
     if (holder != null) {
       holder.count--;
       if (holder.count == 0) {

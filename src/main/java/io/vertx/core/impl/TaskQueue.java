@@ -57,6 +57,7 @@ public class TaskQueue {
     runner = this::run;
   }
 
+  // TODO: 2018/8/3 by zmyer
   private void run() {
     for (; ; ) {
       final Task task;
@@ -88,6 +89,7 @@ public class TaskQueue {
    *
    * @param task the task to run.
    */
+  // TODO: 2018/8/3 by zmyer
   public void execute(Runnable task, Executor executor) {
     synchronized (tasks) {
       tasks.add(new Task(task, executor));

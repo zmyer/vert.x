@@ -83,6 +83,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     this(vertx, channel, null, context, helper, metrics);
   }
 
+  // TODO: 2018/8/3 by zmyer
   public NetSocketImpl(VertxInternal vertx, ChannelHandlerContext channel, SocketAddress remoteAddress,
     ContextInternal context,
     SSLHelper helper, TCPMetrics metrics) {
@@ -109,19 +110,21 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     return writeHandlerID;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   public NetSocketInternal writeMessage(Object message) {
     super.writeToChannel(message);
     return this;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
-  public NetSocketInternal writeMessage(Object message, Handler<AsyncResult<Void>> handler) {
-    ChannelPromise promise = chctx.newPromise();
+  public NetSocketInternal writeMessage(final Object message, final Handler<AsyncResult<Void>> handler) {
+    final ChannelPromise promise = chctx.newPromise();
     super.writeToChannel(message, promise);
     promise.addListener(new ChannelFutureListener() {
       @Override
-      public void operationComplete(ChannelFuture future) throws Exception {
+      public void operationComplete(final ChannelFuture future) throws Exception {
         if (future.isSuccess()) {
           handler.handle(Future.succeededFuture());
         } else {
@@ -132,6 +135,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     return this;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   public NetSocket write(Buffer data) {
     ByteBuf buf = data.getByteBuf();
@@ -139,12 +143,14 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     return this;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   public NetSocket write(String str) {
     write(Unpooled.copiedBuffer(str, CharsetUtil.UTF_8));
     return this;
   }
 
+  // TODO: 2018/8/3 by zmyer
   @Override
   public NetSocket write(String str, String enc) {
     if (enc == null) {
@@ -359,6 +365,7 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
     }
   }
 
+  // TODO: 2018/8/3 by zmyer
   private class DataMessageHandler implements Handler<Object> {
 
     private final ByteBufAllocator allocator;

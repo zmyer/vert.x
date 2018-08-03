@@ -95,7 +95,7 @@ abstract class ContextImpl implements ContextInternal {
   }
 
   static void setContext(ContextImpl context) {
-    Thread current = Thread.currentThread();
+    final Thread current = Thread.currentThread();
     if (current instanceof VertxThread) {
       setContext((VertxThread) current, context);
     } else {
@@ -168,9 +168,9 @@ abstract class ContextImpl implements ContextInternal {
 
   // TODO: 2018/8/1 by zmyer
   static boolean isOnVertxThread(boolean worker) {
-    Thread t = Thread.currentThread();
+    final Thread t = Thread.currentThread();
     if (t instanceof VertxThread) {
-      VertxThread vt = (VertxThread) t;
+      final VertxThread vt = (VertxThread) t;
       return vt.isWorker() == worker;
     }
     return false;
@@ -221,10 +221,11 @@ abstract class ContextImpl implements ContextInternal {
   @Override
   public List<String> processArgs() {
     // As we are maintaining the launcher and starter class, choose the right one.
-    List<String> processArgument = VertxCommandLauncher.getProcessArguments();
+    final List<String> processArgument = VertxCommandLauncher.getProcessArguments();
     return processArgument != null ? processArgument : Starter.PROCESS_ARGS;
   }
 
+  // TODO: 2018/8/3 by zmyer
   public EventLoop nettyEventLoop() {
     return eventLoop;
   }
@@ -264,8 +265,8 @@ abstract class ContextImpl implements ContextInternal {
     Executor exec, TaskQueue queue, PoolMetrics metrics) {
     Object queueMetric = metrics != null ? metrics.submitted() : null;
     try {
-      Runnable command = () -> {
-        VertxThread current = (VertxThread) Thread.currentThread();
+      final Runnable command = () -> {
+        final VertxThread current = (VertxThread) Thread.currentThread();
         Object execMetric = null;
         if (metrics != null) {
           execMetric = metrics.begin(queueMetric);
@@ -314,13 +315,14 @@ abstract class ContextImpl implements ContextInternal {
   }
 
   // TODO: 2018/8/1 by zmyer
+  @SuppressWarnings("unchecked")
   protected <T> Runnable wrapTask(T arg, Handler<T> hTask, boolean checkThread, PoolMetrics metrics) {
-    Object metric = metrics != null ? metrics.submitted() : null;
+    final Object metric = metrics != null ? metrics.submitted() : null;
     return () -> {
       if (metrics != null) {
         metrics.begin(metric);
       }
-      boolean succeeded = executeTask(arg, hTask, checkThread);
+      final boolean succeeded = executeTask(arg, hTask, checkThread);
       if (metrics != null) {
         metrics.end(metric, succeeded);
       }
@@ -329,12 +331,12 @@ abstract class ContextImpl implements ContextInternal {
 
   // TODO: 2018/8/1 by zmyer
   protected <T> boolean executeTask(T arg, Handler<T> hTask, boolean checkThread) {
-    Thread th = Thread.currentThread();
+    final Thread th = Thread.currentThread();
     if (!(th instanceof VertxThread)) {
       throw new IllegalStateException(
         "Uh oh! Event loop context executing with wrong thread! Expected " + contextThread + " got " + th);
     }
-    VertxThread current = (VertxThread) th;
+    final VertxThread current = (VertxThread) th;
     if (THREAD_CHECKS && checkThread) {
       if (contextThread == null) {
         contextThread = current;
