@@ -83,23 +83,17 @@ public abstract class ConnectionBase {
   }
 
   /**
-   * Encode to message before writing to the channel
+   * Fail the connection, the {@code error} will be sent to the pipeline and the connection will
+   * stop processing any further message.
    *
-   * @param obj the object to encode
-   * @return the encoded message
+   * @param error the {@code Throwable} to propagate
    */
-  // TODO: 2018/8/3 by zmyer
-  protected Object encode(Object obj) {
-    return obj;
+  public void fail(Throwable error) {
+    handler().fail(error);
   }
 
-  public ChannelHandler handler() {
-    return chctx.handler();
-  }
-
-  public synchronized final void startRead() {
-    checkContext();
-    read = true;
+  public VertxHandler handler() {
+    return (VertxHandler) chctx.handler();
   }
 
   protected synchronized final void endReadAndFlush() {
@@ -114,7 +108,6 @@ public abstract class ConnectionBase {
 
   // TODO: 2018/8/3 by zmyer
   private void write(Object msg, ChannelPromise promise) {
-    msg = encode(msg);
     if (read || writeInProgress > 0) {
       needsFlush = true;
       chctx.write(msg, promise);
@@ -194,8 +187,7 @@ public abstract class ConnectionBase {
     config.setWriteBufferWaterMark(new WriteBufferWaterMark(size / 2, size));
   }
 
-  // TODO: 2018/8/1 by zmyer
-  protected void checkContext() {
+  protected final void checkContext() {
     // Sanity check
     if (context != vertx.getContext()) {
       throw new IllegalStateException("Wrong context!");
@@ -243,13 +235,17 @@ public abstract class ConnectionBase {
     }
   }
 
-  protected synchronized void handleClosed() {
-    NetworkMetrics metrics = metrics();
-    if (metrics != null && metrics instanceof TCPMetrics) {
-      ((TCPMetrics) metrics).disconnected(metric(), remoteAddress());
+  protected void handleClosed() {
+    Handler<Void> handler;
+    synchronized (this) {
+      NetworkMetrics metrics = metrics();
+      if (metrics != null && metrics instanceof TCPMetrics) {
+        ((TCPMetrics) metrics).disconnected(metric(), remoteAddress());
+      }
+      handler = closeHandler;
     }
-    if (closeHandler != null) {
-      vertx.runOnContext(closeHandler);
+    if (handler != null) {
+      handler.handle(null);
     }
   }
 
@@ -375,5 +371,15 @@ public abstract class ConnectionBase {
       return null;
     }
     return new SocketAddressImpl(addr);
+  }
+
+  final void handleRead(Object msg) {
+    synchronized (this) {
+      read = true;
+    }
+    handleMessage(msg);
+  }
+
+  public void handleMessage(Object msg) {
   }
 }

@@ -11,11 +11,7 @@
 
 package io.vertx.core.net;
 
-import io.vertx.codegen.annotations.CacheReturn;
-import io.vertx.codegen.annotations.Fluent;
-import io.vertx.codegen.annotations.GenIgnore;
-import io.vertx.codegen.annotations.Nullable;
-import io.vertx.codegen.annotations.VertxGen;
+import io.vertx.codegen.annotations.*;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
@@ -54,6 +50,9 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
 
   @Override
   NetSocket resume();
+
+  @Override
+  NetSocket fetch(long amount);
 
   @Override
   NetSocket endHandler(Handler<Void> endHandler);
@@ -236,7 +235,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    *         not SSL.
    * @see javax.net.ssl.SSLSession
    */
-  @GenIgnore
+  @SuppressWarnings("codegen-allow-any-java-type")
   SSLSession sslSession();
 
   /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,13 +11,7 @@
 
 package io.vertx.core.eventbus.impl.clustered;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Context;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.MultiMap;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
+import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.eventbus.MessageCodec;
@@ -31,16 +25,7 @@ import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.net.JksOptions;
-import io.vertx.core.net.KeyCertOptions;
-import io.vertx.core.net.NetServer;
-import io.vertx.core.net.NetServerOptions;
-import io.vertx.core.net.NetSocket;
-import io.vertx.core.net.PemKeyCertOptions;
-import io.vertx.core.net.PemTrustOptions;
-import io.vertx.core.net.PfxOptions;
-import io.vertx.core.net.TCPSSLOptions;
-import io.vertx.core.net.TrustOptions;
+import io.vertx.core.net.*;
 import io.vertx.core.net.impl.ServerID;
 import io.vertx.core.parsetools.RecordParser;
 import io.vertx.core.spi.cluster.AsyncMultiMap;
@@ -135,9 +120,9 @@ public class ClusteredEventBus extends EventBusImpl {
     // Get the HA manager, it has been constructed but it's not yet initialized
     HAManager haManager = vertx.haManager();
     setClusterViewChangedHandler(haManager);
-    clusterManager.<String, ClusterNodeInfo>getAsyncMultiMap(SUBS_MAP_NAME, ar2 -> {
-      if (ar2.succeeded()) {
-        subs = ar2.result();
+    clusterManager.<String, ClusterNodeInfo>getAsyncMultiMap(SUBS_MAP_NAME, ar1 -> {
+      if (ar1.succeeded()) {
+        subs = ar1.result();
         server = vertx.createNetServer(getServerOptions());
 
         server.connectHandler(getServerHandler());
@@ -147,26 +132,23 @@ public class ClusteredEventBus extends EventBusImpl {
             String serverHost = getClusterPublicHost(options);
             serverID = new ServerID(serverPort, serverHost);
             nodeInfo = new ClusterNodeInfo(clusterManager.getNodeID(), serverID);
-            haManager.addDataToAHAInfo(SERVER_ID_HA_KEY,
-              new JsonObject().put("host", serverID.host).put("port", serverID.port));
-            if (resultHandler != null) {
-              started = true;
-              resultHandler.handle(Future.succeededFuture());
-            }
+            vertx.executeBlocking(fut -> {
+              haManager.addDataToAHAInfo(SERVER_ID_HA_KEY, new JsonObject().put("host", serverID.host).put("port", serverID.port));
+              fut.complete();
+            }, false, ar2 -> {
+              if (ar2.succeeded()) {
+                started = true;
+                resultHandler.handle(Future.succeededFuture());
+              } else {
+                resultHandler.handle(Future.failedFuture(ar2.cause()));
+              }
+            });
           } else {
-            if (resultHandler != null) {
-              resultHandler.handle(Future.failedFuture(asyncResult.cause()));
-            } else {
-              log.error(asyncResult.cause());
-            }
+            resultHandler.handle(Future.failedFuture(asyncResult.cause()));
           }
         });
       } else {
-        if (resultHandler != null) {
-          resultHandler.handle(Future.failedFuture(ar2.cause()));
-        } else {
-          log.error(ar2.cause());
-        }
+        resultHandler.handle(Future.failedFuture(ar1.cause()));
       }
     });
   }
@@ -230,35 +212,40 @@ public class ClusteredEventBus extends EventBusImpl {
   }
 
   @Override
-  protected <T> void sendReply(SendContextImpl<T> sendContext, MessageImpl replierMessage) {
+  protected <T> void sendReply(OutboundDeliveryContext<T> sendContext, MessageImpl replierMessage) {
     clusteredSendReply(((ClusteredMessage) replierMessage).getSender(), sendContext);
   }
 
   @Override
-  protected <T> void sendOrPub(SendContextImpl<T> sendContext) {
-    String address = sendContext.message.address();
-    Handler<AsyncResult<ChoosableIterable<ClusterNodeInfo>>> resultHandler = asyncResult -> {
-      if (asyncResult.succeeded()) {
-        ChoosableIterable<ClusterNodeInfo> serverIDs = asyncResult.result();
-        if (serverIDs != null && !serverIDs.isEmpty()) {
-          sendToSubs(serverIDs, sendContext);
-        } else {
-          if (metrics != null) {
-            metrics.messageSent(address, !sendContext.message.isSend(), true, false);
-          }
-          deliverMessageLocally(sendContext);
-        }
-      } else {
-        log.error("Failed to send message", asyncResult.cause());
+  protected <T> void sendOrPub(OutboundDeliveryContext<T> sendContext) {
+    if (sendContext.options.isLocalOnly()) {
+      if (metrics != null) {
+        metrics.messageSent(sendContext.message.address(), !sendContext.message.isSend(), true, false);
       }
-    };
-    if (Vertx.currentContext() == null) {
+      deliverMessageLocally(sendContext);
+    } else if (Vertx.currentContext() == null) {
       // Guarantees the order when there is no current context
       sendNoContext.runOnContext(v -> {
-        subs.get(address, resultHandler);
+        subs.get(sendContext.message.address(), ar -> onSubsReceived(ar, sendContext));
       });
     } else {
-      subs.get(address, resultHandler);
+      subs.get(sendContext.message.address(), ar -> onSubsReceived(ar, sendContext));
+    }
+  }
+
+  private <T> void onSubsReceived(AsyncResult<ChoosableIterable<ClusterNodeInfo>> asyncResult, OutboundDeliveryContext<T> sendContext) {
+    if (asyncResult.succeeded()) {
+      ChoosableIterable<ClusterNodeInfo> serverIDs = asyncResult.result();
+      if (serverIDs != null && !serverIDs.isEmpty()) {
+        sendToSubs(serverIDs, sendContext);
+      } else {
+        if (metrics != null) {
+          metrics.messageSent(sendContext.message.address(), !sendContext.message.isSend(), true, false);
+        }
+        deliverMessageLocally(sendContext);
+      }
+    } else {
+      log.error("Failed to send message", asyncResult.cause());
     }
   }
 
@@ -346,7 +333,7 @@ public class ClusteredEventBus extends EventBusImpl {
     };
   }
 
-  private <T> void sendToSubs(ChoosableIterable<ClusterNodeInfo> subs, SendContextImpl<T> sendContext) {
+  private <T> void sendToSubs(ChoosableIterable<ClusterNodeInfo> subs, OutboundDeliveryContext<T> sendContext) {
     String address = sendContext.message.address();
     if (sendContext.message.isSend()) {
       // Choose one
@@ -384,7 +371,7 @@ public class ClusteredEventBus extends EventBusImpl {
     }
   }
 
-  private <T> void clusteredSendReply(ServerID replyDest, SendContextImpl<T> sendContext) {
+  private <T> void clusteredSendReply(ServerID replyDest, OutboundDeliveryContext<T> sendContext) {
     MessageImpl message = sendContext.message;
     String address = message.address();
     if (!replyDest.equals(serverID)) {

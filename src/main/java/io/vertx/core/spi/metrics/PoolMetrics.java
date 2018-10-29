@@ -27,7 +27,9 @@ public interface PoolMetrics<T> extends Metrics {
    *
    * @return the timer measuring the task queuing
    */
-  T submitted();
+  default T submitted() {
+    return null;
+  }
 
   /**
    * The submitted task start to use the resource.
@@ -35,14 +37,17 @@ public interface PoolMetrics<T> extends Metrics {
    * @param t the timer measuring the task queuing returned by {@link #submitted()}
    * @return the timer measuring the task execution
    */
-  T begin(T t);
+  default T begin(T t) {
+    return null;
+  }
 
   /**
    * The task has been rejected. The underlying resource has probably be shutdown.
    *
    * @param t the timer measuring the task queuing returned by {@link #submitted()}
    */
-  void rejected(T t);
+  default void rejected(T t) {
+  }
 
   /**
    * The submitted tasks has completed its execution and release the resource.
@@ -50,6 +55,6 @@ public interface PoolMetrics<T> extends Metrics {
    * @param succeeded whether or not the task has gracefully completed
    * @param t the timer measuring the task execution returned by {@link #begin}
    */
-  void end(T t, boolean succeeded);
-
+  default void end(T t, boolean succeeded) {
+  }
 }

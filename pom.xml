@@ -44,7 +44,7 @@
   </scm>
 
   <properties>
-    <tcnative.version>2.0.7.Final</tcnative.version>
+    <tcnative.version>2.0.12.Final</tcnative.version>
     <log4j.version>1.2.17</log4j.version>
     <slf4j.version>1.7.21</slf4j.version>
     <log4j2.version>2.8.2</log4j2.version>
@@ -234,6 +234,7 @@
               <vertx.handle100Continue>true</vertx.handle100Continue>
               <vertx.useNativeTransport>${vertx.testNativeTransport}</vertx.useNativeTransport>
               <vertx.useDomainSockets>${vertx.testDomainSockets}</vertx.useDomainSockets>
+              <vertx.threadChecks>true</vertx.threadChecks>
             </systemPropertyVariables>
             <!-- Needs to be small enough to run in a EC2 1.7GB small instance -->
             <!-- IMPORTANT: when modifying this line, don't forge to modify the same line in the`coverage` profile -->
@@ -241,7 +242,7 @@
             <forkCount>1</forkCount>
             <reuseForks>true</reuseForks>
             <excludes>
-              <exclude>io/vertx/test/it/**</exclude>
+              <exclude>io/vertx/it/**</exclude>
             </excludes>
           </configuration>
         </plugin>
@@ -365,7 +366,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/SSLEngineTest.java</include>
+                <include>io/vertx/it/SSLEngineTest.java</include>
               </includes>
               <systemProperties>
                 <vertx-test-alpn-jdk>false</vertx-test-alpn-jdk>
@@ -384,7 +385,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/SSLEngineTest.java</include>
+                <include>io/vertx/it/SSLEngineTest.java</include>
               </includes>
               <systemProperties>
                 <vertx-test-alpn-jdk>false</vertx-test-alpn-jdk>
@@ -402,7 +403,7 @@
             <configuration>
               <argLine>${jetty.alpnAgent.argLine}</argLine>
               <includes>
-                <include>io/vertx/test/it/SSLEngineTest.java</include>
+                <include>io/vertx/it/SSLEngineTest.java</include>
               </includes>
               <systemProperties>
                 <vertx-test-alpn-jdk>true</vertx-test-alpn-jdk>
@@ -423,7 +424,7 @@
             <configuration>
               <argLine>${jetty.alpnAgent.argLine}</argLine>
               <includes>
-                <include>io/vertx/test/it/SSLEngineTest.java</include>
+                <include>io/vertx/it/SSLEngineTest.java</include>
               </includes>
               <systemProperties>
                 <vertx-test-alpn-jdk>true</vertx-test-alpn-jdk>
@@ -440,7 +441,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/TransportTest.java</include>
+                <include>io/vertx/it/TransportTest.java</include>
               </includes>
               <classpathDependencyExcludes>
                 <classpathDependencyExclude>io.netty:netty-transport-native-epoll</classpathDependencyExclude>
@@ -456,7 +457,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/SLF4JLogDelegateTest.java</include>
+                <include>io/vertx/it/SLF4JLogDelegateTest.java</include>
               </includes>
             </configuration>
           </execution>
@@ -468,7 +469,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/JULLogDelegateTest.java</include>
+                <include>io/vertx/it/JULLogDelegateTest.java</include>
               </includes>
             </configuration>
           </execution>
@@ -480,7 +481,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/Log4J2LogDelegateTest.java</include>
+                <include>io/vertx/it/Log4J2LogDelegateTest.java</include>
               </includes>
             </configuration>
           </execution>
@@ -496,7 +497,7 @@
             <phase>integration-test</phase>
             <configuration>
               <includes>
-                <include>io/vertx/test/it/NettyCompatTest.java</include>
+                <include>io/vertx/it/NettyCompatTest.java</include>
               </includes>
               <classpathDependencyExcludes>
                 <classpathDependencyExclude>io.netty:netty-common</classpathDependencyExclude>

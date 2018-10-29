@@ -38,10 +38,13 @@ public class EventLoopContext extends ContextImpl {
     super(vertx, eventLoop, internalBlockingPool, workerPool, deploymentID, config, tccl);
   }
 
-  // TODO: 2018/8/1 by zmyer
-  public void executeAsync(Handler<Void> task) {
-    // No metrics, we are on the event loop.
-    nettyEventLoop().execute(() -> executeTask(null, task, true));
+  void executeAsync(Handler<Void> task) {
+    nettyEventLoop().execute(() -> executeTask(null, task));
+  }
+
+  @Override
+  <T> void execute(T value, Handler<T> task) {
+    executeTask(value, task);
   }
 
   @Override
@@ -52,18 +55,6 @@ public class EventLoopContext extends ContextImpl {
   @Override
   public boolean isMultiThreadedWorkerContext() {
     return false;
-  }
-
-  // TODO: 2018/8/3 by zmyer
-  @Override
-  protected void checkCorrectThread() {
-    Thread current = Thread.currentThread();
-    if (!(current instanceof VertxThread)) {
-      throw new IllegalStateException("Expected to be on Vert.x thread, but actually on: " + current);
-    } else if (contextThread != null && current != contextThread) {
-      throw new IllegalStateException(
-        "Event delivered on unexpected thread " + current + " expected: " + contextThread);
-    }
   }
 
 }

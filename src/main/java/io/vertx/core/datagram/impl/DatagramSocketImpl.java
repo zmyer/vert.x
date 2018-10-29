@@ -11,6 +11,7 @@
 
 package io.vertx.core.datagram.impl;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOption;
@@ -31,6 +32,7 @@ import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.core.net.impl.ConnectionBase;
 import io.vertx.core.net.impl.SocketAddressImpl;
+import io.vertx.core.net.impl.VertxHandler;
 import io.vertx.core.net.impl.transport.Transport;
 import io.vertx.core.spi.metrics.*;
 import io.vertx.core.streams.WriteStream;
@@ -59,6 +61,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   private Handler<io.vertx.core.datagram.DatagramPacket> packetHandler;
   private Handler<Void> endHandler;
   private Handler<Throwable> exceptionHandler;
+  private long demand;
 
   private DatagramSocketImpl(VertxInternal vertx, DatagramSocketOptions options) {
     Transport transport = vertx.transport();
@@ -79,10 +82,11 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     this.metrics = metrics != null ? metrics.createDatagramSocketMetrics(options) : null;
     this.channel = channel;
     this.context = context;
+    this.demand = Long.MAX_VALUE;
   }
 
   private void init() {
-    channel.pipeline().addLast("handler", new DatagramServerHandler(this));
+    channel.pipeline().addLast("handler", VertxHandler.create(context, this::createConnection));
   }
 
   @Override
@@ -216,14 +220,37 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @SuppressWarnings("unchecked")
-  public DatagramSocket pause() {
-    channel.config().setAutoRead(false);
+  public synchronized DatagramSocket pause() {
+    if (demand > 0L) {
+      demand = 0L;
+      channel.config().setAutoRead(false);
+    }
     return this;
   }
 
   @SuppressWarnings("unchecked")
-  public DatagramSocket resume() {
-    channel.config().setAutoRead(true);
+  public synchronized DatagramSocket resume() {
+    if (demand == 0L) {
+      demand = Long.MAX_VALUE;
+      channel.config().setAutoRead(true);
+    }
+    return this;
+  }
+
+  @Override
+  public synchronized DatagramSocket fetch(long amount) {
+    if (amount < 0L) {
+      throw new IllegalArgumentException("Illegal fetch " + amount);
+    }
+    if (amount > 0L) {
+      if (demand == 0L) {
+        channel.config().setAutoRead(true);
+      }
+      demand += amount;
+      if (demand < 0L) {
+        demand = Long.MAX_VALUE;
+      }
+    }
     return this;
   }
 
@@ -317,7 +344,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     super.finalize();
   }
 
-  Connection createConnection(ChannelHandlerContext chctx) {
+  private Connection createConnection(ChannelHandlerContext chctx) {
     return new Connection(context.owner(), chctx, context);
   }
 
@@ -365,14 +392,34 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
       }
     }
 
+    public void handleMessage(Object msg) {
+      if (msg instanceof DatagramPacket) {
+        DatagramPacket packet = (DatagramPacket) msg;
+        ByteBuf content = packet.content();
+        if (content.isDirect())  {
+          content = VertxHandler.safeBuffer(content, chctx.alloc());
+        }
+        handlePacket(new DatagramPacketImpl(packet.sender(), Buffer.buffer(content)));
+      }
+    }
+
     void handlePacket(io.vertx.core.datagram.DatagramPacket packet) {
+      Handler<io.vertx.core.datagram.DatagramPacket> handler;
       synchronized (DatagramSocketImpl.this) {
         if (metrics != null) {
           metrics.bytesRead(null, packet.sender(), packet.data().length());
         }
-        if (packetHandler != null) {
-          packetHandler.handle(packet);
+        if (demand > 0L) {
+          if (demand != Long.MAX_VALUE) {
+            demand--;
+          }
+          handler = packetHandler;
+        } else {
+          handler = null;
         }
+      }
+      if (handler != null) {
+        handler.handle(packet);
       }
     }
   }

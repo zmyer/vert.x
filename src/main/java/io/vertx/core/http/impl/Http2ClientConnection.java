@@ -219,12 +219,14 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
 
     @Override
     void handleReset(long errorCode) {
-      if (responseEnded) {
-        return;
-      }
-      responseEnded = true;
-      if (conn.metrics != null) {
-        conn.metrics.requestReset(request.metric());
+      synchronized (conn) {
+        if (responseEnded) {
+          return;
+        }
+        responseEnded = true;
+        if (conn.metrics != null) {
+          conn.metrics.requestReset(request.metric());
+        }
       }
       handleException(new StreamResetException(errorCode));
     }
@@ -294,15 +296,17 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
     }
 
     void handleException(Throwable exception) {
-      if (request != null && (!requestEnded || response == null)) {
-        context.executeFromIO(v -> {
-          request.handleException(exception);
-        });
+      HttpClientRequestBase req;
+      HttpClientResponseImpl resp;
+      synchronized (conn) {
+        req = (!requestEnded || response == null) ? request : null;
+        resp = response;
       }
-      if (response != null) {
-        context.executeFromIO(v -> {
-          response.handleException(exception);
-        });
+      if (req != null) {
+        req.handleException(exception);
+      }
+      if (resp != null) {
+        resp.handleException(exception);
       }
     }
 
@@ -432,6 +436,7 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
     Object queueMetric,
     ConnectionListener<HttpClientConnection> listener,
     ContextInternal context,
+    Object socketMetric,
     BiConsumer<Http2ClientConnection, Long> c) {
     long http2MaxConcurrency = client.getOptions().getHttp2MultiplexingLimit() <= 0 ? Long.MAX_VALUE : client.getOptions().getHttp2MultiplexingLimit();
     HttpClientOptions options = client.getOptions();
@@ -448,8 +453,12 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
         conn.setWindowSize(options.getHttp2ConnectionWindowSize());
       }
       if (metrics != null) {
-        Object metric = metrics.connected(conn.remoteAddress(), conn.remoteName());
-        conn.metric(metric);
+        Object m = socketMetric;
+        if (m == null)  {
+          m = metrics.connected(conn.remoteAddress(), conn.remoteName());
+          metrics.endpointConnected(queueMetric, m);
+        } 
+        conn.metric(m);
       }
       long concurrency = conn.remoteSettings().getMaxConcurrentStreams();
       if (http2MaxConcurrency > 0) {

@@ -11,12 +11,7 @@
 
 package io.vertx.core.http;
 
-import io.vertx.codegen.annotations.CacheReturn;
-import io.vertx.codegen.annotations.Fluent;
-import io.vertx.codegen.annotations.GenIgnore;
-import io.vertx.codegen.annotations.Nullable;
-import io.vertx.codegen.annotations.VertxGen;
-import io.vertx.core.AsyncResult;
+import io.vertx.codegen.annotations.*;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.net.SocketAddress;
@@ -49,6 +44,9 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
 
   @Override
   WebSocketBase resume();
+
+  @Override
+  WebSocketBase fetch(long amount);
 
   @Override
   WebSocketBase endHandler(Handler<Void> endHandler);
@@ -174,6 +172,8 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
 
   /**
    * Set a close handler. This will be called when the WebSocket is closed.
+   * <p/>
+   * After this callback, no more messages are expected.
    *
    * @param handler  the handler
    * @return a reference to this, so the API can be used fluently
@@ -235,13 +235,17 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
   void end();
 
   /**
-   * Close the WebSocket.
+   * Close the WebSocket sending the default close frame.
+   * <p/>
+   * No more messages can be sent.
    */
   void close();
 
   /*
-   * Close sending a close frame with specified status code. You can give a look at various close payloads
+   * Close the WebSocket sending a close frame with specified status code. You can give a look at various close payloads
    * here: <a href="https://tools.ietf.org/html/rfc6455#section-7.4.1">RFC6455 Section 7.4.1</a>
+   * <p/>
+   * No more messages can be sent.
    *
    * @param statusCode Status code
    */
@@ -250,6 +254,8 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
   /*
    * Close sending a close frame with specified status code and reason. You can give a look at various close payloads
    * here: <a href="https://tools.ietf.org/html/rfc6455#section-7.4.1">RFC6455 Section 7.4.1</a>
+   * <p/>
+   * No more messages can be sent.
    *
    * @param statusCode Status code
    * @param reason reason of closure
@@ -278,7 +284,7 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
    *         not SSL.
    * @see javax.net.ssl.SSLSession
    */
-  @GenIgnore
+  @SuppressWarnings("codegen-allow-any-java-type")
   SSLSession sslSession();
 
   /**

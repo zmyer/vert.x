@@ -29,7 +29,9 @@ import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.impl.ConnectionBase;
+import io.vertx.core.spi.metrics.Metrics;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -50,6 +52,7 @@ import java.io.RandomAccessFile;
  */
 public class HttpServerResponseImpl implements HttpServerResponse {
 
+  private static final Buffer EMPTY_BUFFER = Buffer.buffer(Unpooled.EMPTY_BUFFER);
   private static final Logger log = LoggerFactory.getLogger(HttpServerResponseImpl.class);
 
   private final VertxInternal vertx;
@@ -58,6 +61,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   private final HttpVersion version;
   private final boolean keepAlive;
   private final boolean head;
+  private final Object requestMetric;
 
   private boolean headWritten;
   private boolean written;
@@ -67,20 +71,21 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   private Handler<Void> endHandler;
   private Handler<Void> headersEndHandler;
   private Handler<Void> bodyEndHandler;
-  private boolean chunked;
   private boolean closed;
   private final VertxHttpHeaders headers;
   private MultiMap trailers;
   private io.netty.handler.codec.http.HttpHeaders trailingHeaders = EmptyHttpHeaders.INSTANCE;
   private String statusMessage;
   private long bytesWritten;
+  private NetSocket netSocket;
 
-  HttpServerResponseImpl(final VertxInternal vertx, Http1xServerConnection conn, DefaultHttpRequest request) {
+  HttpServerResponseImpl(final VertxInternal vertx, Http1xServerConnection conn, DefaultHttpRequest request, Object requestMetric) {
     this.vertx = vertx;
     this.conn = conn;
     this.version = request.protocolVersion();
     this.headers = new VertxHttpHeaders();
     this.status = HttpResponseStatus.OK;
+    this.requestMetric = requestMetric;
     this.keepAlive = (version == HttpVersion.HTTP_1_1 && !request.headers().contains(io.vertx.core.http.HttpHeaders.CONNECTION, HttpHeaders.CLOSE, true))
       || (version == HttpVersion.HTTP_1_0 && request.headers().contains(io.vertx.core.http.HttpHeaders.CONNECTION, HttpHeaders.KEEP_ALIVE, true));
     this.head = request.method() == io.netty.handler.codec.http.HttpMethod.HEAD;
@@ -132,7 +137,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
       checkValid();
       // HTTP 1.0 does not support chunking so we ignore this if HTTP 1.0
       if (version != HttpVersion.HTTP_1_0) {
-        this.chunked = chunked;
+        headers.set(HttpHeaders.TRANSFER_ENCODING, chunked ? "chunked" : null);
       }
       return this;
     }
@@ -141,7 +146,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   @Override
   public boolean isChunked() {
     synchronized (conn) {
-      return chunked;
+      return HttpHeaders.CHUNKED.equals(headers.get(HttpHeaders.TRANSFER_ENCODING));
     }
   }
 
@@ -314,7 +319,30 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   @Override
   public void end(Buffer chunk) {
     synchronized (conn) {
-      end0(chunk.getByteBuf());
+      checkValid();
+      ByteBuf data = chunk.getByteBuf();
+      bytesWritten += data.readableBytes();
+      if (!headWritten) {
+        // if the head was not written yet we can write out everything in one go
+        // which is cheaper.
+        prepareHeaders(bytesWritten);
+        conn.writeToChannel(new AssembledFullHttpResponse(head, version, status, headers, data, trailingHeaders));
+      } else {
+        conn.writeToChannel(new AssembledLastHttpContent(data, trailingHeaders));
+      }
+
+      if (!keepAlive) {
+        closeConnAfterWrite();
+        closed = true;
+      }
+      written = true;
+      conn.responseComplete();
+      if (bodyEndHandler != null) {
+        bodyEndHandler.handle(null);
+      }
+      if (endHandler != null) {
+        endHandler.handle(null);
+      }
     }
   }
 
@@ -334,9 +362,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
 
   @Override
   public void end() {
-    synchronized (conn) {
-      end0(Unpooled.EMPTY_BUFFER);
-    }
+    end(EMPTY_BUFFER);
   }
 
   @Override
@@ -395,32 +421,6 @@ public class HttpServerResponseImpl implements HttpServerResponse {
     }
   }
 
-  private void end0(ByteBuf data) {
-    checkValid();
-    bytesWritten += data.readableBytes();
-    if (!headWritten) {
-      // if the head was not written yet we can write out everything in one go
-      // which is cheaper.
-      prepareHeaders(bytesWritten);
-      conn.writeToChannel(new AssembledFullHttpResponse(head, version, status, headers, data, trailingHeaders));
-    } else {
-      conn.writeToChannel(new AssembledLastHttpContent(data, trailingHeaders));
-    }
-
-    if (!keepAlive) {
-      closeConnAfterWrite();
-      closed = true;
-    }
-    written = true;
-    conn.responseComplete();
-    if (bodyEndHandler != null) {
-      bodyEndHandler.handle(null);
-    }
-    if (endHandler != null) {
-      endHandler.handle(null);
-    }
-  }
-
   private void doSendFile(String filename, long offset, long length, Handler<AsyncResult<Void>> resultHandler) {
     synchronized (conn) {
       if (headWritten) {
@@ -441,10 +441,10 @@ public class HttpServerResponseImpl implements HttpServerResponse {
 
       long contentLength = Math.min(length, file.length() - offset);
       bytesWritten = contentLength;
-      if (!headers.contentTypeSet()) {
+      if (!headers.contains(HttpHeaders.CONTENT_TYPE)) {
         String contentType = MimeMapping.getMimeTypeForFilename(filename);
         if (contentType != null) {
-          putHeader(HttpHeaders.CONTENT_TYPE, contentType);
+          headers.set(HttpHeaders.CONTENT_TYPE, contentType);
         }
       }
       prepareHeaders(bytesWritten);
@@ -514,29 +514,40 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   }
 
   void handleException(Throwable t) {
-    synchronized (conn) {
-      if (t == Http1xServerConnection.CLOSED_EXCEPTION) {
-        handleClosed();
-      } else {
-        if (exceptionHandler != null) {
-          exceptionHandler.handle(t);
-        }
+    if (t == Http1xServerConnection.CLOSED_EXCEPTION) {
+      handleClosed();
+    } else {
+      Handler<Throwable> handler;
+      synchronized (conn) {
+        handler = exceptionHandler;
+      }
+      if (handler != null) {
+        handler.handle(t);
       }
     }
   }
 
   private void handleClosed() {
-    if (!closed) {
+    Handler<Void> closedHandler;
+    Handler<Void> endHandler;
+    Handler<Throwable> exceptionHandler;
+    synchronized (conn) {
+      if (closed) {
+        return;
+      }
       closed = true;
-      if (!written && exceptionHandler != null) {
-        conn.getContext().runOnContext(v -> exceptionHandler.handle(ConnectionBase.CLOSED_EXCEPTION));
-      }
-      if (endHandler != null) {
-        conn.getContext().runOnContext(endHandler);
-      }
-      if (closeHandler != null) {
-        conn.getContext().runOnContext(closeHandler);
-      }
+      exceptionHandler = written ? null : this.exceptionHandler;
+      endHandler = this.endHandler;
+      closedHandler = this.closeHandler;
+    }
+    if (exceptionHandler != null) {
+      exceptionHandler.handle(ConnectionBase.CLOSED_EXCEPTION);
+    }
+    if (endHandler != null) {
+      endHandler.handle(null);
+    }
+    if (closedHandler != null) {
+      closedHandler.handle(null);
     }
   }
 
@@ -555,10 +566,14 @@ public class HttpServerResponseImpl implements HttpServerResponse {
     } else if (version == HttpVersion.HTTP_1_1 && !keepAlive) {
       headers.set(HttpHeaders.CONNECTION, HttpHeaders.CLOSE);
     }
-    if (!head) {
-      if (chunked) {
-        headers.set(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED);
-      } else if (!headers.contentLengthSet() && contentLength >= 0) {
+    if (head || status == HttpResponseStatus.NOT_MODIFIED) {
+      // For HEAD request or NOT_MODIFIED response
+      // don't set automatically the content-length
+      // and remove the transfer-encoding
+      headers.remove(HttpHeaders.TRANSFER_ENCODING);
+    } else {
+      // Set content-length header automatically
+      if (!headers.contains(HttpHeaders.TRANSFER_ENCODING) && !headers.contains(HttpHeaders.CONTENT_LENGTH) && contentLength >= 0) {
         String value = contentLength == 0 ? "0" : String.valueOf(contentLength);
         headers.set(HttpHeaders.CONTENT_LENGTH, value);
       }
@@ -566,13 +581,22 @@ public class HttpServerResponseImpl implements HttpServerResponse {
     if (headersEndHandler != null) {
       headersEndHandler.handle(null);
     }
+    if (Metrics.METRICS_ENABLED) {
+      reportResponseBegin();
+    }
     headWritten = true;
+  }
+
+  private void reportResponseBegin() {
+    if (conn.metrics != null) {
+      conn.metrics.responseBegin(requestMetric, this);
+    }
   }
 
   private HttpServerResponseImpl write(ByteBuf chunk) {
     synchronized (conn) {
       checkValid();
-      if (!headWritten && !chunked && !headers.contentLengthSet()) {
+      if (!headWritten && !headers.contains(HttpHeaders.TRANSFER_ENCODING) && !headers.contains(HttpHeaders.CONTENT_LENGTH)) {
         if (version != HttpVersion.HTTP_1_0) {
           throw new IllegalStateException("You must set the Content-Length header to be the total size of the message "
             + "body BEFORE sending any data if you are not using HTTP chunked encoding.");
@@ -589,6 +613,23 @@ public class HttpServerResponseImpl implements HttpServerResponse {
 
       return this;
     }
+  }
+
+  NetSocket netSocket(boolean isConnect) {
+    checkValid();
+    if (netSocket == null) {
+      if (isConnect) {
+        if (headWritten) {
+          throw new IllegalStateException("Response for CONNECT already sent");
+        }
+        status = HttpResponseStatus.OK;
+        prepareHeaders(-1);
+        conn.writeToChannel(new AssembledHttpResponse(head, version, status, headers));
+      }
+      written = true;
+      netSocket = conn.createNetSocket();
+    }
+    return netSocket;
   }
 
   @Override

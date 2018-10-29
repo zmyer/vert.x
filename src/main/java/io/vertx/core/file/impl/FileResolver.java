@@ -12,15 +12,13 @@
 package io.vertx.core.file.impl;
 
 import io.vertx.core.VertxException;
-import io.vertx.core.VertxOptions;
+import io.vertx.core.file.FileSystemOptions;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
-import java.net.URLDecoder;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -31,6 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
+import static io.vertx.core.net.impl.URIDecoder.*;
 
 /**
  * Sometimes the file resources of an application are bundled into jars, or are somewhere on the classpath but not
@@ -51,12 +51,12 @@ public class FileResolver {
 
   public static final String DISABLE_FILE_CACHING_PROP_NAME = "vertx.disableFileCaching";
   public static final String DISABLE_CP_RESOLVING_PROP_NAME = "vertx.disableFileCPResolving";
-  public static final String CACHE_DIR_BASE_PROP_NAME = "vertx.cacheDirBase";
 
+
+  public static final String CACHE_DIR_BASE_PROP_NAME = "vertx.cacheDirBase";
   private static final String DEFAULT_CACHE_DIR_BASE = ".vertx";
   private static final String FILE_SEP = System.getProperty("file.separator");
   private static final boolean NON_UNIX_FILE_SEP = !FILE_SEP.equals("/");
-  private static final boolean ENABLE_CP_RESOLVING = !Boolean.getBoolean(DISABLE_CP_RESOLVING_PROP_NAME);
   private static final String CACHE_DIR_BASE = System.getProperty(CACHE_DIR_BASE_PROP_NAME, DEFAULT_CACHE_DIR_BASE);
   private static final String JAR_URL_SEP = "!/";
   private static final Pattern JAR_URL_SEP_PATTERN = Pattern.compile(JAR_URL_SEP);
@@ -65,21 +65,26 @@ public class FileResolver {
   private File cacheDir;
   private Thread shutdownHook;
   private final boolean enableCaching;
+  private final boolean enableCpResolving;
 
   public FileResolver() {
-    this(VertxOptions.DEFAULT_FILE_CACHING_ENABLED);
+    this(new FileSystemOptions());
   }
 
-  // TODO: 2018/8/1 by zmyer
   public FileResolver(boolean enableCaching) {
-    this.enableCaching = enableCaching;
-    final String cwdOverride = System.getProperty("vertx.cwd");
+    this(new FileSystemOptions().setFileCachingEnabled(enableCaching));
+  }
+
+  public FileResolver(FileSystemOptions fileSystemOptions) {
+    this.enableCaching = fileSystemOptions.isFileCachingEnabled();
+    this.enableCpResolving = fileSystemOptions.isClassPathResolvingEnabled();
+    String cwdOverride = System.getProperty("vertx.cwd");
     if (cwdOverride != null) {
       cwd = new File(cwdOverride).getAbsoluteFile();
     } else {
       cwd = null;
     }
-    if (ENABLE_CP_RESOLVING) {
+    if (this.enableCpResolving) {
       setupCacheDir();
     }
   }
@@ -106,7 +111,7 @@ public class FileResolver {
     if (cwd != null && !file.isAbsolute()) {
       file = new File(cwd, fileName);
     }
-    if (!ENABLE_CP_RESOLVING) {
+    if (!this.enableCpResolving) {
       return file;
     }
     // We need to synchronized here to avoid 2 different threads to copy the file to the cache directory and so
@@ -115,7 +120,7 @@ public class FileResolver {
       if (!file.exists()) {
         // Look for it in local file cache
         File cacheFile = new File(cacheDir, fileName);
-        if (enableCaching && cacheFile.exists()) {
+        if (this.enableCaching && cacheFile.exists()) {
           return cacheFile;
         }
         // Look for file on classpath
@@ -164,18 +169,13 @@ public class FileResolver {
 
 
   private synchronized File unpackFromFileURL(URL url, String fileName, ClassLoader cl) {
-    File resource;
-    try {
-      resource = new File(URLDecoder.decode(url.getPath(), "UTF-8"));
-    } catch (UnsupportedEncodingException e) {
-      throw new VertxException(e);
-    }
+    final File resource = new File(decodeURIComponent(url.getPath(), false));
     boolean isDirectory = resource.isDirectory();
     File cacheFile = new File(cacheDir, fileName);
     if (!isDirectory) {
       cacheFile.getParentFile().mkdirs();
       try {
-        if (enableCaching) {
+        if (this.enableCaching) {
           Files.copy(resource.toPath(), cacheFile.toPath());
         } else {
           Files.copy(resource.toPath(), cacheFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -209,7 +209,7 @@ public class FileResolver {
         idx2 = path.lastIndexOf(".zip!", idx1 - 1);
       }
       if (idx2 == -1) {
-        File file = new File(URLDecoder.decode(path.substring(5, idx1 + 4), "UTF-8"));
+        File file = new File(decodeURIComponent(path.substring(5, idx1 + 4), false));
         zip = new ZipFile(file);
       } else {
         String s = path.substring(idx2 + 6, idx1 + 4);
@@ -237,7 +237,7 @@ public class FileResolver {
           } else {
             file.getParentFile().mkdirs();
             try (InputStream is = zip.getInputStream(entry)) {
-              if (enableCaching) {
+              if (this.enableCaching) {
                 Files.copy(is, file.toPath());
               } else {
                 Files.copy(is, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -267,6 +267,18 @@ public class FileResolver {
   }
 
   /**
+   * It is possible to determine if a resource from a bundle is a directory based on whether or not the ClassLoader
+   * returns null for a path (which does not already contain a trailing '/') *and* that path with an added trailing '/'
+   *
+   * @param url      the url
+   * @return if the bundle resource represented by the bundle URL is a directory
+   */
+  private boolean isBundleUrlDirectory(URL url) {
+    return url.toExternalForm().endsWith("/") ||
+      getClassLoader().getResource(url.getPath().substring(1) + "/") != null;
+  }
+
+  /**
    * bundle:// urls are used by OSGi implementations to refer to a file contained in a bundle, or in a fragment. There
    * is not much we can do to get the file from it, except reading it from the url. This method copies the files by
    * reading it from the url.
@@ -278,13 +290,13 @@ public class FileResolver {
     try {
       File file = new File(cacheDir, url.getHost() + File.separator + url.getFile());
       file.getParentFile().mkdirs();
-      if (url.toExternalForm().endsWith("/") || isDir) {
+      if ((getClassLoader() != null && isBundleUrlDirectory(url))  || isDir) {
         // Directory
         file.mkdirs();
       } else {
         file.getParentFile().mkdirs();
         try (InputStream is = url.openStream()) {
-          if (enableCaching) {
+          if (this.enableCaching) {
             Files.copy(is, file.toPath());
           } else {
             Files.copy(is, file.toPath(), StandardCopyOption.REPLACE_EXISTING);

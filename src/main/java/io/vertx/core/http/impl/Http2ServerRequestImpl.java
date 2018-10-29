@@ -80,9 +80,6 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
   private Handler<Throwable> exceptionHandler;
   private Handler<HttpFrame> customFrameHandler;
 
-  private NetSocket netSocket;
-
-
   public Http2ServerRequestImpl(Http2ServerConnection conn, Http2Stream stream, HttpServerMetrics metrics,
       String serverOrigin, Http2Headers headers, String contentEncoding, boolean writable) {
     super(conn, stream, writable);
@@ -95,8 +92,10 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
       int idx = serverOrigin.indexOf("://");
       host = serverOrigin.substring(idx + 3);
     }
-    Object metric = (METRICS_ENABLED && metrics != null) ? metrics.requestBegin(conn.metric(), this) : null;
-    this.response = new Http2ServerResponseImpl(conn, this, metric, false, contentEncoding, host);
+    this.response = new Http2ServerResponseImpl(conn, this, method(), false, contentEncoding, host);
+    if (METRICS_ENABLED && metrics != null) {
+      response.metric(metrics.requestBegin(conn.metric(), this));
+    }
   }
 
   @Override
@@ -106,19 +105,25 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
 
   @Override
   void handleException(Throwable cause) {
-    if (exceptionHandler != null) {
-      exceptionHandler.handle(cause);
-      response.handleError(cause);
+    Handler<Throwable> handler;
+    synchronized (conn) {
+      handler = ended ? null : exceptionHandler;
     }
+    if (handler != null) {
+      handler.handle(cause);
+    }
+    response.handleError(cause);
   }
 
   @Override
   void handleClose() {
-    if (!ended) {
+    Handler<Throwable> handler;
+    synchronized (conn) {
+      handler = ended ? null : exceptionHandler;
       ended = true;
-      if (exceptionHandler != null) {
-        exceptionHandler.handle(new ClosedChannelException());
-      }
+    }
+    if (handler != null) {
+      handler.handle(new ClosedChannelException());
     }
     response.handleClose();
   }
@@ -177,7 +182,13 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
 
   @Override
   void handleReset(long errorCode) {
-    ended = true;
+    Handler<Throwable> exceptionHandler;
+    Handler<Void> endHandler;
+    synchronized (conn) {
+      exceptionHandler = ended ? null : this.exceptionHandler;
+      endHandler = ended ? null : this.endHandler;
+      ended = true;
+    }
     if (exceptionHandler != null) {
       exceptionHandler.handle(new StreamResetException(errorCode));
     }
@@ -214,16 +225,20 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
 
   @Override
   public HttpServerRequest pause() {
-    synchronized (conn) {
-      doPause();
-    }
+    doPause();
     return this;
   }
 
   @Override
   public HttpServerRequest resume() {
+    doResume();
+    return this;
+  }
+
+  @Override
+  public HttpServerRequest fetch(long amount) {
     synchronized (conn) {
-      doResume();
+      doFetch(amount);
     }
     return this;
   }
@@ -408,14 +423,7 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
 
   @Override
   public NetSocket netSocket() {
-    synchronized (conn) {
-      checkEnded();
-      if (netSocket == null) {
-        response.toNetSocket();
-        netSocket = conn.toNetSocket(this);
-      }
-      return netSocket;
-    }
+    return response.netSocket();
   }
 
   @Override
@@ -439,7 +447,7 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
                   method,
                   headers.path().toString());
               req.headers().add(HttpHeaderNames.CONTENT_TYPE, contentType);
-              postRequestDecoder = new HttpPostRequestDecoder(new NettyFileUploadDataFactory(vertx, this, () -> uploadHandler), req);
+              postRequestDecoder = new HttpPostRequestDecoder(new NettyFileUploadDataFactory(context, this, () -> uploadHandler), req);
             }
           }
         }
@@ -500,8 +508,8 @@ public class Http2ServerRequestImpl extends VertxHttp2Stream<Http2ServerConnecti
   public HttpServerRequest customFrameHandler(Handler<HttpFrame> handler) {
     synchronized (conn) {
       customFrameHandler = handler;
-      return this;
     }
+    return this;
   }
 
   @Override

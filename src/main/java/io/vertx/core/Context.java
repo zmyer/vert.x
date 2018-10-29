@@ -229,14 +229,14 @@ public interface Context {
   /**
    * @return the current exception handler of this context
    */
-  @Nullable
   @GenIgnore
+  @Nullable
   Handler<Throwable> exceptionHandler();
 
-  @GenIgnore
+  @SuppressWarnings("codegen-allow-any-java-type")
   void addCloseHook(Closeable hook);
 
-  @GenIgnore
+  @SuppressWarnings("codegen-allow-any-java-type")
   void removeCloseHook(Closeable hook);
 
 }

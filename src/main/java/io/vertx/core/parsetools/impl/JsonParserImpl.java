@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.util.TokenBuffer;
 import io.vertx.core.Handler;
 import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.impl.Arguments;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
@@ -37,13 +38,16 @@ import java.util.Map;
 public class JsonParserImpl implements JsonParser {
 
   private NonBlockingJsonParser parser;
-  private Handler<JsonEvent> eventHandler;
+  private JsonToken currentToken;
   private Handler<JsonToken> tokenHandler = this::handleToken;
+  private Handler<JsonEvent> eventHandler;
   private BufferingHandler arrayHandler;
   private BufferingHandler objectHandler;
   private Handler<Throwable> exceptionHandler;
   private String currentField;
   private Handler<Void> endHandler;
+  private long demand = Long.MAX_VALUE;
+  private boolean ended;
   private final ReadStream<Buffer> stream;
 
   public JsonParserImpl(ReadStream<Buffer> stream) {
@@ -58,17 +62,23 @@ public class JsonParserImpl implements JsonParser {
 
   @Override
   public JsonParser pause() {
-    if (stream != null) {
-      stream.pause();
-    }
+    demand = 0L;
     return this;
   }
 
   @Override
   public JsonParser resume() {
-    if (stream != null) {
-      stream.resume();
+    return fetch(Long.MAX_VALUE);
+  }
+
+  @Override
+  public JsonParser fetch(long amount) {
+    Arguments.require(amount > 0L, "Fetch amount must be > 0L");
+    demand += amount;
+    if (demand < 0L) {
+      demand = Long.MAX_VALUE;
     }
+    checkPending();
     return this;
   }
 
@@ -99,6 +109,13 @@ public class JsonParserImpl implements JsonParser {
     return this;
   }
 
+  private void handleEvent(JsonEvent event) {
+    Handler<JsonEvent> handler = this.eventHandler;
+    if (handler != null) {
+      handler.handle(event);
+    }
+  }
+
   private void handleToken(JsonToken token) {
     try {
       switch (token) {
@@ -108,10 +125,7 @@ public class JsonParserImpl implements JsonParser {
             tokenHandler = handler;
             handler.handle(token);
           } else {
-            Handler<JsonEvent> h = eventHandler;
-            if (h != null) {
-              h.handle(new JsonEventImpl(JsonEventType.START_OBJECT, currentField, null));
-            }
+            handleEvent(new JsonEventImpl(JsonEventType.START_OBJECT, currentField, null));
           }
           break;
         }
@@ -121,10 +135,7 @@ public class JsonParserImpl implements JsonParser {
             tokenHandler = handler;
             handler.handle(token);
           } else {
-            Handler<JsonEvent> h = eventHandler;
-            if (h != null) {
-              h.handle(new JsonEventImpl(JsonEventType.START_ARRAY, currentField, null));
-            }
+            handleEvent(new JsonEventImpl(JsonEventType.START_ARRAY, currentField, null));
           }
           break;
         }
@@ -133,60 +144,36 @@ public class JsonParserImpl implements JsonParser {
           break;
         }
         case VALUE_STRING: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, parser.getText()));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, parser.getText()));
           currentField = null;
           break;
         }
         case VALUE_TRUE: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, Boolean.TRUE));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, Boolean.TRUE));
           break;
         }
         case VALUE_FALSE: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, Boolean.FALSE));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, Boolean.FALSE));
           break;
         }
         case VALUE_NULL: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, null));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, null));
           break;
         }
         case VALUE_NUMBER_INT: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, parser.getLongValue()));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, parser.getLongValue()));
           break;
         }
         case VALUE_NUMBER_FLOAT: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, parser.getDoubleValue()));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, parser.getDoubleValue()));
           break;
         }
         case END_OBJECT: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.END_OBJECT, null, null));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.END_OBJECT, null, null));
           break;
         }
         case END_ARRAY: {
-          Handler<JsonEvent> handler = eventHandler;
-          if (handler != null) {
-            handler.handle(new JsonEventImpl(JsonEventType.END_ARRAY, null, null));
-          }
+          handleEvent(new JsonEventImpl(JsonEventType.END_ARRAY, null, null));
           break;
         }
         default:
@@ -199,35 +186,66 @@ public class JsonParserImpl implements JsonParser {
 
   @Override
   public void handle(Buffer event) {
-    handle(event.getBytes());
+    byte[] bytes = event.getBytes();
+    try {
+      parser.feedInput(bytes, 0, bytes.length);
+    } catch (IOException e) {
+      if (exceptionHandler != null) {
+        exceptionHandler.handle(e);
+        return;
+      } else {
+        throw new DecodeException(e.getMessage());
+      }
+    }
+    checkPending();
   }
 
   @Override
   public void end() {
-    handle((byte[]) null);
-  }
-
-  private void handle(byte[] bytes) {
-    if (parser == null) {
+    if (ended) {
       throw new IllegalStateException("Parsing already done");
     }
+    ended = true;
+    parser.endOfInput();
+    checkPending();
+  }
+
+  private void checkPending() {
     try {
-      if (bytes != null) {
-        parser.feedInput(bytes, 0, bytes.length);
-      } else {
-        parser.endOfInput();
-      }
       while (true) {
-        JsonToken token = parser.nextToken();
-        if (token == null || token == JsonToken.NOT_AVAILABLE) {
-          break;
+        if (currentToken == null) {
+          JsonToken next = parser.nextToken();
+          if (next != null && next != JsonToken.NOT_AVAILABLE) {
+            currentToken = next;
+          }
         }
-        tokenHandler.handle(token);
+        if (currentToken == null) {
+          if (ended) {
+            if (endHandler != null) {
+              endHandler.handle(null);
+            }
+          }
+          break;
+        } else {
+          if (demand > 0L) {
+            if (demand != Long.MAX_VALUE) {
+              demand--;
+            }
+            JsonToken token = currentToken;
+            currentToken = null;
+            tokenHandler.handle(token);
+          } else {
+            break;
+          }
+        }
       }
-      if (bytes == null) {
-        parser = null;
-        if (endHandler != null) {
-          endHandler.handle(null);
+      if (demand == 0L) {
+        if (stream != null) {
+          stream.pause();
+        }
+      } else {
+        if (stream != null) {
+          stream.resume();
         }
       }
     } catch (IOException e) {
@@ -259,9 +277,7 @@ public class JsonParserImpl implements JsonParser {
     if (objectHandler == null) {
       BufferingHandler handler = new BufferingHandler();
       handler.handler = buffer -> {
-        if (eventHandler != null) {
-          eventHandler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, new JsonObject(handler.convert(Map.class)), handler.buffer));
-        }
+        handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, new JsonObject(handler.convert(Map.class)), handler.buffer));
       };
       objectHandler = handler;
     }
@@ -282,9 +298,7 @@ public class JsonParserImpl implements JsonParser {
     if (arrayHandler == null) {
       BufferingHandler handler = new BufferingHandler();
       handler.handler = buffer -> {
-        if (eventHandler != null) {
-          eventHandler.handle(new JsonEventImpl(JsonEventType.VALUE, currentField, new JsonArray(handler.convert(List.class)), handler.buffer));
-        }
+        handleEvent(new JsonEventImpl(JsonEventType.VALUE, currentField, new JsonArray(handler.convert(List.class)), handler.buffer));
       };
       arrayHandler = handler;
     }

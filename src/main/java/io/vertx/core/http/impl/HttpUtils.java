@@ -14,15 +14,13 @@ package io.vertx.core.http.impl;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
 import io.netty.handler.codec.compression.ZlibWrapper;
-import io.netty.handler.codec.http.HttpContentCompressor;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.QueryStringDecoder;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
+import io.netty.util.CharsetUtil;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.CaseInsensitiveHeaders;
@@ -34,7 +32,10 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
+import static io.netty.handler.codec.http.HttpResponseStatus.METHOD_NOT_ALLOWED;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static io.vertx.core.http.Http2Settings.*;
 
 /**
@@ -399,6 +400,38 @@ public final class HttpUtils {
       return Unpooled.copyShort(statusCode);
   }
 
+  static void sendError(Channel ch, HttpResponseStatus status, CharSequence err) {
+    FullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, status);
+    if (status.code() == METHOD_NOT_ALLOWED.code()) {
+      // SockJS requires this
+      resp.headers().set(io.vertx.core.http.HttpHeaders.ALLOW, io.vertx.core.http.HttpHeaders.GET);
+    }
+    if (err != null) {
+      resp.content().writeBytes(err.toString().getBytes(CharsetUtil.UTF_8));
+      HttpUtil.setContentLength(resp, err.length());
+    } else {
+      HttpUtil.setContentLength(resp, 0);
+    }
+    ch.writeAndFlush(resp);
+  }
+
+  static String getWebSocketLocation(HttpRequest req, boolean ssl) throws Exception {
+    String prefix;
+    if (ssl) {
+      prefix = "ws://";
+    } else {
+      prefix = "wss://";
+    }
+    URI uri = new URI(req.uri());
+    String path = uri.getRawPath();
+    String loc = prefix + req.headers().get(HttpHeaderNames.HOST) + path;
+    String query = uri.getRawQuery();
+    if (query != null) {
+      loc += "?" + query;
+    }
+    return loc;
+  }
+
   private static class CustomCompressor extends HttpContentCompressor {
     @Override
     public ZlibWrapper determineWrapper(String acceptEncoding) {
@@ -522,21 +555,105 @@ public final class HttpUtils {
     return -1;
   }
 
+  private static final Consumer<CharSequence> HEADER_VALUE_VALIDATOR = HttpUtils::validateHeaderValue;
+
   public static void validateHeader(CharSequence name, CharSequence value) {
-    validateHeader(name);
-    validateHeader(value);
+    validateHeaderName(name);
+    validateHeaderValue(value);
   }
 
   public static void validateHeader(CharSequence name, Iterable<? extends CharSequence> values) {
-    validateHeader(name);
-    values.forEach(HttpUtils::validateHeader);
+    validateHeaderName(name);
+    values.forEach(HEADER_VALUE_VALIDATOR);
   }
 
-  public static void validateHeader(CharSequence value) {
+  public static void validateHeaderValue(CharSequence seq) {
+
+    int state = 0;
+    // Start looping through each of the character
+    for (int index = 0; index < seq.length(); index++) {
+      state = validateValueChar(seq, state, seq.charAt(index));
+    }
+
+    if (state != 0) {
+      throw new IllegalArgumentException("a header value must not end with '\\r' or '\\n':" + seq);
+    }
+  }
+
+  private static final int HIGHEST_INVALID_VALUE_CHAR_MASK = ~15;
+
+  private static int validateValueChar(CharSequence seq, int state, char character) {
+    /*
+     * State:
+     * 0: Previous character was neither CR nor LF
+     * 1: The previous character was CR
+     * 2: The previous character was LF
+     */
+    if ((character & HIGHEST_INVALID_VALUE_CHAR_MASK) == 0) {
+      // Check the absolutely prohibited characters.
+      switch (character) {
+        case 0x0: // NULL
+          throw new IllegalArgumentException("a header value contains a prohibited character '\0': " + seq);
+        case 0x0b: // Vertical tab
+          throw new IllegalArgumentException("a header value contains a prohibited character '\\v': " + seq);
+        case '\f':
+          throw new IllegalArgumentException("a header value contains a prohibited character '\\f': " + seq);
+      }
+    }
+
+    // Check the CRLF (HT | SP) pattern
+    switch (state) {
+      case 0:
+        switch (character) {
+          case '\r':
+            return 1;
+          case '\n':
+            return 2;
+        }
+        break;
+      case 1:
+        switch (character) {
+          case '\n':
+            return 2;
+          default:
+            throw new IllegalArgumentException("only '\\n' is allowed after '\\r': " + seq);
+        }
+      case 2:
+        switch (character) {
+          case '\t':
+          case ' ':
+            return 0;
+          default:
+            throw new IllegalArgumentException("only ' ' and '\\t' are allowed after '\\n': " + seq);
+        }
+    }
+    return state;
+  }
+
+  public static void validateHeaderName(CharSequence value) {
     for (int i = 0;i < value.length();i++) {
       char c = value.charAt(i);
-      if (c == '\r' || c == '\n') {
-        throw new IllegalArgumentException("Illegal header character: " + ((int)c));
+      switch (c) {
+        case 0x00:
+        case '\t':
+        case '\n':
+        case 0x0b:
+        case '\f':
+        case '\r':
+        case ' ':
+        case ',':
+        case ':':
+        case ';':
+        case '=':
+          throw new IllegalArgumentException(
+            "a header name cannot contain the following prohibited characters: =,;: \\t\\r\\n\\v\\f: " +
+              value);
+        default:
+          // Check to see if the character is not an ASCII character, or invalid
+          if (c > 127) {
+            throw new IllegalArgumentException("a header name cannot contain non-ASCII character: " +
+              value);
+          }
       }
     }
   }

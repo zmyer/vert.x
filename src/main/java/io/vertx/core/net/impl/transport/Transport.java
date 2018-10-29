@@ -79,7 +79,20 @@ public class Transport {
     return transport;
   }
 
-  Transport() {
+  public static Transport transport(boolean preferNative) {
+    if (preferNative) {
+      Transport nativeTransport = Transport.nativeTransport();
+      if (nativeTransport != null && nativeTransport.isAvailable()) {
+        return nativeTransport;
+      } else {
+        return Transport.JDK;
+      }
+    } else {
+      return Transport.JDK;
+    }
+  }
+
+  protected Transport() {
   }
 
   /**

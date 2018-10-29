@@ -11,14 +11,10 @@
 
 package io.vertx.core.http;
 
-import io.vertx.codegen.annotations.Nullable;
+import io.vertx.codegen.annotations.*;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.codegen.annotations.CacheReturn;
-import io.vertx.codegen.annotations.Fluent;
-import io.vertx.codegen.annotations.GenIgnore;
-import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.core.streams.ReadStream;
@@ -54,6 +50,9 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
 
   @Override
   HttpServerRequest resume();
+
+  @Override
+  HttpServerRequest fetch(long amount);
 
   @Override
   HttpServerRequest endHandler(Handler<Void> endHandler);
@@ -140,7 +139,7 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
    * @param headerName  the header name
    * @return the header value
    */
-  @GenIgnore
+  @SuppressWarnings("codegen-allow-any-java-type")
   String getHeader(CharSequence headerName);
 
   /**
@@ -176,7 +175,7 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
    *         not SSL.
    * @see javax.net.ssl.SSLSession
    */
-  @GenIgnore
+  @SuppressWarnings("codegen-allow-any-java-type")
   SSLSession sslSession();
 
   /**
@@ -218,14 +217,35 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
 
   /**
    * Get a net socket for the underlying connection of this request.
-   * <p>
-   * USE THIS WITH CAUTION!
-   * <p>
-   * Once you have called this method, you must handle writing to the connection yourself using the net socket,
-   * the server request instance will no longer be usable as normal.
-   * Writing to the socket directly if you don't know what you're doing can easily break the HTTP protocol.
+   * <p/>
+   * This method must be called before the server response is ended.
+   * <p/>
+   * With {@code CONNECT} requests, a {@code 200} response is sent with no {@code content-length} header set
+   * before returning the socket.
+   * <p/>
+   * <pre>
+   * server.requestHandler(req -> {
+   *   if (req.method() == HttpMethod.CONNECT) {
+   *     // Send a 200 response to accept the connect
+   *     NetSocket socket = req.netSocket();
+   *     socket.handler(buff -> {
+   *       socket.write(buff);
+   *     });
+   *   }
+   *   ...
+   * });
+   * </pre>
+   * <p/>
+   * For other HTTP/1 requests once you have called this method, you must handle writing to the connection yourself using
+   * the net socket, the server request instance will no longer be usable as normal. USE THIS WITH CAUTION! Writing to the socket directly if you don't know what you're
+   * doing can easily break the HTTP protocol.
+   * <p/>
+   * With HTTP/2, a {@code 200} response is always sent with no {@code content-length} header set before returning the socket
+   * like in the {@code CONNECT} case above.
+   * <p/>
    *
    * @return the net socket
+   * @throws IllegalStateException when the socket can't be created
    */
   @CacheReturn
   NetSocket netSocket();

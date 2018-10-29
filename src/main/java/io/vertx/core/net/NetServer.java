@@ -148,6 +148,7 @@ public interface NetServer extends Measured {
    * @param handler the handler to set
    * @return a reference to this, so the API can be used fluently
    */
+  @GenIgnore
   @Fluent
   NetServer exceptionHandler(Handler<Throwable> handler);
 

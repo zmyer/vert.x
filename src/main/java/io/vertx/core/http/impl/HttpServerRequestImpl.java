@@ -12,6 +12,7 @@
 package io.vertx.core.http.impl;
 
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.multipart.Attribute;
 import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
@@ -29,13 +30,12 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.core.spi.metrics.Metrics;
+import io.vertx.core.streams.impl.InboundBuffer;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.security.cert.X509Certificate;
 import java.net.URISyntaxException;
-import java.util.ArrayDeque;
-import java.util.Deque;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED;
 import static io.netty.handler.codec.http.HttpHeaderValues.MULTIPART_FORM_DATA;
@@ -57,8 +57,8 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   private static final Logger log = LoggerFactory.getLogger(HttpServerRequestImpl.class);
 
   private final Http1xServerConnection conn;
-  private final DefaultHttpRequest request;
 
+  private DefaultHttpRequest request;
   private io.vertx.core.http.HttpVersion version;
   private io.vertx.core.http.HttpMethod method;
   private String rawMethod;
@@ -78,7 +78,6 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   private MultiMap headers;
   private String absoluteURI;
 
-  private NetSocket netSocket;
   private Handler<HttpServerFileUpload> uploadHandler;
   private Handler<Void> endHandler;
   private MultiMap attributes;
@@ -86,63 +85,50 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   private boolean ended;
   private long bytesRead;
 
-  private Deque<Buffer> pending;
   private boolean paused;
-  private boolean sentCheck;
+  private InboundBuffer<Buffer> pending;
 
   HttpServerRequestImpl(Http1xServerConnection conn, DefaultHttpRequest request) {
     this.conn = conn;
     this.request = request;
   }
 
-  private void checkNextTick() {
-    if (!paused) {
-      if (pending != null && pending.size() > 0) {
-        if (!sentCheck) {
-          sentCheck = true;
-          conn.getContext().runOnContext(v -> {
-            synchronized (conn) {
-              sentCheck = false;
-              if (!paused) {
-                // The only place we poll the pending queue, so we are sure that pending.size() > 0
-                // since we got there because queueing was true
-                Buffer msg = pending.poll();
-                // Process message, it might pause the connection
-                handleData(msg);
-                // Check next tick in case we still have pending messages and the connection is not paused
-                checkNextTick();
-              }
-            }
-          });
-        }
-      } else {
+  DefaultHttpRequest getRequest() {
+    synchronized (conn) {
+      return request;
+    }
+  }
+
+  void setRequest(DefaultHttpRequest request) {
+    synchronized (conn) {
+      this.request = request;
+    }
+  }
+
+  private InboundBuffer<Buffer> pendingQueue() {
+    if (pending == null) {
+      pending = new InboundBuffer<>(conn.getContext(), 8);
+      pending.drainHandler(v -> conn.doResume());
+      pending.emptyHandler(v -> {
         if (ended) {
           doEnd();
-        } else {
-          // We only resume the connection when the request is not yet ended
-          conn.doResume();
         }
-      }
+      });
+      pending.handler(this::handleData);
     }
+    return pending;
   }
 
   private void enqueueData(Buffer chunk) {
     // We queue requests if paused or a request is in progress to prevent responses being written in the wrong order
-    if (pending == null) {
-      pending = new ArrayDeque<>(8);
-    }
-    pending.add(chunk);
-    if (pending.size() == 5) {
-      // We pause the channel too, to prevent the queue growing too large, but we don't do this
-      // until the queue reaches a certain size, to avoid pausing it too often
-
+    if (!pendingQueue().write(chunk)) {
       // We only pause when we are actively called by the connection
       conn.doPause();
     }
   }
 
   void handleContent(Buffer buffer) {
-    if (paused || (pending != null && pending.size() > 0)) {
+    if (paused || pending != null) {
       enqueueData(buffer);
     } else {
       handleData(buffer);
@@ -153,7 +139,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
     if (Metrics.METRICS_ENABLED) {
       reportRequestBegin();
     }
-    response = new HttpServerResponseImpl((VertxInternal) conn.vertx(), conn, request);
+    response = new HttpServerResponseImpl((VertxInternal) conn.vertx(), conn, request, metric);
     if (conn.handle100ContinueAutomatically) {
       check100();
     }
@@ -177,8 +163,12 @@ public class HttpServerRequestImpl implements HttpServerRequest {
     boolean end = ended;
     ended = false;
     handleBegin();
-    ended = end;
-    checkNextTick();
+    if (!paused && pending != null && pending.size() > 0) {
+      pending.resume();
+    }
+    if (end) {
+      handleEnd();
+    }
   }
 
   private void reportRequestBegin() {
@@ -278,7 +268,12 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   @Override
   public MultiMap headers() {
     if (headers == null) {
-      headers = new HeadersAdaptor(request.headers());
+      HttpHeaders reqHeaders = request.headers();
+      if (reqHeaders instanceof MultiMap) {
+        headers = (MultiMap) reqHeaders;
+      } else {
+        headers = new HeadersAdaptor(reqHeaders);
+      }
     }
     return headers;
   }
@@ -329,8 +324,16 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   public HttpServerRequest pause() {
     synchronized (conn) {
       if (!isEnded()) {
-        paused = true;
+        pendingQueue().pause();
       }
+      return this;
+    }
+  }
+
+  @Override
+  public HttpServerRequest fetch(long amount) {
+    synchronized (conn) {
+      pendingQueue().fetch(amount);
       return this;
     }
   }
@@ -339,8 +342,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   public HttpServerRequest resume() {
     synchronized (conn) {
       if (!isEnded()) {
-        paused = false;
-        checkNextTick();
+        pendingQueue().resume();
       }
       return this;
     }
@@ -396,10 +398,9 @@ public class HttpServerRequestImpl implements HttpServerRequest {
 
   @Override
   public NetSocket netSocket() {
-    if (netSocket == null) {
-      netSocket = conn.createNetSocket();
+    synchronized (conn) {
+      return response.netSocket(method() == io.vertx.core.http.HttpMethod.CONNECT);
     }
-    return netSocket;
   }
 
   @Override
@@ -425,7 +426,9 @@ public class HttpServerRequestImpl implements HttpServerRequest {
 
   @Override
   public ServerWebSocket upgrade() {
-    return conn.upgrade(this, request);
+    ServerWebSocketImpl ws = conn.createWebSocket(this);
+    ws.connectNow();
+    return ws;
   }
 
   @Override
@@ -438,7 +441,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
           if (contentType != null) {
             HttpMethod method = request.method();
             if (isValidMultipartContentType(contentType) && isValidMultipartMethod(method)) {
-              decoder = new HttpPostRequestDecoder(new NettyFileUploadDataFactory(conn.vertx(), this, () -> uploadHandler), request);
+              decoder = new HttpPostRequestDecoder(new NettyFileUploadDataFactory(conn.getContext(), this, () -> uploadHandler), request);
             }
           }
         }
@@ -474,7 +477,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   @Override
   public boolean isEnded() {
     synchronized (conn) {
-      return response != null && ended && (pending == null || pending.isEmpty());
+      return ended && (pending == null || pending.isEmpty());
     }
   }
 
@@ -548,19 +551,24 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   }
 
   void handleException(Throwable t) {
+    Handler<Throwable> handler = null;
+    HttpServerResponseImpl resp = null;
     synchronized (conn) {
       if (!isEnded()) {
-        Handler<Throwable> handler = this.exceptionHandler;
-        if (handler != null) {
-          conn.getContext().runOnContext(v -> handler.handle(t));
-        }
+        handler = exceptionHandler;
       }
       if (!response.ended()) {
         if (METRICS_ENABLED) {
           reportRequestReset();
         }
-        response.handleException(t);
+        resp = response;
       }
+    }
+    if (resp != null) {
+      resp.handleException(t);
+    }
+    if (handler != null) {
+      handler.handle(t);
     }
   }
 

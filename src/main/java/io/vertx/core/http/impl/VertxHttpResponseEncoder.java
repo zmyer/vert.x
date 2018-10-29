@@ -12,9 +12,12 @@
 package io.vertx.core.http.impl;
 
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseEncoder;
+import io.vertx.core.http.impl.headers.VertxHttpHeaders;
 import io.vertx.core.net.impl.PartialPooledByteBufAllocator;
 
 import java.util.List;
@@ -33,6 +36,16 @@ final class VertxHttpResponseEncoder extends HttpResponseEncoder {
   }
 
   @Override
+  protected void encodeHeaders(HttpHeaders headers, ByteBuf buf) {
+    if (headers instanceof VertxHttpHeaders) {
+      VertxHttpHeaders vertxHeaders = (VertxHttpHeaders) headers;
+      vertxHeaders.encode(buf);
+    } else {
+      super.encodeHeaders(headers, buf);
+    }
+  }
+
+  @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     this.context = PartialPooledByteBufAllocator.forceDirectAllocator(ctx);
     super.handlerAdded(ctx);
@@ -42,6 +55,6 @@ final class VertxHttpResponseEncoder extends HttpResponseEncoder {
   protected boolean isContentAlwaysEmpty(HttpResponse msg) {
     // In HttpServerCodec this is tracked via a FIFO queue of HttpMethod
     // here we track it in the assembled response as we don't use HttpServerCodec
-    return msg instanceof AssembledHttpResponse && ((AssembledHttpResponse) msg).head();
+    return (msg instanceof AssembledHttpResponse && ((AssembledHttpResponse) msg).head()) || super.isContentAlwaysEmpty(msg);
   }
 }

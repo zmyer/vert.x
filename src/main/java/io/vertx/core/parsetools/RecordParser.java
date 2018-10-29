@@ -11,6 +11,7 @@
 
 package io.vertx.core.parsetools;
 
+import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
@@ -194,6 +195,18 @@ public interface RecordParser extends Handler<Buffer>, ReadStream<Buffer> {
   void fixedSizeMode(int size);
 
   /**
+   * Set the maximum allowed size for a record when using the delimited mode.
+   * The delimiter itself does not count for the record size.
+   * <p>
+   * If a record is longer than specified, an {@link IllegalStateException} will be thrown.
+   *
+   * @param size the maximum record size
+   * @return  a reference to this, so the API can be used fluently
+   */
+  @Fluent
+  RecordParser maxRecordSize(int size);
+
+  /**
    * This method is called to provide the parser with data.
    *
    * @param buffer  a chunk of data
@@ -208,6 +221,9 @@ public interface RecordParser extends Handler<Buffer>, ReadStream<Buffer> {
 
   @Override
   RecordParser pause();
+
+  @Override
+  RecordParser fetch(long amount);
 
   @Override
   RecordParser resume();

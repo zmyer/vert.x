@@ -45,7 +45,7 @@ public interface ReadStream<T> extends StreamBase {
   ReadStream<T> handler(@Nullable Handler<T> handler);
 
   /**
-   * Pause the {@code ReadSupport}. While it's paused, no data will be sent to the {@code dataHandler}
+   * Pause the {@code ReadStream}. While it's paused, no data will be sent to the data {@code handler}
    *
    * @return a reference to this, so the API can be used fluently
    */
@@ -53,12 +53,22 @@ public interface ReadStream<T> extends StreamBase {
   ReadStream<T> pause();
 
   /**
-   * Resume reading. If the {@code ReadSupport} has been paused, reading will recommence on it.
+   * Resume reading. If the {@code ReadStream} has been paused, reading will recommence on it.
    *
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
   ReadStream<T> resume();
+
+  /**
+   * Fetch the specified {@code amount} of elements. If the {@code ReadStream} has been paused, reading will
+   * recommence with the specified {@code amount} of items, otherwise the specified {@code amount} will
+   * be added to the current stream demand.
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  @Fluent
+  ReadStream<T> fetch(long amount);
 
   /**
    * Set an end handler. Once the stream has ended, and there is no more data to be read, this handler will be called.
