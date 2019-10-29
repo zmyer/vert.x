@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -129,12 +129,6 @@ public class NetClientOptions extends ClientOptionsBase {
   @Override
   public NetClientOptions setSoLinger(int soLinger) {
     super.setSoLinger(soLinger);
-    return this;
-  }
-
-  @Override
-  public NetClientOptions setUsePooledBuffers(boolean usePooledBuffers) {
-    super.setUsePooledBuffers(usePooledBuffers);
     return this;
   }
 
@@ -362,28 +356,11 @@ public class NetClientOptions extends ClientOptionsBase {
     return (NetClientOptions) super.setEnabledSecureTransportProtocols(enabledSecureTransportProtocols);
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof NetClientOptions)) return false;
-    if (!super.equals(o)) return false;
-
-    NetClientOptions that = (NetClientOptions) o;
-
-    if (reconnectAttempts != that.reconnectAttempts) return false;
-    if (reconnectInterval != that.reconnectInterval) return false;
-    if (!hostnameVerificationAlgorithm.equals(that.hostnameVerificationAlgorithm)) return false;
-
-    return true;
+  public NetClientOptions setSslHandshakeTimeout(long sslHandshakeTimeout) {
+    return (NetClientOptions) super.setSslHandshakeTimeout(sslHandshakeTimeout);
   }
 
-  @Override
-  public int hashCode() {
-    int result = super.hashCode();
-    result = 31 * result + reconnectAttempts;
-    result = 31 * result + (int) (reconnectInterval ^ (reconnectInterval >>> 32));
-    result = 31 * result + hostnameVerificationAlgorithm.hashCode();
-    return result;
+  public NetClientOptions setSslHandshakeTimeoutUnit(TimeUnit sslHandshakeTimeoutUnit) {
+    return (NetClientOptions) super.setSslHandshakeTimeoutUnit(sslHandshakeTimeoutUnit);
   }
-
 }

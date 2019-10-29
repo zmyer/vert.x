@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.net.NetServerOptions}.
+ * Converter and mapper for {@link io.vertx.core.net.NetServerOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.net.NetServerOptions} original class using Vert.x codegen.
  */
- class NetServerOptionsConverter {
+public class NetServerOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, NetServerOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {
@@ -22,11 +23,6 @@ import java.time.format.DateTimeFormatter;
         case "clientAuth":
           if (member.getValue() instanceof String) {
             obj.setClientAuth(io.vertx.core.http.ClientAuth.valueOf((String)member.getValue()));
-          }
-          break;
-        case "clientAuthRequired":
-          if (member.getValue() instanceof Boolean) {
-            obj.setClientAuthRequired((Boolean)member.getValue());
           }
           break;
         case "host":
@@ -57,7 +53,6 @@ import java.time.format.DateTimeFormatter;
     if (obj.getClientAuth() != null) {
       json.put("clientAuth", obj.getClientAuth().name());
     }
-    json.put("clientAuthRequired", obj.isClientAuthRequired());
     if (obj.getHost() != null) {
       json.put("host", obj.getHost());
     }

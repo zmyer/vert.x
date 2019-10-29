@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,7 +13,10 @@ package io.vertx.core.http.impl;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.ContinuationWebSocketFrame;
@@ -23,6 +26,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.GoAway;
@@ -31,6 +35,7 @@ import io.vertx.core.http.HttpConnection;
 import io.vertx.core.http.impl.ws.WebSocketFrameImpl;
 import io.vertx.core.http.impl.ws.WebSocketFrameInternal;
 import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.impl.PromiseInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.net.impl.ConnectionBase;
 
@@ -39,7 +44,10 @@ import static io.vertx.core.net.impl.VertxHandler.safeBuffer;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
-abstract class Http1xConnectionBase extends ConnectionBase implements io.vertx.core.http.HttpConnection {
+abstract class Http1xConnectionBase<S extends WebSocketImplBase<S>> extends ConnectionBase implements io.vertx.core.http.HttpConnection {
+
+  protected S ws;
+  private boolean closeFrameSent;
 
   Http1xConnectionBase(VertxInternal vertx, ChannelHandlerContext chctx, ContextInternal context) {
     super(vertx, chctx, context);
@@ -68,7 +76,7 @@ abstract class Http1xConnectionBase extends ConnectionBase implements io.vertx.c
     }
   }
 
-  WebSocketFrameInternal decodeFrame(WebSocketFrame msg) {
+  private WebSocketFrameInternal decodeFrame(WebSocketFrame msg) {
     ByteBuf payload = safeBuffer(msg, chctx.alloc());
     boolean isFinal = msg.isFinalFragment();
     FrameType frameType;
@@ -90,7 +98,64 @@ abstract class Http1xConnectionBase extends ConnectionBase implements io.vertx.c
     return new WebSocketFrameImpl(frameType, payload, isFinal);
   }
 
-  abstract public void closeWithPayload(ByteBuf byteBuf);
+  void handleWsFrame(WebSocketFrame msg) {
+    WebSocketFrameInternal frame = decodeFrame(msg);
+    S w;
+    synchronized (this) {
+      switch (frame.type()) {
+        case PING:
+          // Echo back the content of the PING frame as PONG frame as specified in RFC 6455 Section 5.5.2
+          chctx.writeAndFlush(new PongWebSocketFrame(frame.getBinaryData().copy()));
+          break;
+        case CLOSE:
+          synchronized (this) {
+            if (!closeFrameSent) {
+              // Echo back close frame and close the connection once it was written.
+              // This is specified in the WebSockets RFC 6455 Section  5.4.1
+              CloseWebSocketFrame closeFrame = new CloseWebSocketFrame(frame.closeStatusCode(), frame.closeReason());
+              chctx.writeAndFlush(closeFrame).addListener(ChannelFutureListener.CLOSE);
+              closeFrameSent = true;
+            }
+          }
+          break;
+      }
+      w = ws;
+    }
+    if (w != null) {
+      w.context.dispatch(frame, ((WebSocketImplBase)w)::handleFrame);
+    }
+  }
+
+  @Override
+  public Future<Void> close() {
+    return closeWithPayload((short) 1000, null);
+  }
+
+  Future<Void> closeWithPayload(short code, String reason) {
+    if (ws == null) {
+      return super.close();
+    } else {
+      PromiseInternal<Void> promise = context.promise();
+      // make sure everything is flushed out on close
+      ByteBuf byteBuf = HttpUtils.generateWSCloseFrameByteBuf(code, reason);
+      CloseWebSocketFrame frame = new CloseWebSocketFrame(true, 0, byteBuf);
+      ChannelPromise channelPromise = chctx.newPromise();
+      flush(channelPromise);
+      // close the WebSocket connection by sending a close frame with specified payload.
+      channelPromise.addListener((ChannelFutureListener) future -> {
+        ChannelFuture fut = chctx.writeAndFlush(frame);
+        boolean server = this instanceof Http1xServerConnection;
+        if (server) {
+          fut.addListener((ChannelFutureListener) f -> {
+            chctx.channel().close().addListener(promise);
+          });
+        } else {
+          fut.addListener(promise);
+        }
+      });
+      return promise.future();
+    }
+  }
 
   @Override
   public Http1xConnectionBase closeHandler(Handler<Void> handler) {
@@ -133,7 +198,7 @@ abstract class Http1xConnectionBase extends ConnectionBase implements io.vertx.c
   }
 
   @Override
-  public HttpConnection updateSettings(Http2Settings settings) {
+  public Future<Void> updateSettings(Http2Settings settings) {
     throw new UnsupportedOperationException("HTTP/1.x connections don't support SETTINGS");
   }
 
@@ -159,6 +224,11 @@ abstract class Http1xConnectionBase extends ConnectionBase implements io.vertx.c
 
   @Override
   public HttpConnection pingHandler(@Nullable Handler<Buffer> handler) {
+    throw new UnsupportedOperationException("HTTP/1.x connections don't support PING");
+  }
+
+  @Override
+  public Future<Buffer> ping(Buffer data) {
     throw new UnsupportedOperationException("HTTP/1.x connections don't support PING");
   }
 }

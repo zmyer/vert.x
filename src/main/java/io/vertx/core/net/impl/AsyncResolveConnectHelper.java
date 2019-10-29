@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -14,15 +14,11 @@ package io.vertx.core.net.impl;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
+import io.netty.util.concurrent.Promise;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.net.SocketAddress;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -30,56 +26,25 @@ import java.util.List;
 // TODO: 2018/8/1 by zmyer
 public class AsyncResolveConnectHelper {
 
-  private List<Handler<AsyncResult<Channel>>> handlers = new ArrayList<>();
-  private ChannelFuture future;
-  private AsyncResult<Channel> result;
-
-  // TODO: 2018/8/3 by zmyer
-  public synchronized void addListener(Handler<AsyncResult<Channel>> handler) {
-    if (result != null) {
-      if (future != null) {
-        future.addListener(v -> handler.handle(result));
-      } else {
-        handler.handle(result);
-      }
-    } else {
-      handlers.add(handler);
-    }
-  }
-
-  // TODO: 2018/8/1 by zmyer
-  private synchronized void handle(final ChannelFuture cf, final AsyncResult<Channel> res) {
-    if (result == null) {
-      for (final Handler<AsyncResult<Channel>> handler : handlers) {
-        handler.handle(res);
-      }
-      future = cf;
-      result = res;
-    } else {
-      throw new IllegalStateException("Already complete!");
-    }
-  }
-
-  // TODO: 2018/11/27 by zmyer
   private static void checkPort(int port) {
     if (port < 0 || port > 65535) {
       throw new IllegalArgumentException("Invalid port " + port);
     }
   }
 
-  // TODO: 2018/8/1 by zmyer
-  public static AsyncResolveConnectHelper doBind(VertxInternal vertx, SocketAddress socketAddress,
-                                                 ServerBootstrap bootstrap) {
-    final AsyncResolveConnectHelper asyncResolveConnectHelper = new AsyncResolveConnectHelper();
+  public static io.netty.util.concurrent.Future<Channel> doBind(VertxInternal vertx,
+                                                                SocketAddress socketAddress,
+                                                                ServerBootstrap bootstrap) {
+    Promise<Channel> promise = vertx.getAcceptorEventLoopGroup().next().newPromise();
     bootstrap.channelFactory(vertx.transport().serverChannelFactory(socketAddress.path() != null));
     if (socketAddress.path() != null) {
       final java.net.SocketAddress converted = vertx.transport().convert(socketAddress, true);
       final ChannelFuture future = bootstrap.bind(converted);
       future.addListener(f -> {
         if (f.isSuccess()) {
-          asyncResolveConnectHelper.handle(future, Future.succeededFuture(future.channel()));
+          promise.setSuccess(future.channel());
         } else {
-          asyncResolveConnectHelper.handle(future, Future.failedFuture(f.cause()));
+          promise.setFailure(f.cause());
         }
       });
     } else {
@@ -91,16 +56,16 @@ public class AsyncResolveConnectHelper {
           final ChannelFuture future = bootstrap.bind(t);
           future.addListener(f -> {
             if (f.isSuccess()) {
-              asyncResolveConnectHelper.handle(future, Future.succeededFuture(future.channel()));
+              promise.setSuccess(future.channel());
             } else {
-              asyncResolveConnectHelper.handle(future, Future.failedFuture(f.cause()));
+              promise.setFailure(f.cause());
             }
           });
         } else {
-          asyncResolveConnectHelper.handle(null, Future.failedFuture(res.cause()));
+          promise.setFailure(res.cause());
         }
       });
     }
-    return asyncResolveConnectHelper;
+    return promise;
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -15,6 +15,7 @@ import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.file.AsyncFile;
 import io.vertx.core.streams.ReadStream;
 
 /**
@@ -85,7 +86,12 @@ public interface HttpServerFileUpload extends ReadStream<Buffer> {
   long size();
 
   /**
-   * @return true if the size of the upload can be retrieved via {@link #size()}.
+   * @return {@code true} if the size of the upload can be retrieved via {@link #size()}.
    */
   boolean isSizeAvailable();
+
+  /**
+   * @return the async uploaded file when {@link #streamToFileSystem} has been used
+   */
+  AsyncFile file();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -14,13 +14,14 @@ package io.vertx.core.eventbus.impl.clustered;
 import io.netty.util.CharsetUtil;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.MessageCodec;
 import io.vertx.core.eventbus.impl.CodecManager;
 import io.vertx.core.eventbus.impl.EventBusImpl;
 import io.vertx.core.eventbus.impl.MessageImpl;
 import io.vertx.core.http.CaseInsensitiveHeaders;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.impl.ServerID;
 
 import java.util.List;
@@ -37,17 +38,20 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
   private static final byte WIRE_PROTOCOL_VERSION = 1;
 
   private ServerID sender;
+  private ServerID repliedTo;
   private Buffer wireBuffer;
   private int bodyPos;
   private int headersPos;
   private boolean fromWire;
+  private boolean toWire;
 
-  public ClusteredMessage() {
+  public ClusteredMessage(EventBusImpl bus) {
+    super(bus);
   }
 
-  public ClusteredMessage(ServerID sender, String address, String replyAddress, MultiMap headers, U sentBody,
+  public ClusteredMessage(ServerID sender, String address, MultiMap headers, U sentBody,
                           MessageCodec<U, V> messageCodec, boolean send, EventBusImpl bus) {
-    super(address, replyAddress, headers, sentBody, messageCodec, send, bus);
+    super(address, headers, sentBody, messageCodec, send, bus);
     this.sender = sender;
   }
 
@@ -60,6 +64,13 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
       this.headersPos = other.headersPos;
     }
     this.fromWire = other.fromWire;
+  }
+
+  @Override
+  protected MessageImpl createReply(Object message, DeliveryOptions options) {
+    ClusteredMessage reply = (ClusteredMessage) super.createReply(message, options);
+    reply.repliedTo = sender;
+    return reply;
   }
 
   public ClusteredMessage<U, V> copyBeforeReceive() {
@@ -97,6 +108,7 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
   }
 
   public Buffer encodeToWire() {
+    toWire = true;
     int length = 1024; // TODO make this configurable
     Buffer buffer = Buffer.buffer(length);
     buffer.appendInt(0);
@@ -239,8 +251,16 @@ public class ClusteredMessage<U, V> extends MessageImpl<U, V> {
     return sender;
   }
 
+  ServerID getRepliedTo() {
+    return repliedTo;
+  }
+
   public boolean isFromWire() {
     return fromWire;
+  }
+
+  public boolean isToWire() {
+    return toWire;
   }
 
   protected boolean isLocal() {

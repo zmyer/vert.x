@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -218,11 +218,6 @@ public abstract class ClientOptionsBase extends TCPSSLOptions {
   }
 
   @Override
-  public ClientOptionsBase setUsePooledBuffers(boolean usePooledBuffers) {
-    return (ClientOptionsBase) super.setUsePooledBuffers(usePooledBuffers);
-  }
-
-  @Override
   public ClientOptionsBase setIdleTimeout(int idleTimeout) {
     return (ClientOptionsBase) super.setIdleTimeout(idleTimeout);
   }
@@ -360,33 +355,5 @@ public abstract class ClientOptionsBase extends TCPSSLOptions {
   @Override
   public ClientOptionsBase setTcpQuickAck(boolean tcpQuickAck) {
     return (ClientOptionsBase) super.setTcpQuickAck(tcpQuickAck);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof ClientOptionsBase)) return false;
-    if (!super.equals(o)) return false;
-
-    ClientOptionsBase that = (ClientOptionsBase) o;
-
-    if (connectTimeout != that.connectTimeout) return false;
-    if (trustAll != that.trustAll) return false;
-    if (!Objects.equals(metricsName, that.metricsName)) return false;
-    if (!Objects.equals(proxyOptions, that.proxyOptions)) return false;
-    if (!Objects.equals(localAddress, that.localAddress)) return false;
-
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = super.hashCode();
-    result = 31 * result + connectTimeout;
-    result = 31 * result + (trustAll ? 1 : 0);
-    result = 31 * result + (metricsName != null ? metricsName.hashCode() : 0);
-    result = 31 * result + (proxyOptions != null ? proxyOptions.hashCode() : 0);
-    result = 31 * result + (localAddress != null ? localAddress.hashCode() : 0);
-    return result;
   }
 }

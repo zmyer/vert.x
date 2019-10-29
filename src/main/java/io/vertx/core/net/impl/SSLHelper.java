@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,13 +12,8 @@
 package io.vertx.core.net.impl;
 
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.OpenSsl;
-import io.netty.handler.ssl.OpenSslServerContext;
-import io.netty.handler.ssl.OpenSslServerSessionContext;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
+import io.netty.handler.ssl.*;
+import io.netty.util.Mapping;
 import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.ClientAuth;
@@ -26,8 +21,8 @@ import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpVersion;
 import io.vertx.core.impl.VertxInternal;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.JdkSSLEngineOptions;
 import io.vertx.core.net.KeyCertOptions;
 import io.vertx.core.net.NetClientOptions;
@@ -54,16 +49,9 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -119,20 +107,6 @@ public class SSLHelper {
   }
 
   private static final Map<HttpVersion, String> PROTOCOL_NAME_MAPPING = new EnumMap<>(HttpVersion.class);
-  private static final List<String> DEFAULT_JDK_CIPHER_SUITE;
-
-  static {
-    ArrayList<String> suite = new ArrayList<>();
-    try {
-      SSLContext context = SSLContext.getInstance("TLS");
-      context.init(null, null, null);
-      SSLEngine engine = context.createSSLEngine();
-      Collections.addAll(suite, engine.getEnabledCipherSuites());
-    } catch (Throwable e) {
-      suite = null;
-    }
-    DEFAULT_JDK_CIPHER_SUITE = suite != null ? Collections.unmodifiableList(suite) : null;
-  }
 
   static {
     PROTOCOL_NAME_MAPPING.put(HttpVersion.HTTP_2, "h2");
@@ -144,6 +118,8 @@ public class SSLHelper {
 
   private boolean ssl;
   private boolean sni;
+  private long sslHandshakeTimeout;
+  private TimeUnit sslHandshakeTimeoutUnit;
   private KeyCertOptions keyCertOptions;
   private TrustOptions trustOptions;
   private boolean trustAll;
@@ -167,6 +143,8 @@ public class SSLHelper {
   public SSLHelper(HttpClientOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
     SSLEngineOptions sslEngineOptions = resolveEngineOptions(options);
     this.ssl = options.isSsl();
+    this.sslHandshakeTimeout = options.getSslHandshakeTimeout();
+    this.sslHandshakeTimeoutUnit = options.getSslHandshakeTimeoutUnit();
     this.keyCertOptions = keyCertOptions;
     this.trustOptions = trustOptions;
     this.trustAll = options.isTrustAll();
@@ -187,6 +165,8 @@ public class SSLHelper {
   public SSLHelper(HttpServerOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
     SSLEngineOptions sslEngineOptions = resolveEngineOptions(options);
     this.ssl = options.isSsl();
+    this.sslHandshakeTimeout = options.getSslHandshakeTimeout();
+    this.sslHandshakeTimeoutUnit = options.getSslHandshakeTimeoutUnit();
     this.keyCertOptions = keyCertOptions;
     this.trustOptions = trustOptions;
     this.clientAuth = options.getClientAuth();
@@ -205,6 +185,8 @@ public class SSLHelper {
   public SSLHelper(NetClientOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
     SSLEngineOptions sslEngineOptions = resolveEngineOptions(options);
     this.ssl = options.isSsl();
+    this.sslHandshakeTimeout = options.getSslHandshakeTimeout();
+    this.sslHandshakeTimeoutUnit = options.getSslHandshakeTimeoutUnit();
     this.keyCertOptions = keyCertOptions;
     this.trustOptions = trustOptions;
     this.trustAll = options.isTrustAll();
@@ -223,6 +205,8 @@ public class SSLHelper {
   public SSLHelper(NetServerOptions options, KeyCertOptions keyCertOptions, TrustOptions trustOptions) {
     SSLEngineOptions sslEngineOptions = resolveEngineOptions(options);
     this.ssl = options.isSsl();
+    this.sslHandshakeTimeout = options.getSslHandshakeTimeout();
+    this.sslHandshakeTimeoutUnit = options.getSslHandshakeTimeoutUnit();
     this.keyCertOptions = keyCertOptions;
     this.trustOptions = trustOptions;
     this.clientAuth = options.getClientAuth();
@@ -244,6 +228,14 @@ public class SSLHelper {
 
   public boolean isSNI() {
     return sni;
+  }
+
+  public long getSslHandshakeTimeout() {
+    return sslHandshakeTimeout;
+  }
+
+  public TimeUnit getSslHandshakeTimeoutUnit() {
+    return sslHandshakeTimeoutUnit;
   }
 
   public ClientAuth getClientAuth() {
@@ -296,7 +288,7 @@ public class SSLHelper {
       } else {
         builder.sslProvider(SslProvider.JDK);
         if (cipherSuites == null || cipherSuites.isEmpty()) {
-          cipherSuites = DEFAULT_JDK_CIPHER_SUITE;
+          cipherSuites = DefaultJDKCipherSuite.get();
         }
       }
       if (trustMgrFactory != null) {
@@ -433,6 +425,21 @@ public class SSLHelper {
     };
   }
 
+  public Mapping<? super String, ? extends SslContext> serverNameMapper(VertxInternal vertx) {
+    return serverName -> {
+      SslContext ctx = getContext(vertx, serverName);
+      if (ctx != null) {
+        ctx = new DelegatingSslContext(ctx) {
+          @Override
+          protected void initEngine(SSLEngine engine) {
+            configureEngine(engine, serverName);
+          }
+        };
+      }
+      return ctx;
+    };
+  }
+
   public void configureEngine(SSLEngine engine, String serverName) {
     if (enabledCipherSuites != null && !enabledCipherSuites.isEmpty()) {
       String[] toUse = enabledCipherSuites.toArray(new String[enabledCipherSuites.size()]);
@@ -535,9 +542,9 @@ public class SSLHelper {
     return engine;
   }
 
-  public SSLEngine createEngine(VertxInternal vertx, String host, int port, String serverName) {
+  public SSLEngine createEngine(VertxInternal vertx, String host, int port, boolean forceSNI) {
     SSLEngine engine = getContext(vertx, null).newEngine(ByteBufAllocator.DEFAULT, host, port);
-    configureEngine(engine, serverName);
+    configureEngine(engine, forceSNI ? host : null);
     return engine;
   }
 

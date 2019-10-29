@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,6 +12,7 @@
 package io.vertx.core.spi.metrics;
 
 import io.vertx.core.Verticle;
+import io.vertx.core.Vertx;
 import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.http.HttpClient;
@@ -56,27 +57,6 @@ public interface VertxMetrics extends Metrics, Measured {
    * @param verticle the verticle which was undeployed
    */
   default void verticleUndeployed(Verticle verticle) {
-  }
-
-  /**
-   * Called when a timer is created
-   * <p>
-   * No specific thread and context can be expected when this method is called.
-   *
-   * @param id the id of the timer
-   */
-  default void timerCreated(long id) {
-  }
-
-  /**
-   * Called when a timer has ended (setTimer) or has been cancelled.<p/>
-   * <p>
-   * No specific thread and context can be expected when this method is called.
-   *
-   * @param id        the id of the timer
-   * @param cancelled if the timer was cancelled by the user
-   */
-  default void timerEnded(long id, boolean cancelled) {
   }
 
   /**
@@ -174,5 +154,14 @@ public interface VertxMetrics extends Metrics, Measured {
    */
   default PoolMetrics<?> createPoolMetrics(String poolType, String poolName, int maxPoolSize) {
     return null;
+  }
+
+  /**
+   * Callback to signal when the Vertx instance is fully initialized. Other methods can be called before this method
+   * when the instance is being constructed.
+   *
+   * @param vertx the instance of Vertx
+   */
+  default void vertxCreated(Vertx vertx) {
   }
 }

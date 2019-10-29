@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,7 +13,6 @@ package io.vertx.core.impl;
 
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
@@ -22,21 +21,34 @@ public class BenchmarkContext extends ContextImpl {
 
   public static BenchmarkContext create(Vertx vertx) {
     VertxImpl impl = (VertxImpl) vertx;
-    return new BenchmarkContext(impl, impl.internalBlockingPool, impl.workerPool, null, null, Thread.currentThread().getContextClassLoader());
+    return new BenchmarkContext(impl, impl.internalBlockingPool, impl.workerPool, null, Thread.currentThread().getContextClassLoader());
   }
 
-  public BenchmarkContext(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID, JsonObject config, ClassLoader tccl) {
-    super(vertx, internalBlockingPool, workerPool, deploymentID, config, tccl);
-  }
-
-  @Override
-  void executeAsync(Handler<Void> task) {
-    execute(null, task);
+  public BenchmarkContext(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, Deployment deployment, ClassLoader tccl) {
+    super(vertx, null, internalBlockingPool, workerPool, deployment, tccl);
   }
 
   @Override
-  protected <T> void execute(T value, Handler<T> task) {
-    executeTask(null, task);
+  <T> void executeAsync(T value, Handler<T> task) {
+    executeFromIO(value, task);
+  }
+
+  @Override
+  public <T> void executeFromIO(T value, Handler<T> task) {
+    if (THREAD_CHECKS) {
+      checkEventLoopThread();
+    }
+    dispatch(value, task);
+  }
+
+  @Override
+  public <T> void schedule(T value, Handler<T> task) {
+    task.handle(value);
+  }
+
+  @Override
+  public <T> void execute(T value, Handler<T> task) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -45,7 +57,7 @@ public class BenchmarkContext extends ContextImpl {
   }
 
   @Override
-  public boolean isMultiThreadedWorkerContext() {
-    return false;
+  public ContextInternal duplicate(ContextInternal in) {
+    throw new UnsupportedOperationException();
   }
 }

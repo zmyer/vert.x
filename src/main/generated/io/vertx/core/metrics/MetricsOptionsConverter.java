@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.metrics.MetricsOptions}.
+ * Converter and mapper for {@link io.vertx.core.metrics.MetricsOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.metrics.MetricsOptions} original class using Vert.x codegen.
  */
- class MetricsOptionsConverter {
+public class MetricsOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, MetricsOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {

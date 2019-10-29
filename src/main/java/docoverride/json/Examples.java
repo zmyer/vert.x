@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,10 +12,13 @@
 package docoverride.json;
 
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.pointer.JsonPointer;
 import io.vertx.docgen.Source;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -80,7 +83,16 @@ public class Examples {
     Boolean boolVal = array.getBoolean(2);
   }
 
-
-
-
+  public void example5(String arbitraryJson) {
+    Object object = Json.decodeValue(arbitraryJson);
+    if (object instanceof JsonObject) {
+      // That's a valid json object
+    } else if (object instanceof JsonArray) {
+      // That's a valid json array
+    } else if (object instanceof String) {
+      // That's valid string
+    } else {
+      // etc...
+    }
+  }
 }

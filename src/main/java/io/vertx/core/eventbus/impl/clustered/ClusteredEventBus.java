@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -19,12 +19,13 @@ import io.vertx.core.eventbus.impl.CodecManager;
 import io.vertx.core.eventbus.impl.EventBusImpl;
 import io.vertx.core.eventbus.impl.HandlerHolder;
 import io.vertx.core.eventbus.impl.MessageImpl;
+import io.vertx.core.eventbus.impl.OutboundDeliveryContext;
 import io.vertx.core.impl.ConcurrentHashSet;
 import io.vertx.core.impl.HAManager;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.*;
 import io.vertx.core.net.impl.ServerID;
 import io.vertx.core.parsetools.RecordParser;
@@ -59,7 +60,6 @@ public class ClusteredEventBus extends EventBusImpl {
 
   private final ClusterManager clusterManager;
   private final ConcurrentMap<ServerID, ConnectionHolder> connections = new ConcurrentHashMap<>();
-  private final Context sendNoContext;
 
   private EventBusOptions options;
   private AsyncMultiMap<String, ClusterNodeInfo> subs;
@@ -75,7 +75,6 @@ public class ClusteredEventBus extends EventBusImpl {
     super(vertx);
     this.options = options.getEventBusOptions();
     this.clusterManager = clusterManager;
-    this.sendNoContext = vertx.getOrCreateContext();
   }
 
   // TODO: 2018/8/1 by zmyer
@@ -179,22 +178,20 @@ public class ClusteredEventBus extends EventBusImpl {
   }
 
   @Override
-  protected MessageImpl createMessage(boolean send, String address, MultiMap headers, Object body, String codecName) {
+  public MessageImpl createMessage(boolean send, String address, MultiMap headers, Object body, String codecName) {
     Objects.requireNonNull(address, "no null address accepted");
     MessageCodec codec = codecManager.lookupCodec(body, codecName);
     @SuppressWarnings("unchecked")
-    ClusteredMessage msg = new ClusteredMessage(serverID, address, null, headers, body, codec, send, this);
+    ClusteredMessage msg = new ClusteredMessage(serverID, address, headers, body, codec, send, this);
     return msg;
   }
 
   @Override
-  protected <T> void addRegistration(boolean newAddress, String address,
-                                     boolean replyHandler, boolean localOnly,
-                                     Handler<AsyncResult<Void>> completionHandler) {
-    if (newAddress && subs != null && !replyHandler && !localOnly) {
+  protected <T> void addRegistration(boolean newAddress, HandlerHolder<T> holder, Handler<AsyncResult<Void>> completionHandler) {
+    if (newAddress && subs != null && !holder.replyHandler && !holder.localOnly) {
       // Propagate the information
-      subs.add(address, nodeInfo, completionHandler);
-      ownSubs.add(address);
+      subs.add(holder.address, nodeInfo, completionHandler);
+      ownSubs.add(holder.address);
     } else {
       completionHandler.handle(Future.succeededFuture());
     }
@@ -212,24 +209,20 @@ public class ClusteredEventBus extends EventBusImpl {
   }
 
   @Override
-  protected <T> void sendReply(OutboundDeliveryContext<T> sendContext, MessageImpl replierMessage) {
-    clusteredSendReply(((ClusteredMessage) replierMessage).getSender(), sendContext);
-  }
-
-  @Override
   protected <T> void sendOrPub(OutboundDeliveryContext<T> sendContext) {
-    if (sendContext.options.isLocalOnly()) {
-      if (metrics != null) {
-        metrics.messageSent(sendContext.message.address(), !sendContext.message.isSend(), true, false);
-      }
-      deliverMessageLocally(sendContext);
-    } else if (Vertx.currentContext() == null) {
-      // Guarantees the order when there is no current context
-      sendNoContext.runOnContext(v -> {
-        subs.get(sendContext.message.address(), ar -> onSubsReceived(ar, sendContext));
-      });
+    if (((ClusteredMessage) sendContext.message).getRepliedTo() != null) {
+      clusteredSendReply(((ClusteredMessage) sendContext.message).getRepliedTo(), sendContext);
     } else {
-      subs.get(sendContext.message.address(), ar -> onSubsReceived(ar, sendContext));
+      if (sendContext.options.isLocalOnly()) {
+        super.sendOrPub(sendContext);
+      } else if (Vertx.currentContext() != sendContext.ctx) {
+        // Current event-loop might be null when sending from non vertx thread
+        sendContext.ctx.runOnContext(v -> {
+          subs.get(sendContext.message.address(), ar -> onSubsReceived(ar, sendContext));
+        });
+      } else {
+        subs.get(sendContext.message.address(), ar -> onSubsReceived(ar, sendContext));
+      }
     }
   }
 
@@ -239,13 +232,11 @@ public class ClusteredEventBus extends EventBusImpl {
       if (serverIDs != null && !serverIDs.isEmpty()) {
         sendToSubs(serverIDs, sendContext);
       } else {
-        if (metrics != null) {
-          metrics.messageSent(sendContext.message.address(), !sendContext.message.isSend(), true, false);
-        }
-        deliverMessageLocally(sendContext);
+        super.sendOrPub(sendContext);
       }
     } else {
       log.error("Failed to send message", asyncResult.cause());
+      sendContext.written(asyncResult.cause());
     }
   }
 
@@ -312,7 +303,7 @@ public class ClusteredEventBus extends EventBusImpl {
             size = buff.getInt(0);
             parser.fixedSizeMode(size);
           } else {
-            ClusteredMessage received = new ClusteredMessage();
+            ClusteredMessage received = new ClusteredMessage(ClusteredEventBus.this);
             received.readFromWire(buff, codecManager);
             if (metrics != null) {
               metrics.messageRead(received.address(), buff.length());
@@ -334,60 +325,37 @@ public class ClusteredEventBus extends EventBusImpl {
   }
 
   private <T> void sendToSubs(ChoosableIterable<ClusterNodeInfo> subs, OutboundDeliveryContext<T> sendContext) {
-    String address = sendContext.message.address();
     if (sendContext.message.isSend()) {
       // Choose one
       ClusterNodeInfo ci = subs.choose();
       ServerID sid = ci == null ? null : ci.serverID;
       if (sid != null && !sid.equals(serverID)) {  //We don't send to this node
-        if (metrics != null) {
-          metrics.messageSent(address, false, false, true);
-        }
-        sendRemote(sid, sendContext.message);
+        sendRemote(sendContext, sid, sendContext.message);
       } else {
-        if (metrics != null) {
-          metrics.messageSent(address, false, true, false);
-        }
-        deliverMessageLocally(sendContext);
+        super.sendOrPub(sendContext);
       }
     } else {
       // Publish
-      boolean local = false;
-      boolean remote = false;
       for (ClusterNodeInfo ci : subs) {
         if (!ci.serverID.equals(serverID)) {  //We don't send to this node
-          remote = true;
-          sendRemote(ci.serverID, sendContext.message);
+          sendRemote(sendContext, ci.serverID, sendContext.message);
         } else {
-          local = true;
+          super.sendOrPub(sendContext);
         }
-      }
-      if (metrics != null) {
-        metrics.messageSent(address, true, local, remote);
-      }
-      if (local) {
-        deliverMessageLocally(sendContext);
       }
     }
   }
 
   private <T> void clusteredSendReply(ServerID replyDest, OutboundDeliveryContext<T> sendContext) {
     MessageImpl message = sendContext.message;
-    String address = message.address();
     if (!replyDest.equals(serverID)) {
-      if (metrics != null) {
-        metrics.messageSent(address, false, false, true);
-      }
-      sendRemote(replyDest, message);
+      sendRemote(sendContext, replyDest, message);
     } else {
-      if (metrics != null) {
-        metrics.messageSent(address, false, true, false);
-      }
-      deliverMessageLocally(sendContext);
+      super.sendOrPub(sendContext);
     }
   }
 
-  private void sendRemote(ServerID theServerID, MessageImpl message) {
+  private void sendRemote(OutboundDeliveryContext<?> sendContext, ServerID theServerID, MessageImpl message) {
     // We need to deal with the fact that connecting can take some time and is async, and we cannot
     // block to wait for it. So we add any sends to a pending list if not connected yet.
     // Once we connect we send them.
@@ -406,7 +374,7 @@ public class ClusteredEventBus extends EventBusImpl {
         holder.connect();
       }
     }
-    holder.writeMessage((ClusteredMessage) message);
+    holder.writeMessage(sendContext);
   }
 
   private void removeSub(String subName, ClusterNodeInfo node, Handler<AsyncResult<Void>> completionHandler) {

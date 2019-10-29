@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -15,6 +15,7 @@ import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.metrics.Measured;
 
@@ -47,18 +48,6 @@ public interface EventBus extends Measured {
   EventBus send(String address, Object message);
 
   /**
-   * Like {@link #send(String, Object)} but specifying a {@code replyHandler} that will be called if the recipient
-   * subsequently replies to the message.
-   *
-   * @param address      the address to send it to
-   * @param message      the message, may be {@code null}
-   * @param replyHandler reply handler will be called when any reply from the recipient is received, may be {@code null}
-   * @return a reference to this, so the API can be used fluently
-   */
-  @Fluent
-  <T> EventBus send(String address, Object message, Handler<AsyncResult<Message<T>>> replyHandler);
-
-  /**
    * Like {@link #send(String, Object)} but specifying {@code options} that can be used to configure the delivery.
    *
    * @param address the address to send it to
@@ -70,18 +59,48 @@ public interface EventBus extends Measured {
   EventBus send(String address, Object message, DeliveryOptions options);
 
   /**
-   * Like {@link #send(String, Object, DeliveryOptions)} but specifying a {@code replyHandler} that will be called if the recipient
+   * Sends a message and and specify a {@code replyHandler} that will be called if the recipient
    * subsequently replies to the message.
+   * <p>
+   * The message will be delivered to at most one of the handlers registered to the address.
    *
-   * @param address      the address to send it to
-   * @param message      the message, may be {@code null}
-   * @param options      delivery options
-   * @param replyHandler reply handler will be called when any reply from the recipient is received, may be {@code null}
+   * @param address  the address to send it to
+   * @param message  the message body, may be {@code null}
+   * @param replyHandler  reply handler will be called when any reply from the recipient is received
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
-  <T> EventBus send(String address, Object message, DeliveryOptions options,
-                    Handler<AsyncResult<Message<T>>> replyHandler);
+  default <T> EventBus request(String address, Object message, Handler<AsyncResult<Message<T>>> replyHandler) {
+    return request(address, message, new DeliveryOptions(), replyHandler);
+  }
+
+  /**
+   * Like {@link #request(String, Object, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  default <T> Future<Message<T>> request(String address, Object message) {
+    return request(address, message, new DeliveryOptions());
+  }
+
+  /**
+   * Like {@link #request(String, Object, Handler)} but specifying {@code options} that can be used to configure the delivery.
+   *
+   * @param address  the address to send it to
+   * @param message  the message body, may be {@code null}
+   * @param options  delivery options
+   * @param replyHandler  reply handler will be called when any reply from the recipient is received
+   * @return a reference to this, so the API can be used fluently
+   */
+  @Fluent
+  default <T> EventBus request(String address, Object message, DeliveryOptions options, Handler<AsyncResult<Message<T>>> replyHandler) {
+    Future<Message<T>> reply = request(address, message, options);
+    reply.setHandler(replyHandler);
+    return this;
+  }
+
+  /**
+   * Like {@link #request(String, Object, DeliveryOptions, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  <T> Future<Message<T>> request(String address, Object message, DeliveryOptions options);
 
   /**
    * Publish a message.<p>
@@ -198,7 +217,7 @@ public interface EventBus extends Measured {
    * @param codec the message codec to register
    * @return a reference to this, so the API can be used fluently
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   EventBus registerCodec(MessageCodec codec);
 
   /**
@@ -208,7 +227,7 @@ public interface EventBus extends Measured {
    * @param name the name of the codec
    * @return a reference to this, so the API can be used fluently
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   EventBus unregisterCodec(String name);
 
   /**

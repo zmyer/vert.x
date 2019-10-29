@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,7 +11,10 @@
 
 package io.vertx.core.http;
 
+import io.netty.handler.codec.http2.Http2CodecUtil;
 import io.vertx.codegen.annotations.*;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -22,6 +25,8 @@ import io.vertx.core.streams.ReadStream;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.security.cert.X509Certificate;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Represents a server-side HTTP request.
@@ -139,7 +144,7 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
    * @param headerName the header name
    * @return the header value
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   String getHeader(CharSequence headerName);
 
   /**
@@ -175,7 +180,7 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
    * not SSL.
    * @see javax.net.ssl.SSLSession
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   SSLSession sslSession();
 
   /**
@@ -214,6 +219,24 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
     }
     return this;
   }
+
+  /**
+   * Same as {@link #body()} but with an {@code handler} called when the operation completes
+   */
+  default HttpServerRequest body(Handler<AsyncResult<Buffer>> handler) {
+    body().setHandler(handler);
+    return this;
+  }
+
+  /**
+   * Convenience method for receiving the entire request body in one piece.
+   * <p>
+   * This saves you having to manually set a dataHandler and an endHandler and append the chunks of the body until
+   * the whole body received. Don't use this if your request body is large - you could potentially run out of RAM.
+   *
+   * @return a future completed with the body result
+   */
+  Future<Buffer> body();
 
   /**
    * Get a net socket for the underlying connection of this request.
@@ -299,10 +322,12 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
   /**
    * Upgrade the connection to a WebSocket connection.
    * <p>
-   * This is an alternative way of handling WebSockets and can only be used if no websocket handlers are set on the
-   * Http server, and can only be used during the upgrade request during the WebSocket handshake.
+   * This is an alternative way of handling WebSockets and can only be used if no WebSocket handler is set on the
+   * {@code HttpServer}, and can only be used during the upgrade request during the WebSocket handshake.
    *
    * @return the WebSocket
+   * @throws IllegalStateException if the current request cannot be upgraded, when it happens an appropriate response
+   *                               is sent
    */
   ServerWebSocket upgrade();
 
@@ -327,5 +352,40 @@ public interface HttpServerRequest extends ReadStream<Buffer> {
    */
   @CacheReturn
   HttpConnection connection();
+
+  /**
+   * @return the priority of the associated HTTP/2 stream for HTTP/2 otherwise {@code null}
+   */
+  default StreamPriority streamPriority() {
+      return null;
+  }
+
+  /**
+   * Set an handler for stream priority changes
+   * <p>
+   * This is not implemented for HTTP/1.x.
+   *
+   * @param handler the handler to be called when stream priority changes
+   */
+  @Fluent
+  HttpServerRequest streamPriorityHandler(Handler<StreamPriority> handler);
+
+  /**
+   * Get the cookie with the specified name.
+   *
+   * @param name  the cookie name
+   * @return the cookie
+   */
+  @Nullable Cookie getCookie(String name);
+
+  /**
+   * @return the number of cookieMap.
+   */
+  int cookieCount();
+
+  /**
+   * @return a map of all the cookies.
+   */
+  Map<String, Cookie> cookieMap();
 
 }

@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.http.HttpClientOptions}.
+ * Converter and mapper for {@link io.vertx.core.http.HttpClientOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.http.HttpClientOptions} original class using Vert.x codegen.
  */
- class HttpClientOptionsConverter {
+public class HttpClientOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, HttpClientOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {
@@ -164,6 +165,8 @@ import java.time.format.DateTimeFormatter;
             obj.setTryUsePerMessageWebsocketCompression((Boolean)member.getValue());
           }
           break;
+        case "tryWebsocketDeflateFrameCompression":
+          break;
         case "verifyHost":
           if (member.getValue() instanceof Boolean) {
             obj.setVerifyHost((Boolean)member.getValue());
@@ -230,8 +233,11 @@ import java.time.format.DateTimeFormatter;
     }
     json.put("sendUnmaskedFrames", obj.isSendUnmaskedFrames());
     json.put("tryUseCompression", obj.isTryUseCompression());
+    json.put("tryUsePerMessageWebsocketCompression", obj.getTryUsePerMessageWebsocketCompression());
+    json.put("tryWebsocketDeflateFrameCompression", obj.getTryWebsocketDeflateFrameCompression());
     json.put("verifyHost", obj.isVerifyHost());
     json.put("websocketCompressionAllowClientNoContext", obj.getWebsocketCompressionAllowClientNoContext());
+    json.put("websocketCompressionLevel", obj.getWebsocketCompressionLevel());
     json.put("websocketCompressionRequestServerNoContext", obj.getWebsocketCompressionRequestServerNoContext());
   }
 }

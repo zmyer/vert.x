@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -18,8 +18,8 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.cli.annotations.Description;
 import io.vertx.core.cli.annotations.Option;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.spi.launcher.DefaultCommand;
 
 import java.io.File;
@@ -93,7 +93,7 @@ public abstract class ClasspathHandler extends DefaultCommand {
       classloader = (classpath == null || classpath.isEmpty()) ?
           ClasspathHandler.class.getClassLoader() : createClassloader();
       Class<?> clazz = classloader.loadClass("io.vertx.core.impl.launcher.commands.VertxIsolatedDeployer");
-      return clazz.newInstance();
+      return clazz.getDeclaredConstructor().newInstance();
     } catch (Exception e) {
       log.error("Failed to load or instantiate the isolated deployer", e);
       throw new IllegalStateException(e);
@@ -156,6 +156,15 @@ public abstract class ClasspathHandler extends DefaultCommand {
       Thread.currentThread().setContextClassLoader(classloader);
       Method method = manager.getClass().getMethod("deploy", String.class, Vertx.class, DeploymentOptions.class,
           Handler.class);
+
+      if (executionContext.get("Default-Verticle-Factory") != null) {
+        // there is a configured default
+        if (verticle.indexOf(':') == -1) {
+          // and the verticle is not using a explicit factory
+          verticle = executionContext.get("Default-Verticle-Factory") + ":" + verticle;
+        }
+      }
+
       method.invoke(manager, verticle, vertx, options, completionHandler);
     } catch (InvocationTargetException e) {
       log.error("Failed to deploy verticle " + verticle, e.getCause());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -267,4 +267,18 @@ public interface CLI {
    */
   @GenIgnore
   CLI usage(StringBuilder builder, String prefix);
+
+  /**
+   * @return the CLI priority.
+   */
+  int getPriority();
+
+  /**
+   * Sets the priority of the CLI.
+   *
+   * @param priority the priority
+   * @return the current {@link CLI} instance
+   */
+  @Fluent
+  CLI setPriority(int priority);
 }

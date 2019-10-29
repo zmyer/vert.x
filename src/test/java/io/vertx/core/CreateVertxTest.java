@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,10 +12,8 @@
 package io.vertx.core;
 
 import io.vertx.test.core.VertxTestBase;
-import org.junit.Test;
-
-import io.vertx.core.*;
 import io.vertx.test.fakecluster.FakeClusterManager;
+import org.junit.Test;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -39,7 +37,7 @@ public class CreateVertxTest extends VertxTestBase {
   @Test
   public void testFailCreateClusteredVertxSynchronously() {
     VertxOptions options = new VertxOptions();
-    options.setClustered(true);
+    options.getEventBusOptions().setClustered(true);
     try {
       Vertx.vertx(options);
       fail("Should throw exception");
@@ -51,7 +49,7 @@ public class CreateVertxTest extends VertxTestBase {
   @Test
   public void testCreateClusteredVertxAsync() {
     VertxOptions options = new VertxOptions();
-    options.setClustered(true);
+    options.getEventBusOptions().setClustered(true);
     clusteredVertx(options, ar -> {
       assertTrue(ar.succeeded());
       assertNotNull(ar.result());
@@ -74,7 +72,7 @@ public class CreateVertxTest extends VertxTestBase {
     clusteredVertx(options, ar -> {
       assertTrue(ar.succeeded());
       assertNotNull(ar.result());
-      assertTrue(options.isClustered());
+      assertTrue(options.getEventBusOptions().isClustered());
       assertTrue(ar.result().isClustered());
       Vertx v = ar.result();
       v.close(ar2 -> {

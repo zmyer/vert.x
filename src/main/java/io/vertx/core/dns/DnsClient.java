@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,6 +13,7 @@ package io.vertx.core.dns;
 
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.VertxGen;
@@ -42,6 +43,11 @@ public interface DnsClient {
   DnsClient lookup(String name, Handler<AsyncResult<@Nullable String>> handler);
 
   /**
+   * Like {@link #lookup(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<@Nullable String> lookup(String name);
+
+  /**
    * Try to lookup the A (ipv4) record for the given name. The first found will be used.
    *
    * @param name    the name to resolve
@@ -54,6 +60,11 @@ public interface DnsClient {
   DnsClient lookup4(String name, Handler<AsyncResult<@Nullable String>> handler);
 
   /**
+   * Like {@link #lookup4(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<@Nullable String> lookup4(String name);
+
+  /**
    * Try to lookup the AAAA (ipv6) record for the given name. The first found will be used.
    *
    * @param name    the name to resolve
@@ -64,6 +75,11 @@ public interface DnsClient {
    */
   @Fluent
   DnsClient lookup6(String name, Handler<AsyncResult<@Nullable String>> handler);
+
+  /**
+   * Like {@link #lookup6(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<@Nullable String> lookup6(String name);
 
   /**
    * Try to resolve all A (ipv4) records for the given name.
@@ -79,6 +95,11 @@ public interface DnsClient {
   DnsClient resolveA(String name, Handler<AsyncResult<List<String>>> handler);
 
   /**
+   * Like {@link #resolveA(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<String>> resolveA(String name);
+
+  /**
    * Try to resolve all AAAA (ipv6) records for the given name.
    *
    * @param name    the name to resolve
@@ -92,6 +113,11 @@ public interface DnsClient {
   DnsClient resolveAAAA(String name, Handler<AsyncResult<List<String>>> handler);
 
   /**
+   * Like {@link #resolveAAAA(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<String>> resolveAAAA(String name);
+
+  /**
    * Try to resolve the CNAME record for the given name.
    *
    * @param name    the name to resolve the CNAME for
@@ -102,6 +128,11 @@ public interface DnsClient {
    */
   @Fluent
   DnsClient resolveCNAME(String name, Handler<AsyncResult<List<String>>> handler);
+
+  /**
+   * Like {@link #resolveCNAME(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<String>> resolveCNAME(String name);
 
   /**
    * Try to resolve the MX records for the given name.
@@ -117,6 +148,11 @@ public interface DnsClient {
   DnsClient resolveMX(String name, Handler<AsyncResult<List<MxRecord>>> handler);
 
   /**
+   * Like {@link #resolveMX(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<MxRecord>> resolveMX(String name);
+
+  /**
    * Try to resolve the TXT records for the given name.
    *
    * @param name    the name for which the TXT records should be resolved
@@ -127,6 +163,11 @@ public interface DnsClient {
    */
   @Fluent
   DnsClient resolveTXT(String name, Handler<AsyncResult<List<String>>> handler);
+
+  /**
+   * Like {@link #resolveTXT(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<String>> resolveTXT(String name);
 
   /**
    * Try to resolve the PTR record for the given name.
@@ -141,6 +182,11 @@ public interface DnsClient {
   DnsClient resolvePTR(String name, Handler<AsyncResult<@Nullable String>> handler);
 
   /**
+   * Like {@link #resolvePTR(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<@Nullable String> resolvePTR(String name);
+
+  /**
    * Try to resolve the NS records for the given name.
    *
    * @param name    the name for which the NS records should be resolved
@@ -151,6 +197,11 @@ public interface DnsClient {
    */
   @Fluent
   DnsClient resolveNS(String name, Handler<AsyncResult<List<String>>> handler);
+
+  /**
+   * Like {@link #resolveNS(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<String>> resolveNS(String name);
 
   /**
    * Try to resolve the SRV records for the given name.
@@ -165,6 +216,11 @@ public interface DnsClient {
   DnsClient resolveSRV(String name, Handler<AsyncResult<List<SrvRecord>>> handler);
 
   /**
+   * Like {@link #resolveSRV(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<List<SrvRecord>> resolveSRV(String name);
+
+  /**
    * Try to do a reverse lookup of an IP address. This is basically the same as doing trying to resolve a PTR record
    * but allows you to just pass in the IP address and not a valid ptr query string.
    *
@@ -176,4 +232,9 @@ public interface DnsClient {
    */
   @Fluent
   DnsClient reverseLookup(String ipaddress, Handler<AsyncResult<@Nullable String>> handler);
+
+  /**
+   * Like {@link #reverseLookup(String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<@Nullable String> reverseLookup(String ipaddress);
 }

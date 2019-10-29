@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -100,6 +100,15 @@ public interface Vertx extends Measured {
    */
   static void clusteredVertx(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler) {
     factory.clusteredVertx(options, resultHandler);
+  }
+
+  /**
+   * Same as {@link #clusteredVertx(VertxOptions, Handler)} but with an {@code handler} called when the operation completes
+   */
+  static Future<Vertx> clusteredVertx(VertxOptions options) {
+    Promise<Vertx> promise = Promise.promise();
+    factory.clusteredVertx(options, promise);
+    return promise.future();
   }
 
   /**
@@ -304,8 +313,10 @@ public interface Vertx extends Measured {
    * The instance cannot be used after it has been closed.
    * <p>
    * The actual close is asynchronous and may not complete until after the call has returned.
+   *
+   * @return a future completed with the result
    */
-  void close();
+  Future<Void> close();
 
   /**
    * Like {@link #close} but the completionHandler will be called when the close is complete
@@ -321,10 +332,11 @@ public interface Vertx extends Measured {
    * <p>
    * The actual deploy happens asynchronously and may not complete until after the call has returned.
    *
-   * @param verticle the verticle instance to deploy.
+   * @param verticle  the verticle instance to deploy.
+   * @return a future completed with the result
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
-  void deployVerticle(Verticle verticle);
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
+  Future<String> deployVerticle(Verticle verticle);
 
   /**
    * Like {@link #deployVerticle(Verticle)} but the completionHandler will be notified when the deployment is complete.
@@ -337,7 +349,7 @@ public interface Vertx extends Measured {
    * @param verticle          the verticle instance to deploy
    * @param completionHandler a handler which will be notified when the deployment is complete
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   void deployVerticle(Verticle verticle, Handler<AsyncResult<String>> completionHandler);
 
   /**
@@ -346,16 +358,18 @@ public interface Vertx extends Measured {
    *
    * @param verticle the verticle instance to deploy
    * @param options  the deployment options.
+   * @return a future completed with the result
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
-  void deployVerticle(Verticle verticle, DeploymentOptions options);
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
+  Future<String> deployVerticle(Verticle verticle, DeploymentOptions options);
 
   /**
    * Like {@link #deployVerticle(Verticle, DeploymentOptions)} but {@link Verticle} instance is created by invoking the
    * default constructor of {@code verticleClass}.
+   * @return a future completed with the result
    */
   @GenIgnore
-  void deployVerticle(Class<? extends Verticle> verticleClass, DeploymentOptions options);
+  Future<String> deployVerticle(Class<? extends Verticle> verticleClass, DeploymentOptions options);
 
   /**
    * Like {@link #deployVerticle(Verticle, DeploymentOptions)} but {@link Verticle} instance is created by invoking the
@@ -365,9 +379,11 @@ public interface Vertx extends Measured {
    * It must not return the same instance twice.
    * <p>
    * Note that the supplier will be invoked on the caller thread.
+   *
+   * @return a future completed with the result
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
-  void deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options);
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
+  Future<String> deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options);
 
   /**
    * Like {@link #deployVerticle(Verticle, Handler)} but {@link io.vertx.core.DeploymentOptions} are provided to configure the
@@ -377,7 +393,7 @@ public interface Vertx extends Measured {
    * @param options           the deployment options.
    * @param completionHandler a handler which will be notified when the deployment is complete
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   void deployVerticle(Verticle verticle, DeploymentOptions options, Handler<AsyncResult<String>> completionHandler);
 
   /**
@@ -397,7 +413,7 @@ public interface Vertx extends Measured {
    * <p>
    * Note that the supplier will be invoked on the caller thread.
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   void deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options, Handler<AsyncResult<String>> completionHandler);
 
   /**
@@ -407,9 +423,10 @@ public interface Vertx extends Measured {
    * <p>
    * For the rules on how factories are selected please consult the user manual.
    *
-   * @param name the name.
+   * @param name  the name.
+   * @return a future completed with the result
    */
-  void deployVerticle(String name);
+  Future<String> deployVerticle(String name);
 
   /**
    * Like {@link #deployVerticle(String)} but the completionHandler will be notified when the deployment is complete.
@@ -429,10 +446,11 @@ public interface Vertx extends Measured {
    * Like {@link #deployVerticle(Verticle)} but {@link io.vertx.core.DeploymentOptions} are provided to configure the
    * deployment.
    *
-   * @param name    the name
-   * @param options the deployment options.
+   * @param name  the name
+   * @param options  the deployment options.
+   * @return a future completed with the result
    */
-  void deployVerticle(String name, DeploymentOptions options);
+  Future<String> deployVerticle(String name, DeploymentOptions options);
 
   /**
    * Like {@link #deployVerticle(String, Handler)} but {@link io.vertx.core.DeploymentOptions} are provided to configure the
@@ -449,9 +467,10 @@ public interface Vertx extends Measured {
    * <p>
    * The actual undeployment happens asynchronously and may not complete until after the method has returned.
    *
-   * @param deploymentID the deployment ID
+   * @param deploymentID  the deployment ID
+   * @return a future completed with the result
    */
-  void undeploy(String deploymentID);
+  Future<Void> undeploy(String deploymentID);
 
   /**
    * Like {@link #undeploy(String) } but the completionHandler will be notified when the undeployment is complete.
@@ -473,7 +492,7 @@ public interface Vertx extends Measured {
    *
    * @param factory the factory to register
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   void registerVerticleFactory(VerticleFactory factory);
 
   /**
@@ -481,7 +500,7 @@ public interface Vertx extends Measured {
    *
    * @param factory the factory to unregister
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   void unregisterVerticleFactory(VerticleFactory factory);
 
   /**
@@ -489,7 +508,7 @@ public interface Vertx extends Measured {
    *
    * @return the set of verticle factories
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   Set<VerticleFactory> verticleFactories();
 
   /**
@@ -508,11 +527,20 @@ public interface Vertx extends Measured {
    * (e.g. on the original event loop of the caller).
    * <p>
    * A {@code Future} instance is passed into {@code blockingCodeHandler}. When the blocking code successfully completes,
-   * the handler should call the {@link Future#complete} or {@link Future#complete(Object)} method, or the {@link Future#fail}
+   * the handler should call the {@link Promise#complete} or {@link Promise#complete(Object)} method, or the {@link Promise#fail}
    * method if it failed.
    * <p>
    * In the {@code blockingCodeHandler} the current context remains the original context and therefore any task
    * scheduled in the {@code blockingCodeHandler} will be executed on the this context and not on the worker thread.
+   * <p>
+   * The blocking code should block for a reasonable amount of time (i.e no more than a few seconds). Long blocking operations
+   * or polling operations (i.e a thread that spin in a loop polling events in a blocking fashion) are precluded.
+   * <p>
+   * When the blocking operation lasts more than the 10 seconds, a message will be printed on the console by the
+   * blocked thread checker.
+   * <p>
+   * Long blocking operations should use a dedicated thread managed by the application, which can interact with
+   * verticles using the event-bus or {@link Context#runOnContext(Handler)}
    *
    * @param blockingCodeHandler handler representing the blocking code to run
    * @param resultHandler       handler that will be called when the blocking code is complete
@@ -521,20 +549,29 @@ public interface Vertx extends Measured {
    *                            guarantees
    * @param <T>                 the type of the result
    */
-  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-                           Handler<AsyncResult<@Nullable T>> resultHandler);
+  <T> void executeBlocking(Handler<Promise<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<@Nullable T>> resultHandler);
 
   /**
    * Like {@link #executeBlocking(Handler, boolean, Handler)} called with ordered = true.
    */
-  <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, Handler<AsyncResult<@Nullable T>> resultHandler);
+  <T> void executeBlocking(Handler<Promise<T>> blockingCodeHandler, Handler<AsyncResult<@Nullable T>> resultHandler);
+
+  /**
+   * Same as {@link #executeBlocking(Handler, boolean, Handler)} but with an {@code handler} called when the operation completes
+   */
+  <T> Future<@Nullable T> executeBlocking(Handler<Promise<T>> blockingCodeHandler, boolean ordered);
+
+  /**
+   * Same as {@link #executeBlocking(Handler, Handler)} but with an {@code handler} called when the operation completes
+   */
+  <T> Future<T> executeBlocking(Handler<Promise<T>> blockingCodeHandler);
 
   /**
    * Return the Netty EventLoopGroup used by Vert.x
    *
    * @return the EventLoopGroup
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   EventLoopGroup nettyEventLoopGroup();
 
   /**

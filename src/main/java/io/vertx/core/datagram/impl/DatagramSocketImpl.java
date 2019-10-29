@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -71,9 +71,6 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     DatagramChannel channel = transport.datagramChannel(options.isIpV6() ? InternetProtocolFamily.IPv6 : InternetProtocolFamily.IPv4);
     transport.configure(channel, new DatagramSocketOptions(options));
     ContextInternal context = vertx.getOrCreateContext();
-    if (context.isMultiThreadedWorkerContext()) {
-      throw new IllegalStateException("Cannot use DatagramSocket in a multi-threaded worker verticle");
-    }
     channel.config().setOption(ChannelOption.DATAGRAM_CHANNEL_ACTIVE_ON_REGISTRATION, true);
     MaxMessagesRecvByteBufAllocator bufAllocator = channel.config().getRecvByteBufAllocator();
     bufAllocator.maxMessagesPerRead(1);
@@ -94,7 +91,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket listenMulticastGroup(String multicastAddress, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket listenMulticastGroup(String multicastAddress, Handler<AsyncResult<Void>> handler) {
     try {
       addListener(channel.joinGroup(InetAddress.getByName(multicastAddress)), handler);
     } catch (UnknownHostException e) {
@@ -104,7 +101,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket listenMulticastGroup(String multicastAddress, String networkInterface, String source, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket listenMulticastGroup(String multicastAddress, String networkInterface, String source, Handler<AsyncResult<Void>> handler) {
     try {
       InetAddress sourceAddress;
       if (source == null) {
@@ -121,7 +118,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket unlistenMulticastGroup(String multicastAddress, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket unlistenMulticastGroup(String multicastAddress, Handler<AsyncResult<Void>> handler) {
     try {
       addListener(channel.leaveGroup(InetAddress.getByName(multicastAddress)), handler);
     } catch (UnknownHostException e) {
@@ -131,7 +128,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket unlistenMulticastGroup(String multicastAddress, String networkInterface, String source, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket unlistenMulticastGroup(String multicastAddress, String networkInterface, String source, Handler<AsyncResult<Void>> handler) {
     try {
       InetAddress sourceAddress;
       if (source == null) {
@@ -148,7 +145,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket blockMulticastGroup(String multicastAddress, String networkInterface, String sourceToBlock, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket blockMulticastGroup(String multicastAddress, String networkInterface, String sourceToBlock, Handler<AsyncResult<Void>> handler) {
     try {
       InetAddress sourceAddress;
       if (sourceToBlock == null) {
@@ -165,7 +162,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket blockMulticastGroup(String multicastAddress, String sourceToBlock, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket blockMulticastGroup(String multicastAddress, String sourceToBlock, Handler<AsyncResult<Void>> handler) {
     try {
       addListener(channel.block(InetAddress.getByName(multicastAddress), InetAddress.getByName(sourceToBlock)), handler);
     } catch (UnknownHostException e) {
@@ -206,7 +203,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
           if (metrics != null && ar.succeeded()) {
             metrics.listening(local.host(), localAddress());
           }
-          handler.handle(ar);
+          handler.handle(ar.map(this));
         });
       } else {
         handler.handle(Future.failedFuture(res.cause()));
@@ -217,9 +214,9 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @SuppressWarnings("unchecked")
-  final void addListener(ChannelFuture future, Handler<AsyncResult<DatagramSocket>> handler) {
+  final void addListener(ChannelFuture future, Handler<AsyncResult<Void>> handler) {
     if (handler != null) {
-      future.addListener(new DatagramChannelFutureListener<>(this, handler, context));
+      future.addListener(context.toFutureListener(handler));
     }
   }
 
@@ -260,7 +257,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
 
   @Override
   @SuppressWarnings("unchecked")
-  public DatagramSocket send(Buffer packet, int port, String host, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket send(Buffer packet, int port, String host, Handler<AsyncResult<Void>> handler) {
     Objects.requireNonNull(packet, "no null packet accepted");
     Objects.requireNonNull(host, "no null host accepted");
     if (port < 0 || port > 65535) {
@@ -279,7 +276,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     return this;
   }
 
-  private void doSend(Buffer packet, InetSocketAddress addr, Handler<AsyncResult<DatagramSocket>> handler) {
+  private void doSend(Buffer packet, InetSocketAddress addr, Handler<AsyncResult<Void>> handler) {
     ChannelFuture future = channel.writeAndFlush(new DatagramPacket(packet.getByteBuf(), addr));
     addListener(future, handler);
   }
@@ -292,12 +289,12 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   }
 
   @Override
-  public DatagramSocket send(String str, int port, String host, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket send(String str, int port, String host, Handler<AsyncResult<Void>> handler) {
     return send(Buffer.buffer(str), port, host, handler);
   }
 
   @Override
-  public DatagramSocket send(String str, String enc, int port, String host, Handler<AsyncResult<DatagramSocket>> handler) {
+  public DatagramSocket send(String str, String enc, int port, String host, Handler<AsyncResult<Void>> handler) {
     return send(Buffer.buffer(str, enc), port, host, handler);
   }
 
@@ -305,11 +302,6 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   public SocketAddress localAddress() {
     InetSocketAddress addr = channel.localAddress();
     return new SocketAddressImpl(addr);
-  }
-
-  @Override
-  public void close() {
-    close(null);
   }
 
   @Override
@@ -321,7 +313,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     channel.flush();
     ChannelFuture future = channel.close();
     if (handler != null) {
-      future.addListener(new DatagramChannelFutureListener<>(null, handler, context));
+      future.addListener(context.toFutureListener(handler));
     }
   }
 
@@ -335,7 +327,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     return metrics;
   }
 
-  private void notifyException(final Handler<AsyncResult<DatagramSocket>> handler, final Throwable cause) {
+  private void notifyException(final Handler<AsyncResult<Void>> handler, final Throwable cause) {
     context.executeFromIO(v -> handler.handle(Future.failedFuture(cause)));
   }
 
@@ -394,7 +386,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
         metrics.close();
       }
       if (handler != null) {
-        handler.handle(null);
+        context.dispatch(handler);
       }
     }
 
@@ -427,7 +419,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
         }
       }
       if (handler != null) {
-        handler.handle(packet);
+        context.dispatch(packet, handler);
       }
     }
   }

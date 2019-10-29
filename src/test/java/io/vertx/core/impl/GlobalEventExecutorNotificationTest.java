@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -56,7 +56,7 @@ public class GlobalEventExecutorNotificationTest extends AsyncTestBase {
     RuntimeException cause = new RuntimeException();
     vertx = VertxImpl.vertx(new VertxOptions(), new Transport() {
       @Override
-      public ChannelFactory<? extends Channel> channelFactory(boolean domain) {
+      public ChannelFactory<? extends Channel> channelFactory(boolean domainSocket) {
         return (ChannelFactory<Channel>) () -> {
           throw cause;
         };
@@ -79,7 +79,7 @@ public class GlobalEventExecutorNotificationTest extends AsyncTestBase {
     RuntimeException cause = new RuntimeException();
     vertx = VertxImpl.vertx(new VertxOptions(), new Transport() {
       @Override
-      public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {
+      public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domainSocket) {
         return (ChannelFactory<ServerChannel>) () -> {
           throw cause;
         };
@@ -99,7 +99,7 @@ public class GlobalEventExecutorNotificationTest extends AsyncTestBase {
     RuntimeException cause = new RuntimeException();
     vertx = VertxImpl.vertx(new VertxOptions(), new Transport() {
       @Override
-      public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {
+      public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domainSocket) {
         return (ChannelFactory<ServerChannel>) () -> {
           throw cause;
         };

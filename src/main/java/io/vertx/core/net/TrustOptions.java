@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,6 +13,7 @@ package io.vertx.core.net;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.impl.VertxInternal;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.impl.KeyStoreHelper;
 
 import javax.net.ssl.TrustManager;
@@ -29,7 +30,7 @@ public interface TrustOptions {
   /**
    * @return a copy of these options
    */
-  TrustOptions clone();
+  TrustOptions copy();
 
   /**
    * Create and return the trust manager factory for these options.
@@ -59,4 +60,7 @@ public interface TrustOptions {
     KeyStoreHelper helper = KeyStoreHelper.create((VertxInternal) vertx, this);
     return helper != null ? helper::getTrustMgr : null;
   }
+
+  JsonObject toJson();
+
 }

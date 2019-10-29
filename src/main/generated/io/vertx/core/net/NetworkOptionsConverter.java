@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.net.NetworkOptions}.
+ * Converter and mapper for {@link io.vertx.core.net.NetworkOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.net.NetworkOptions} original class using Vert.x codegen.
  */
- class NetworkOptionsConverter {
+public class NetworkOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, NetworkOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {

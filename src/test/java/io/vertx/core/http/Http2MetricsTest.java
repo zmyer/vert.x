@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -49,13 +49,6 @@ public class Http2MetricsTest extends HttpMetricsTestBase {
   }
 
   @Override
-  public void setUp() throws Exception {
-    super.setUp();
-    client = vertx.createHttpClient(clientOptions);
-    server = vertx.createHttpServer(serverOptions);
-  }
-
-  @Override
   protected HttpServerOptions createBaseServerOptions() {
     return serverOptions;
   }
@@ -99,12 +92,12 @@ public class Http2MetricsTest extends HttpMetricsTestBase {
       HttpClientMetric metric = metrics.getMetric(pushedReq);
       assertNotNull(metric);
       assertSame(pushedReq, metric.request);
-      pushedReq.handler(resp -> {
+      pushedReq.setHandler(onSuccess(resp -> {
         resp.endHandler(v -> {
           assertNull(metrics.getMetric(pushedReq));
           complete();
         });
-      });
+      }));
     });
     req.end();
     await();

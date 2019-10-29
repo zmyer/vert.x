@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,22 +13,32 @@ package io.vertx.core.http.impl;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultHttpContent;
+import io.netty.handler.codec.http.EmptyHttpHeaders;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.util.concurrent.FutureListener;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.impl.headers.VertxHttpHeaders;
 import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.impl.ConnectionBase;
 import io.vertx.core.spi.metrics.Metrics;
@@ -37,6 +47,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.Map;
+
+import static io.vertx.core.http.HttpHeaders.SET_COOKIE;
 
 /**
  *
@@ -54,9 +67,12 @@ public class HttpServerResponseImpl implements HttpServerResponse {
 
   private static final Buffer EMPTY_BUFFER = Buffer.buffer(Unpooled.EMPTY_BUFFER);
   private static final Logger log = LoggerFactory.getLogger(HttpServerResponseImpl.class);
+  private static final String RESPONSE_WRITTEN = "Response has already been written";
 
   private final VertxInternal vertx;
+  private final HttpRequest request;
   private final Http1xServerConnection conn;
+  private final ContextInternal context;
   private HttpResponseStatus status;
   private final HttpVersion version;
   private final boolean keepAlive;
@@ -73,17 +89,20 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   private Handler<Void> bodyEndHandler;
   private boolean closed;
   private final VertxHttpHeaders headers;
+  private Map<String, ServerCookie> cookies;
   private MultiMap trailers;
   private io.netty.handler.codec.http.HttpHeaders trailingHeaders = EmptyHttpHeaders.INSTANCE;
   private String statusMessage;
   private long bytesWritten;
   private NetSocket netSocket;
 
-  HttpServerResponseImpl(final VertxInternal vertx, Http1xServerConnection conn, DefaultHttpRequest request, Object requestMetric) {
+  HttpServerResponseImpl(final VertxInternal vertx, ContextInternal context, Http1xServerConnection conn, HttpRequest request, Object requestMetric) {
     this.vertx = vertx;
     this.conn = conn;
+    this.context = context;
     this.version = request.protocolVersion();
     this.headers = new VertxHttpHeaders();
+    this.request = request;
     this.status = HttpResponseStatus.OK;
     this.requestMetric = requestMetric;
     this.keepAlive = (version == HttpVersion.HTTP_1_1 && !request.headers().contains(io.vertx.core.http.HttpHeaders.CONNECTION, HttpHeaders.CLOSE, true))
@@ -146,7 +165,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   @Override
   public boolean isChunked() {
     synchronized (conn) {
-      return HttpHeaders.CHUNKED.equals(headers.get(HttpHeaders.TRANSFER_ENCODING));
+      return headers.contains(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED, true);
     }
   }
 
@@ -285,19 +304,39 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   }
 
   @Override
-  public HttpServerResponseImpl write(Buffer chunk) {
-    ByteBuf buf = chunk.getByteBuf();
-    return write(buf);
+  public Future<Void> write(Buffer chunk) {
+    Promise<Void> promise = context.promise();
+    write(chunk.getByteBuf(), promise);
+    return promise.future();
   }
 
   @Override
-  public HttpServerResponseImpl write(String chunk, String enc) {
-    return write(Buffer.buffer(chunk, enc).getByteBuf());
+  public void write(Buffer chunk, Handler<AsyncResult<Void>> handler) {
+    write(chunk.getByteBuf(), handler);
   }
 
   @Override
-  public HttpServerResponseImpl write(String chunk) {
-    return write(Buffer.buffer(chunk).getByteBuf());
+  public Future<Void> write(String chunk, String enc) {
+    Promise<Void> promise = context.promise();
+    write(Buffer.buffer(chunk, enc).getByteBuf(), promise);
+    return promise.future();
+  }
+
+  @Override
+  public void write(String chunk, String enc, Handler<AsyncResult<Void>> handler) {
+    write(Buffer.buffer(chunk, enc).getByteBuf(), handler);
+  }
+
+  @Override
+  public Future<Void> write(String chunk) {
+    Promise<Void> promise = context.promise();
+    write(Buffer.buffer(chunk).getByteBuf(), promise);
+    return promise.future();
+  }
+
+  @Override
+  public void write(String chunk, Handler<AsyncResult<Void>> handler) {
+    write(Buffer.buffer(chunk).getByteBuf(), handler);
   }
 
   @Override
@@ -307,41 +346,61 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   }
 
   @Override
-  public void end(String chunk) {
-    end(Buffer.buffer(chunk));
+  public Future<Void> end(String chunk) {
+    return end(Buffer.buffer(chunk));
   }
 
   @Override
-  public void end(String chunk, String enc) {
-    end(Buffer.buffer(chunk, enc));
+  public void end(String chunk, Handler<AsyncResult<Void>> handler) {
+    end(Buffer.buffer(chunk), handler);
   }
 
   @Override
-  public void end(Buffer chunk) {
+  public Future<Void> end(String chunk, String enc) {
+    return end(Buffer.buffer(chunk, enc));
+  }
+
+  @Override
+  public void end(String chunk, String enc, Handler<AsyncResult<Void>> handler) {
+    end(Buffer.buffer(chunk, enc), handler);
+  }
+
+  @Override
+  public Future<Void> end(Buffer chunk) {
+    Promise<Void> promise = context.promise();
+    end(chunk, promise);
+    return promise.future();
+  }
+
+  @Override
+  public void end(Buffer chunk, Handler<AsyncResult<Void>> handler) {
     synchronized (conn) {
-      checkValid();
+      if (written) {
+        throw new IllegalStateException(RESPONSE_WRITTEN);
+      }
       ByteBuf data = chunk.getByteBuf();
       bytesWritten += data.readableBytes();
+      HttpObject msg;
       if (!headWritten) {
         // if the head was not written yet we can write out everything in one go
         // which is cheaper.
         prepareHeaders(bytesWritten);
-        conn.writeToChannel(new AssembledFullHttpResponse(head, version, status, headers, data, trailingHeaders));
+        msg = new AssembledFullHttpResponse(head, version, status, headers, data, trailingHeaders);
       } else {
-        conn.writeToChannel(new AssembledLastHttpContent(data, trailingHeaders));
+        msg = new AssembledLastHttpContent(data, trailingHeaders);
       }
-
-      if (!keepAlive) {
-        closeConnAfterWrite();
-        closed = true;
-      }
+      conn.writeToChannel(msg, conn.toPromise(context.toFutureListener(handler)));
       written = true;
       conn.responseComplete();
       if (bodyEndHandler != null) {
         bodyEndHandler.handle(null);
       }
-      if (endHandler != null) {
+      if (!closed && endHandler != null) {
         endHandler.handle(null);
+      }
+      if (!keepAlive) {
+        closeConnAfterWrite();
+        closed = true;
       }
     }
   }
@@ -361,14 +420,20 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   }
 
   @Override
-  public void end() {
-    end(EMPTY_BUFFER);
+  public Future<Void> end() {
+    return end(EMPTY_BUFFER);
   }
 
   @Override
-  public HttpServerResponseImpl sendFile(String filename, long offset, long length) {
-    doSendFile(filename, offset, length, null);
-    return this;
+  public void end(Handler<AsyncResult<Void>> handler) {
+    end(EMPTY_BUFFER, handler);
+  }
+
+  @Override
+  public Future<Void> sendFile(String filename, long offset, long length) {
+    Promise<Void> promise = context.promise();
+    sendFile(filename, offset, length, promise);
+    return promise.future();
   }
 
   @Override
@@ -423,10 +488,10 @@ public class HttpServerResponseImpl implements HttpServerResponse {
 
   private void doSendFile(String filename, long offset, long length, Handler<AsyncResult<Void>> resultHandler) {
     synchronized (conn) {
+      checkValid();
       if (headWritten) {
         throw new IllegalStateException("Head already written");
       }
-      checkValid();
       File file = vertx.resolveFile(filename);
 
       if (!file.exists()) {
@@ -449,11 +514,12 @@ public class HttpServerResponseImpl implements HttpServerResponse {
       }
       prepareHeaders(bytesWritten);
 
+      ChannelFuture channelFuture;
       RandomAccessFile raf = null;
       try {
         raf = new RandomAccessFile(file, "r");
         conn.writeToChannel(new AssembledHttpResponse(head, version, status, headers));
-        conn.sendFile(raf, Math.min(offset, file.length()), contentLength);
+        channelFuture = conn.sendFile(raf, Math.min(offset, file.length()), contentLength);
       } catch (IOException e) {
         try {
           if (raf != null) {
@@ -469,33 +535,47 @@ public class HttpServerResponseImpl implements HttpServerResponse {
         }
         return;
       }
-
-      // write an empty last content to let the http encoder know the response is complete
-      ChannelPromise channelFuture = conn.channelFuture();
-      conn.writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT, channelFuture);
       written = true;
 
-      if (resultHandler != null) {
-        ContextInternal ctx = vertx.getOrCreateContext();
-        channelFuture.addListener(future -> {
+      ContextInternal ctx = vertx.getOrCreateContext();
+      channelFuture.addListener(future -> {
+
+        // write an empty last content to let the http encoder know the response is complete
+        if (future.isSuccess()) {
+          ChannelPromise pr = conn.channelHandlerContext().newPromise();
+          conn.writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT, pr);
+          if (!keepAlive) {
+            pr.addListener(a -> {
+              closeConnAfterWrite();
+            });
+          }
+        }
+
+        // signal completion handler when there is one
+        if (resultHandler != null) {
           AsyncResult<Void> res;
           if (future.isSuccess()) {
             res = Future.succeededFuture();
           } else {
             res = Future.failedFuture(future.cause());
           }
-          ctx.runOnContext((v) -> resultHandler.handle(res));
-        });
-      }
+          ctx.executeFromIO(v -> resultHandler.handle(res));
+        }
 
-      if (!keepAlive) {
-        closeConnAfterWrite();
-      }
-      conn.responseComplete();
+        // signal body end handler
+        Handler<Void> handler;
+        synchronized (conn) {
+          handler = bodyEndHandler;
+        }
+        if (handler != null) {
+          context.executeFromIO(v -> {
+            handler.handle(null);
+          });
+        }
 
-      if (bodyEndHandler != null) {
-        bodyEndHandler.handle(null);
-      }
+        // allow to write next response
+        conn.responseComplete();
+      });
     }
   }
 
@@ -537,7 +617,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
       }
       closed = true;
       exceptionHandler = written ? null : this.exceptionHandler;
-      endHandler = this.endHandler;
+      endHandler = this.written ? null : this.endHandler;
       closedHandler = this.closeHandler;
     }
     if (exceptionHandler != null) {
@@ -553,10 +633,7 @@ public class HttpServerResponseImpl implements HttpServerResponse {
 
   private void checkValid() {
     if (written) {
-      throw new IllegalStateException("Response has already been written");
-    }
-    if (closed) {
-      throw new IllegalStateException("Response is closed");
+      throw new IllegalStateException(RESPONSE_WRITTEN);
     }
   }
 
@@ -581,10 +658,21 @@ public class HttpServerResponseImpl implements HttpServerResponse {
     if (headersEndHandler != null) {
       headersEndHandler.handle(null);
     }
+    if (cookies != null) {
+      setCookies();
+    }
     if (Metrics.METRICS_ENABLED) {
       reportResponseBegin();
     }
     headWritten = true;
+  }
+
+  private void setCookies() {
+    for (ServerCookie cookie: cookies.values()) {
+      if (cookie.isChanged()) {
+        headers.add(SET_COOKIE, cookie.encode());
+      }
+    }
   }
 
   private void reportResponseBegin() {
@@ -593,24 +681,25 @@ public class HttpServerResponseImpl implements HttpServerResponse {
     }
   }
 
-  private HttpServerResponseImpl write(ByteBuf chunk) {
+  private HttpServerResponseImpl write(ByteBuf chunk, Handler<AsyncResult<Void>> handler) {
     synchronized (conn) {
-      checkValid();
-      if (!headWritten && !headers.contains(HttpHeaders.TRANSFER_ENCODING) && !headers.contains(HttpHeaders.CONTENT_LENGTH)) {
+      if (written) {
+        throw new IllegalStateException("Response has already been written");
+      } else if (!headWritten && !headers.contains(HttpHeaders.TRANSFER_ENCODING) && !headers.contains(HttpHeaders.CONTENT_LENGTH)) {
         if (version != HttpVersion.HTTP_1_0) {
           throw new IllegalStateException("You must set the Content-Length header to be the total size of the message "
             + "body BEFORE sending any data if you are not using HTTP chunked encoding.");
         }
       }
-
       bytesWritten += chunk.readableBytes();
+      HttpObject msg;
       if (!headWritten) {
         prepareHeaders(-1);
-        conn.writeToChannel(new AssembledHttpResponse(head, version, status, headers, chunk));
+        msg = new AssembledHttpResponse(head, version, status, headers, chunk);
       } else {
-        conn.writeToChannel(new DefaultHttpContent(chunk));
+        msg = new DefaultHttpContent(chunk);
       }
-
+      conn.writeToChannel(msg, conn.toPromise(context.toFutureListener(handler)));
       return this;
     }
   }
@@ -642,6 +731,34 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   }
 
   @Override
+  public Future<HttpServerResponse> push(HttpMethod method, String host, String path) {
+    Promise<HttpServerResponse> promise = context.promise();
+    push(method, host, path, promise);
+    return promise.future();
+  }
+
+  @Override
+  public Future<HttpServerResponse> push(HttpMethod method, String path, MultiMap headers) {
+    Promise<HttpServerResponse> promise = context.promise();
+    push(method, path, headers, promise);
+    return promise.future();
+  }
+
+  @Override
+  public Future<HttpServerResponse> push(HttpMethod method, String path) {
+    Promise<HttpServerResponse> promise = context.promise();
+    push(method, path, promise);
+    return promise.future();
+  }
+
+  @Override
+  public Future<HttpServerResponse> push(HttpMethod method, String host, String path, MultiMap headers) {
+    Promise<HttpServerResponse> promise = context.promise();
+    push(method, host, path, headers, promise);
+    return promise.future();
+  }
+
+  @Override
   public HttpServerResponse push(HttpMethod method, String path, MultiMap headers, Handler<AsyncResult<HttpServerResponse>> handler) {
     return push(method, null, path, headers, handler);
   }
@@ -666,4 +783,23 @@ public class HttpServerResponseImpl implements HttpServerResponse {
   public HttpServerResponse writeCustomFrame(int type, int flags, Buffer payload) {
     return this;
   }
+
+  Map<String, ServerCookie> cookies() {
+    if (cookies == null) {
+      cookies = CookieImpl.extractCookies(request.headers().get(io.vertx.core.http.HttpHeaders.COOKIE));
+    }
+    return cookies;
+  }
+
+  @Override
+  public HttpServerResponse addCookie(Cookie cookie) {
+    cookies().put(cookie.getName(), (ServerCookie) cookie);
+    return this;
+  }
+
+  @Override
+  public @Nullable Cookie removeCookie(String name, boolean invalidate) {
+    return CookieImpl.removeCookie(cookies(), name, invalidate);
+  }
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -197,33 +197,5 @@ public class ProxyOptions {
     Objects.requireNonNull(type, "Proxy type may not be null");
     this.type = type;
     return this;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof ClientOptionsBase)) return false;
-    if (!super.equals(o)) return false;
-
-    ProxyOptions that = (ProxyOptions) o;
-
-    if (type != that.type) return false;
-    if (host.equals(that.host)) return false;
-    if (port != that.port) return false;
-    if (!Objects.equals(password, that.password)) return false;
-    if (!Objects.equals(username, that.username)) return false;
-
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = super.hashCode();
-    result = 31 * result + type.hashCode();
-    result = 31 * result + host.hashCode();
-    result = 31 * result + port;
-    result = 31 * result + (password != null ? password.hashCode() : 0);
-    result = 31 * result + (username != null ? username.hashCode() : 0);
-    return result;
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,6 +13,7 @@ package io.vertx.core.eventbus;
 
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.streams.ReadStream;
 
@@ -68,8 +69,10 @@ public interface MessageConsumer<T> extends ReadStream<Message<T>> {
 
   /**
    * Set the number of messages this registration will buffer when this stream is paused. The default
-   * value is <code>1000</code>. When a new value is set, buffered messages may be discarded to reach
-   * the new value.
+   * value is <code>1000</code>.
+   * <p>
+   * When a new value is set, buffered messages may be discarded to reach the new value. The most recent
+   * messages will be kept.
    *
    * @param maxBufferedMessages the maximum number of messages that can be buffered
    * @return this registration
@@ -91,7 +94,7 @@ public interface MessageConsumer<T> extends ReadStream<Message<T>> {
   /**
    * Unregisters the handler which created this registration
    */
-  void unregister();
+  Future<Void> unregister();
 
   /**
    * Unregisters the handler which created this registration

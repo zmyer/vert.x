@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.VertxOptions}.
+ * Converter and mapper for {@link io.vertx.core.VertxOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.VertxOptions} original class using Vert.x codegen.
  */
- class VertxOptionsConverter {
+public class VertxOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, VertxOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {
@@ -74,11 +75,6 @@ import java.time.format.DateTimeFormatter;
             obj.setEventLoopPoolSize(((Number)member.getValue()).intValue());
           }
           break;
-        case "fileResolverCachingEnabled":
-          if (member.getValue() instanceof Boolean) {
-            obj.setFileResolverCachingEnabled((Boolean)member.getValue());
-          }
-          break;
         case "fileSystemOptions":
           if (member.getValue() instanceof JsonObject) {
             obj.setFileSystemOptions(new io.vertx.core.file.FileSystemOptions((JsonObject)member.getValue()));
@@ -134,6 +130,11 @@ import java.time.format.DateTimeFormatter;
             obj.setQuorumSize(((Number)member.getValue()).intValue());
           }
           break;
+        case "tracingOptions":
+          if (member.getValue() instanceof JsonObject) {
+            obj.setTracingOptions(new io.vertx.core.tracing.TracingOptions((JsonObject)member.getValue()));
+          }
+          break;
         case "warningExceptionTime":
           if (member.getValue() instanceof Number) {
             obj.setWarningExceptionTime(((Number)member.getValue()).longValue());
@@ -180,7 +181,6 @@ import java.time.format.DateTimeFormatter;
       json.put("eventBusOptions", obj.getEventBusOptions().toJson());
     }
     json.put("eventLoopPoolSize", obj.getEventLoopPoolSize());
-    json.put("fileResolverCachingEnabled", obj.isFileResolverCachingEnabled());
     if (obj.getFileSystemOptions() != null) {
       json.put("fileSystemOptions", obj.getFileSystemOptions().toJson());
     }
@@ -202,6 +202,9 @@ import java.time.format.DateTimeFormatter;
     }
     json.put("preferNativeTransport", obj.getPreferNativeTransport());
     json.put("quorumSize", obj.getQuorumSize());
+    if (obj.getTracingOptions() != null) {
+      json.put("tracingOptions", obj.getTracingOptions().toJson());
+    }
     json.put("warningExceptionTime", obj.getWarningExceptionTime());
     if (obj.getWarningExceptionTimeUnit() != null) {
       json.put("warningExceptionTimeUnit", obj.getWarningExceptionTimeUnit().name());

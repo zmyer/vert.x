@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -45,7 +45,7 @@ import javax.net.ssl.KeyManagerFactory;
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 @DataObject(generateConverter = true)
-public class JksOptions implements KeyCertOptions, TrustOptions, Cloneable {
+public class JksOptions implements KeyCertOptions, TrustOptions {
 
   private String password;
   private String path;
@@ -150,41 +150,7 @@ public class JksOptions implements KeyCertOptions, TrustOptions, Cloneable {
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof JksOptions)) {
-      return false;
-    }
-
-    JksOptions that = (JksOptions) o;
-
-    if (password != null ? !password.equals(that.password) : that.password != null) {
-      return false;
-    }
-    if (path != null ? !path.equals(that.path) : that.path != null) {
-      return false;
-    }
-    if (value != null ? !value.equals(that.value) : that.value != null) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = 1;
-    result += 31 * result + (password != null ? password.hashCode() : 0);
-    result += 31 * result + (path != null ? path.hashCode() : 0);
-    result += 31 * result + (value != null ? value.hashCode() : 0);
-
-    return result;
-  }
-
-  @Override
-  public JksOptions clone() {
+  public JksOptions copy() {
     return new JksOptions(this);
   }
 }

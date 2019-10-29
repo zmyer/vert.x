@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -87,7 +87,7 @@ public class TransportTest extends AsyncTestBase {
 
   @Test
   public void testDomainSocketServer() throws Exception {
-    File sock = TestUtils.tmpFile("vertx", ".sock");
+    File sock = TestUtils.tmpFile(".sock");
     vertx = Vertx.vertx();
     NetServer server = vertx.createNetServer();
     server.connectHandler(so -> {});
@@ -100,7 +100,7 @@ public class TransportTest extends AsyncTestBase {
 
   @Test
   public void testDomainSocketClient() throws Exception {
-    File sock = TestUtils.tmpFile("vertx", ".sock");
+    File sock = TestUtils.tmpFile(".sock");
     vertx = Vertx.vertx();
     NetClient client = vertx.createNetClient();
     client.connect(SocketAddress.domainSocketAddress(sock.getAbsolutePath()), onFailure(err -> {

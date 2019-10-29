@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -30,20 +30,6 @@ public interface ConnectionProvider<C> {
    * @param resultHandler the handler notified with the connection success or failure
    */
   void connect(ConnectionListener<C> listener, ContextInternal context, Handler<AsyncResult<ConnectResult<C>>> resultHandler);
-
-  /**
-   * Callback before the connection becomes used (at least one usage).
-   *
-   * @param conn the connection
-   */
-  void activate(C conn);
-
-  /**
-   * Callback before the connection becomes unused (no usage).
-   *
-   * @param conn the connection
-   */
-  void deactivate(C conn);
 
   /**
    * Close a connection.

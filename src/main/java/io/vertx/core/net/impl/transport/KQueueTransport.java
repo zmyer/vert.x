@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -29,6 +29,7 @@ import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.net.NetServerOptions;
+import io.vertx.core.net.impl.SocketAddressImpl;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -57,6 +58,14 @@ class KQueueTransport extends Transport {
   }
 
   @Override
+  public io.vertx.core.net.SocketAddress convert(SocketAddress address) {
+    if (address instanceof DomainSocketAddress) {
+      return new SocketAddressImpl(((DomainSocketAddress) address).path());
+    }
+    return super.convert(address);
+  }
+
+  @Override
   public boolean isAvailable() {
     return KQueue.isAvailable();
   }
@@ -67,7 +76,7 @@ class KQueueTransport extends Transport {
   }
 
   @Override
-  public EventLoopGroup eventLoopGroup(int nThreads, ThreadFactory threadFactory, int ioRatio) {
+  public EventLoopGroup eventLoopGroup(int type, int nThreads, ThreadFactory threadFactory, int ioRatio) {
     KQueueEventLoopGroup eventLoopGroup = new KQueueEventLoopGroup(nThreads, threadFactory);
     eventLoopGroup.setIoRatio(ioRatio);
     return eventLoopGroup;
@@ -84,8 +93,8 @@ class KQueueTransport extends Transport {
   }
 
   @Override
-  public ChannelFactory<? extends Channel> channelFactory(boolean domain) {
-    if (domain) {
+  public ChannelFactory<? extends Channel> channelFactory(boolean domainSocket) {
+    if (domainSocket) {
       return KQueueDomainSocketChannel::new;
     } else {
       return KQueueSocketChannel::new;
@@ -93,8 +102,8 @@ class KQueueTransport extends Transport {
   }
 
   @Override
-  public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {
-    if (domain) {
+  public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domainSocket) {
+    if (domainSocket) {
       return KQueueServerDomainSocketChannel::new;
     } else {
       return KQueueServerSocketChannel::new;
@@ -102,9 +111,11 @@ class KQueueTransport extends Transport {
   }
 
   @Override
-  public void configure(NetServerOptions options, ServerBootstrap bootstrap) {
-    bootstrap.option(KQueueChannelOption.SO_REUSEPORT, options.isReusePort());
-    super.configure(options, bootstrap);
+  public void configure(NetServerOptions options, boolean domainSocket, ServerBootstrap bootstrap) {
+    if (!domainSocket) {
+      bootstrap.option(KQueueChannelOption.SO_REUSEPORT, options.isReusePort());
+    }
+    super.configure(options, domainSocket, bootstrap);
   }
 
   @Override

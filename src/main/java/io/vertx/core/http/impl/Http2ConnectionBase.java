@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,7 +12,9 @@
 package io.vertx.core.http.impl;
 
 import io.netty.buffer.*;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2Connection;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Flags;
@@ -24,14 +26,16 @@ import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.GoAway;
 import io.vertx.core.http.HttpConnection;
+import io.vertx.core.http.StreamPriority;
 import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.impl.PromiseInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.impl.ConnectionBase;
@@ -99,7 +103,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
   }
 
   NetSocket toNetSocket(VertxHttp2Stream stream) {
-    VertxHttp2NetSocket<Http2ConnectionBase> rempl = new VertxHttp2NetSocket<>(this, stream.stream, !stream.isNotWritable());
+    VertxHttp2NetSocket<Http2ConnectionBase> rempl = new VertxHttp2NetSocket<>(this, stream.context, stream.stream, !stream.isNotWritable());
     streams.put(stream.stream.id(), rempl);
     return rempl;
   }
@@ -117,6 +121,11 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
     // Handled by HTTP/2
   }
 
+  @Override
+  protected void handleIdle() {
+    super.handleIdle();
+  }
+
   synchronized boolean isClosed() {
     return closed;
   }
@@ -127,7 +136,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
       copy = new ArrayList<>(streams.values());
     }
     for (VertxHttp2Stream stream : copy) {
-      context.executeFromIO(v -> stream.handleException(cause));
+      stream.context.dispatch(v -> stream.handleException(cause));
     }
     handleException(cause);
   }
@@ -138,7 +147,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
       stream = streams.get(streamId);
     }
     if (stream != null) {
-      stream.handleException(cause);
+      stream.context.dispatch(v -> stream.handleException(cause));
     }
   }
 
@@ -148,7 +157,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
       stream = streams.get(s.id());
     }
     if (stream != null) {
-      context.executeFromIO(v -> stream.onWritabilityChanged());
+      stream.context.dispatch(v -> stream.onWritabilityChanged());
     }
   }
 
@@ -160,41 +169,53 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
         return;
       }
     }
-    context.executeFromIO(v -> removed.handleClose());
+    removed.context.dispatch(v -> removed.handleClose());
     checkShutdownHandler();
   }
 
-  void onGoAwaySent(int lastStreamId, long errorCode, ByteBuf debugData) {
+  boolean onGoAwaySent(int lastStreamId, long errorCode, ByteBuf debugData) {
     synchronized (this) {
       if (goneAway) {
-        return;
+        return false;
       }
       goneAway = true;
     }
     checkShutdownHandler();
+    return true;
   }
 
-  void onGoAwayReceived(int lastStreamId, long errorCode, ByteBuf debugData) {
+  boolean onGoAwayReceived(int lastStreamId, long errorCode, ByteBuf debugData) {
     Handler<GoAway> handler;
     synchronized (this) {
       if (goneAway) {
-        return;
+        return false;
       }
       goneAway = true;
       handler = goAwayHandler;
     }
     if (handler != null) {
       Buffer buffer = Buffer.buffer(debugData);
-      context.executeFromIO(v -> handler.handle(new GoAway().setErrorCode(errorCode).setLastStreamId(lastStreamId).setDebugData(buffer)));
+      context.dispatch(v -> handler.handle(new GoAway().setErrorCode(errorCode).setLastStreamId(lastStreamId).setDebugData(buffer)));
     }
     checkShutdownHandler();
+    return true;
   }
 
   // Http2FrameListener
 
   @Override
-  public void onPriorityRead(ChannelHandlerContext ctx, int streamId, int streamDependency,
-                             short weight, boolean exclusive) {
+  public void onPriorityRead(ChannelHandlerContext ctx, int streamId, int streamDependency, short weight, boolean exclusive) {
+      VertxHttp2Stream stream;
+      synchronized (this) {
+        stream = streams.get(streamId);
+      }
+      if (stream != null) {
+        StreamPriority streamPriority = new StreamPriority()
+          .setDependency(streamDependency)
+          .setWeight(weight)
+          .setExclusive(exclusive);
+        stream.context.dispatch(v -> stream.handlePriorityChange(streamPriority));
+      }
   }
 
   @Override
@@ -210,7 +231,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
     }
     if (handler != null) {
       // No need to run on a particular context it shall be done by the handler instead
-      context.executeFromIO(handler);
+      context.dispatch(handler);
     }
   }
 
@@ -237,7 +258,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
       handler = remoteSettingsHandler;
     }
     if (handler != null) {
-      context.executeFromIO(HttpUtils.toVertxSettings(settings), handler);
+      context.dispatch(HttpUtils.toVertxSettings(settings), handler);
     }
     if (changed) {
       concurrencyChanged(maxConcurrentStreams);
@@ -249,7 +270,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
     Handler<Buffer> handler = pingHandler;
     if (handler != null) {
       Buffer buff = Buffer.buffer().appendLong(data);
-      context.executeFromIO(v -> handler.handle(buff));
+      context.dispatch(v -> handler.handle(buff));
     }
   }
 
@@ -257,10 +278,8 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
   public void onPingAckRead(ChannelHandlerContext ctx, long data) throws Http2Exception {
     Handler<AsyncResult<Buffer>> handler = pongHandlers.poll();
     if (handler != null) {
-      context.executeFromIO(v -> {
-        Buffer buff = Buffer.buffer().appendLong(data);
-        handler.handle(Future.succeededFuture(buff));
-      });
+      Buffer buff = Buffer.buffer().appendLong(data);
+      context.dispatch(Future.succeededFuture(buff), handler);
     }
   }
 
@@ -286,7 +305,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
     }
     if (req != null) {
       Buffer buff = Buffer.buffer(safeBuffer(payload, ctx.alloc()));
-      context.executeFromIO(v -> req.handleCustomFrame(frameType, flags.value(), buff));
+      req.context.dispatch(v -> req.handleCustomFrame(frameType, flags.value(), buff));
     }
   }
 
@@ -299,7 +318,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
         return;
       }
     }
-    context.executeFromIO(v -> req.onResetRead(errorCode));
+    req.context.dispatch(v -> req.onResetRead(errorCode));
   }
 
   @Override
@@ -312,14 +331,14 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
     if (req != null) {
       data = safeBuffer(data, ctx.alloc());
       Buffer buff = Buffer.buffer(data);
-      context.executeFromIO(v -> {
+      req.context.dispatch(v -> {
         int len = buff.length();
         if (req.onDataRead(buff)) {
           consumed[0] += len;
         }
       });
       if (endOfStream) {
-        context.executeFromIO(v -> req.onEnd());
+        req.context.dispatch(v -> req.onEnd());
       }
     }
     return consumed[0];
@@ -388,9 +407,12 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
   }
 
   @Override
-  public void close() {
-    endReadAndFlush();
-    shutdown(0L);
+  public Future<Void> close() {
+    PromiseInternal<Void> promise = context.promise();
+    ChannelPromise channelPromise = chctx.newPromise().addListener(promise);
+    flush(channelPromise);
+    channelPromise.addListener((ChannelFutureListener) future -> shutdown(0L));
+    return promise.future();
   }
 
   @Override
@@ -410,14 +432,16 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
   }
 
   @Override
-  public HttpConnection updateSettings(io.vertx.core.http.Http2Settings settings) {
-    return updateSettings(settings, null);
+  public Future<Void> updateSettings(io.vertx.core.http.Http2Settings settings) {
+    Promise<Void> promise = context.promise();
+    Http2Settings settingsUpdate = HttpUtils.fromVertxSettings(settings);
+    updateSettings(settingsUpdate, promise);
+    return promise.future();
   }
 
   @Override
   public HttpConnection updateSettings(io.vertx.core.http.Http2Settings settings, @Nullable Handler<AsyncResult<Void>> completionHandler) {
-    Http2Settings settingsUpdate = HttpUtils.fromVertxSettings(settings);
-    updateSettings(settingsUpdate, completionHandler);
+    updateSettings(settings).setHandler(completionHandler);
     return this;
   }
 
@@ -448,6 +472,13 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
         }
       }
     });
+  }
+
+  @Override
+  public Future<Buffer> ping(Buffer data) {
+    Promise<Buffer> promise = Promise.promise();
+    ping(data, promise);
+    return promise.future();
   }
 
   @Override
@@ -495,7 +526,7 @@ abstract class Http2ConnectionBase extends ConnectionBase implements Http2FrameL
       shutdownHandler = this.shutdownHandler;
     }
     if (shutdownHandler != null) {
-      context.executeFromIO(shutdownHandler);
+      context.dispatch(shutdownHandler);
     }
   }
 }

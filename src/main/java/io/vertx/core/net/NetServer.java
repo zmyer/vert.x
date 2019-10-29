@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -16,6 +16,7 @@ import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.metrics.Measured;
 import io.vertx.core.streams.ReadStream;
@@ -56,10 +57,9 @@ public interface NetServer extends Measured {
    * <p>
    * The server may not be listening until some time after the call to listen has returned.
    *
-   * @return a reference to this, so the API can be used fluently
+   * @return a future completed with the listen operation result
    */
-  @Fluent
-  NetServer listen();
+  Future<NetServer> listen();
 
   /**
    * Like {@link #listen} but providing a handler that will be notified when the server is listening, or fails.
@@ -80,10 +80,9 @@ public interface NetServer extends Measured {
    * <p>
    * The server may not be listening until some time after the call to listen has returned.
    *
-   * @return a reference to this, so the API can be used fluently
+   * @return a future completed with the listen operation result
    */
-  @Fluent
-  NetServer listen(int port, String host);
+  Future<NetServer> listen(int port, String host);
 
   /**
    * Like {@link #listen(int, String)} but providing a handler that will be notified when the server is listening, or fails.
@@ -104,10 +103,9 @@ public interface NetServer extends Measured {
    * <p>
    * The server may not be listening until some time after the call to listen has returned.
    *
-   * @return a reference to this, so the API can be used fluently
+   * @return a future completed with the listen operation result
    */
-  @Fluent
-  NetServer listen(int port);
+  Future<NetServer> listen(int port);
 
   /**
    * Like {@link #listen(int)} but providing a handler that will be notified when the server is listening, or fails.
@@ -126,10 +124,9 @@ public interface NetServer extends Measured {
    * The server may not be listening until some time after the call to listen has returned.
    *
    * @param localAddress the local address to listen on
-   * @return a reference to this, so the API can be used fluently
+   * @return a future completed with the listen operation result
    */
-  @Fluent
-  NetServer listen(SocketAddress localAddress);
+  Future<NetServer> listen(SocketAddress localAddress);
 
   /**
    * Like {@link #listen(SocketAddress)} but providing a handler that will be notified when the server is listening, or fails.
@@ -155,8 +152,10 @@ public interface NetServer extends Measured {
   /**
    * Close the server. This will close any currently open connections. The close may not complete until after this
    * method has returned.
+   *
+   * @return a future completed with the listen operation result
    */
-  void close();
+  Future<Void> close();
 
   /**
    * Like {@link #close} but supplying a handler that will be notified when close is complete.

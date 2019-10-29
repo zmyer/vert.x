@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,13 +13,12 @@ package io.vertx.core.impl;
 
 import io.netty.resolver.AddressResolverGroup;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.dns.AddressResolverOptions;
 import io.vertx.core.impl.launcher.commands.ExecUtils;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.spi.resolver.ResolverProvider;
 
 import java.io.File;
@@ -81,20 +80,9 @@ public class AddressResolver {
   // TODO: 2018/11/27 by zmyer
   public void resolveHostname(String hostname, Handler<AsyncResult<InetAddress>> resultHandler) {
     ContextInternal callback = (ContextInternal) vertx.getOrCreateContext();
-    io.netty.resolver.AddressResolver<InetSocketAddress> resolver = resolverGroup.getResolver(
-      callback.nettyEventLoop());
-    io.netty.util.concurrent.Future<InetSocketAddress> fut = resolver.resolve(
-      InetSocketAddress.createUnresolved(hostname, 0));
-    fut.addListener(a -> {
-      callback.runOnContext(v -> {
-        if (a.isSuccess()) {
-          InetSocketAddress address = fut.getNow();
-          resultHandler.handle(Future.succeededFuture(address.getAddress()));
-        } else {
-          resultHandler.handle(Future.failedFuture(a.cause()));
-        }
-      });
-    });
+    io.netty.resolver.AddressResolver<InetSocketAddress> resolver = resolverGroup.getResolver(callback.nettyEventLoop());
+    io.netty.util.concurrent.Future<InetSocketAddress> fut = resolver.resolve(InetSocketAddress.createUnresolved(hostname, 0));
+    fut.addListener(callback.toFutureListener(InetSocketAddress::getAddress, resultHandler));
   }
 
   AddressResolverGroup<InetSocketAddress> nettyAddressResolverGroup() {

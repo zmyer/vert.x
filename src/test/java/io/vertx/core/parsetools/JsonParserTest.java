@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -543,9 +543,14 @@ public class JsonParserTest {
     JsonParser parser = JsonParser.newParser();
     List<Object> values = new ArrayList<>();
     parser.objectValueMode();
-    parser.handler(event ->   values.add(event.mapTo(TheObject.class)));
-    parser.handle(new JsonObject().put("f", "the-value").toBuffer());
-    assertEquals(Collections.singletonList(new TheObject("the-value")), values);
+    parser.pause();
+    parser.handler(event -> values.add(event.mapTo(TheObject.class)));
+    parser.handle(Buffer.buffer("{\"f\":\"the-value-1\"}{\"f\":\"the-value-2\"}"));
+    assertEquals(Collections.emptyList(), values);
+    parser.fetch(1);
+    assertEquals(Collections.singletonList(new TheObject("the-value-1")), values);
+    parser.fetch(1);
+    assertEquals(Arrays.asList(new TheObject("the-value-1"), new TheObject("the-value-2")), values);
   }
 
   @Test
@@ -579,7 +584,9 @@ public class JsonParserTest {
       JsonParser parser = JsonParser.newParser();
       List<Object> values = new ArrayList<>();
       parser.arrayValueMode();
-      parser.handler(event -> values.add(event.mapTo(LinkedList.class)));
+      parser.handler(event -> {
+        values.add(event.mapTo(LinkedList.class));
+      });
       parser.handle(new JsonArray().add(0).add(1).add(2).toBuffer());
       assertEquals(Collections.singletonList(Arrays.asList(0L, 1L, 2L)), values);
       assertEquals(LinkedList.class, values.get(0).getClass());
@@ -593,7 +600,9 @@ public class JsonParserTest {
       assertEquals(Collections.emptyList(), values);
       assertEquals(1, errors.size());
       try {
-        JsonParser.newParser().arrayValueMode().handler(event -> values.add(event.mapTo(TheObject.class))).write(Buffer.buffer("[]")).end();
+        JsonParser.newParser().arrayValueMode().handler(event -> {
+          values.add(event.mapTo(TheObject.class));
+        }).write(Buffer.buffer("[]")).end();
         fail();
       } catch (DecodeException expected) {
       }
@@ -748,6 +757,19 @@ public class JsonParserTest {
   }
 
   @Test
+  public void testStreamFetchNames() {
+    FakeStream stream = new FakeStream();
+    JsonParser parser = JsonParser.newParser(stream);
+    List<JsonEvent> events = new ArrayList<>();
+    parser.handler(events::add);
+    parser.pause();
+    stream.handle("{\"foo\":\"bar\"}");
+    parser.fetch(3);
+    assertEquals(3, events.size());
+    assertTrue(stream.isPaused());
+  }
+
+  @Test
   public void testStreamPauseInHandler() {
     FakeStream stream = new FakeStream();
     JsonParser parser = JsonParser.newParser(stream);
@@ -789,6 +811,9 @@ public class JsonParserTest {
     stream.end();
     assertEquals(0, events.size());
     assertEquals(1, ended.get());
+    //regression check for #2790 - ensure that by accident resume method is not called.
+    assertEquals(0, stream.pauseCount());
+    assertEquals(0, stream.resumeCount());
   }
 
   @Test

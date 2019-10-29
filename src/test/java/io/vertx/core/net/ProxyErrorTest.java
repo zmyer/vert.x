@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,6 +13,7 @@ package io.vertx.core.net;
 
 import java.net.InetSocketAddress;
 
+import io.vertx.core.AsyncResult;
 import io.vertx.test.proxy.HttpProxy;
 import io.vertx.test.core.VertxTestBase;
 import org.junit.Test;
@@ -22,8 +23,6 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.test.fakedns.FakeDNSServer;
 
 /**
@@ -33,8 +32,6 @@ import io.vertx.test.fakedns.FakeDNSServer;
  *
  */
 public class ProxyErrorTest extends VertxTestBase {
-
-  private static final Logger log = LoggerFactory.getLogger(ProxyErrorTest.class);
 
   private HttpProxy proxy = null;
 
@@ -109,21 +106,20 @@ public class ProxyErrorTest extends VertxTestBase {
   // we expect the request to fail with a ProxyConnectException if we use https
   // so we fail the test when it succeeds
   private void expectProxyException(int error, String username, String url) throws Exception {
-    proxyTest(error, username, url, resp -> {
-      log.info("request is supposed to fail but response is " + resp.statusCode() + " " + resp.statusMessage());
-      fail("request is supposed to fail");
-    }, true);
+    proxyTest(error, username, url, onFailure(err -> {
+      testComplete();
+    }));
   }
 
   // we expect the request to fail with a http status error if we use http (behaviour is similar to Squid)
   private void expectStatusError(int error, int responseStatus, String username, String url) throws Exception {
-    proxyTest(error, username, url, resp -> {
+    proxyTest(error, username, url, onSuccess(resp -> {
       assertEquals(responseStatus, resp.statusCode());
       testComplete();
-    }, false);
+    }));
   }
 
-  private void proxyTest(int error, String username, String url, Handler<HttpClientResponse> assertResponse, boolean completeOnException) throws Exception {
+  private void proxyTest(int error, String username, String url, Handler<AsyncResult<HttpClientResponse>> assertResponse) throws Exception {
     startProxy(error, username);
 
     final HttpClientOptions options = new HttpClientOptions()
@@ -134,15 +130,7 @@ public class ProxyErrorTest extends VertxTestBase {
             .setPort(proxy.getPort()));
     HttpClient client = vertx.createHttpClient(options);
 
-    client.getAbs(url, assertResponse)
-    .exceptionHandler(e -> {
-      if (completeOnException) {
-        testComplete();
-      } else {
-        fail(e);
-      }
-    })
-    .end();
+    client.getAbs(url, assertResponse).end();
 
     await();
   }

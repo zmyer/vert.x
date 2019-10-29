@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -8,346 +8,175 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
  */
-
 package io.vertx.core.eventbus.impl;
 
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
+import io.vertx.core.Promise;
+import io.vertx.core.eventbus.DeliveryContext;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.eventbus.MessageConsumer;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.eventbus.impl.clustered.ClusteredMessage;
-import io.vertx.core.impl.Arguments;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.spi.metrics.EventBusMetrics;
-import io.vertx.core.streams.ReadStream;
+import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
+import io.vertx.core.spi.tracing.TagExtractor;
+import io.vertx.core.spi.tracing.VertxTracer;
 
-import java.util.ArrayDeque;
-import java.util.Objects;
-import java.util.Queue;
+import java.util.Iterator;
 
-/*
- * This class is optimised for performance when used on the same event loop it was created on.
- * However it can be used safely from other threads.
- *
- * The internal state is protected using the synchronized keyword. If always used on the same event loop, then
- * we benefit from biased locking which makes the overhead of synchronized near zero.
- */
-// TODO: 2018/8/2 by zmyer
-public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Message<T>> {
+abstract class HandlerRegistration<T> {
 
   private static final Logger log = LoggerFactory.getLogger(HandlerRegistration.class);
 
-  public static final int DEFAULT_MAX_BUFFERED_MESSAGES = 1000;
-
-  private final Vertx vertx;
-  private final EventBusMetrics metrics;
-  private final EventBusImpl eventBus;
-  private final String address;
-  private final String repliedAddress;
-  private final boolean localOnly;
-  private final Handler<AsyncResult<Message<T>>> asyncResultHandler;
-  private long timeoutID = -1;
+  public final ContextInternal context;
+  public final EventBusImpl bus;
+  public final String address;
+  public final boolean src;
   private HandlerHolder<T> registered;
-  private Handler<Message<T>> handler;
-  private Context handlerContext;
-  private AsyncResult<Void> result;
-  private Handler<AsyncResult<Void>> completionHandler;
-  private Handler<Void> endHandler;
-  private Handler<Message<T>> discardHandler;
-  private int maxBufferedMessages = DEFAULT_MAX_BUFFERED_MESSAGES;
-  private final Queue<Message<T>> pending = new ArrayDeque<>(8);
-  private long demand = Long.MAX_VALUE;
   private Object metric;
 
-  // TODO: 2018/8/2 by zmyer
-  public HandlerRegistration(Vertx vertx, EventBusMetrics metrics, EventBusImpl eventBus, String address,
-                             String repliedAddress, boolean localOnly,
-                             Handler<AsyncResult<Message<T>>> asyncResultHandler, long timeout) {
-    this.vertx = vertx;
-    this.metrics = metrics;
-    this.eventBus = eventBus;
+  HandlerRegistration(ContextInternal context,
+                      EventBusImpl bus,
+                      String address,
+                      boolean src) {
+    this.context = context;
+    this.bus = bus;
+    this.src = src;
     this.address = address;
-    this.repliedAddress = repliedAddress;
-    this.localOnly = localOnly;
-    this.asyncResultHandler = asyncResultHandler;
-    if (timeout != -1) {
-      timeoutID = vertx.setTimer(timeout, tid -> {
-        if (metrics != null) {
-          metrics.replyFailure(address, ReplyFailure.TIMEOUT);
-        }
-        sendAsyncResultFailure(ReplyFailure.TIMEOUT,
-          "Timed out after waiting " + timeout + "(ms) for a reply. address: " + address + ", repliedAddress: " +
-            repliedAddress);
-      });
+  }
+
+  final void receive(MessageImpl<?, T> msg) {
+    if (bus.metrics != null) {
+      bus.metrics.scheduleMessage(metric, msg.isLocal());
+    }
+    doReceive(msg);
+  }
+
+  protected abstract void doReceive(Message<T> msg);
+
+  protected abstract void doUnregister();
+
+  synchronized void register(String repliedAddress, boolean localOnly, Handler<AsyncResult<Void>> promise) {
+    if (registered != null) {
+      throw new IllegalStateException();
+    }
+    registered = bus.addRegistration(address, this, repliedAddress != null, localOnly, promise);
+    if (bus.metrics != null) {
+      metric = bus.metrics.handlerRegistered(address, repliedAddress);
     }
   }
 
-  @Override
-  public synchronized MessageConsumer<T> setMaxBufferedMessages(int maxBufferedMessages) {
-    Arguments.require(maxBufferedMessages >= 0, "Max buffered messages cannot be negative");
-    while (pending.size() > maxBufferedMessages) {
-      pending.poll();
-    }
-    this.maxBufferedMessages = maxBufferedMessages;
-    return this;
-  }
-
-  @Override
-  public synchronized int getMaxBufferedMessages() {
-    return maxBufferedMessages;
-  }
-
-  @Override
-  public String address() {
-    return address;
-  }
-
-  @Override
-  public synchronized void completionHandler(Handler<AsyncResult<Void>> completionHandler) {
-    Objects.requireNonNull(completionHandler);
-    if (result != null) {
-      final AsyncResult<Void> value = result;
-      vertx.runOnContext(v -> completionHandler.handle(value));
-    } else {
-      this.completionHandler = completionHandler;
-    }
-  }
-
-  // TODO: 2018/8/2 by zmyer
-  @Override
-  public synchronized void unregister() {
-    doUnregister(null);
-  }
-
-  @Override
-  public synchronized void unregister(Handler<AsyncResult<Void>> completionHandler) {
-    Objects.requireNonNull(completionHandler);
-    doUnregister(completionHandler);
-  }
-
-  // TODO: 2018/8/2 by zmyer
-  public void sendAsyncResultFailure(ReplyFailure failure, String msg) {
-    unregister();
-    asyncResultHandler.handle(Future.failedFuture(new ReplyException(failure, msg)));
-  }
-
-  // TODO: 2018/8/2 by zmyer
-  private void doUnregister(Handler<AsyncResult<Void>> completionHandler) {
-    if (timeoutID != -1) {
-      vertx.cancelTimer(timeoutID);
-    }
-    if (endHandler != null) {
-      final Handler<Void> theEndHandler = endHandler;
-      Handler<AsyncResult<Void>> handler = completionHandler;
-      completionHandler = ar -> {
-        theEndHandler.handle(null);
-        if (handler != null) {
-          handler.handle(ar);
-        }
-      };
-    }
-    final HandlerHolder<T> holder = registered;
-    if (holder != null) {
-      registered = null;
-      eventBus.removeRegistration(holder, completionHandler);
-    } else {
-      callCompletionHandlerAsync(completionHandler);
-    }
-  }
-
-  // TODO: 2018/8/2 by zmyer
-  private void callCompletionHandlerAsync(Handler<AsyncResult<Void>> completionHandler) {
-    if (completionHandler != null) {
-      vertx.runOnContext(v -> completionHandler.handle(Future.succeededFuture()));
-    }
-  }
-
-  synchronized void setHandlerContext(Context context) {
-    handlerContext = context;
-  }
-
-  // TODO: 2018/8/2 by zmyer
-  public synchronized void setResult(AsyncResult<Void> result) {
-    this.result = result;
-    if (completionHandler != null) {
-      if (metrics != null && result.succeeded()) {
-        metric = metrics.handlerRegistered(address, repliedAddress);
-      }
-      final Handler<AsyncResult<Void>> callback = completionHandler;
-      vertx.runOnContext(v -> callback.handle(result));
-    } else if (result.failed()) {
-      log.error("Failed to propagate registration for handler " + handler + " and address " + address);
-    } else if (metrics != null) {
-      metric = metrics.handlerRegistered(address, repliedAddress);
-    }
-  }
-
-  @Override
-  public void handle(Message<T> message) {
-    Handler<Message<T>> theHandler;
-    synchronized (this) {
-      if (demand == 0L) {
-        if (pending.size() < maxBufferedMessages) {
-          pending.add(message);
-        } else {
-          if (discardHandler != null) {
-            discardHandler.handle(message);
-          } else {
-            log.warn(
-              "Discarding message as more than " + maxBufferedMessages + " buffered in paused consumer. address: " +
-                address);
-          }
-        }
-        return;
-      } else {
-        if (pending.size() > 0) {
-          pending.add(message);
-          message = pending.poll();
-        }
-        theHandler = handler;
-      }
-    }
-    deliver(theHandler, message);
-  }
-
-  private void deliver(Handler<Message<T>> theHandler, Message<T> message) {
-    // Handle the message outside the sync block
-    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=473714
-    checkNextTick();
-    boolean local = true;
-    if (message instanceof ClusteredMessage) {
-      // A bit hacky
-      ClusteredMessage cmsg = (ClusteredMessage) message;
-      if (cmsg.isFromWire()) {
-        local = false;
-      }
-    }
-    String creditsAddress = message.headers().get(MessageProducerImpl.CREDIT_ADDRESS_HEADER_NAME);
-    if (creditsAddress != null) {
-      eventBus.send(creditsAddress, 1);
-    }
-    try {
-      if (metrics != null) {
-        metrics.beginHandleMessage(metric, local);
-      }
-      theHandler.handle(message);
-      if (metrics != null) {
-        metrics.endHandleMessage(metric, null);
-      }
-    } catch (Exception e) {
-      log.error("Failed to handleMessage. address: " + message.address(), e);
-      if (metrics != null) {
-        metrics.endHandleMessage(metric, e);
-      }
-      throw e;
-    }
-  }
-
-  private synchronized void checkNextTick() {
-    // Check if there are more pending messages in the queue that can be processed next time around
-    if (!pending.isEmpty() && demand > 0L) {
-      handlerContext.runOnContext(v -> {
-        Message<T> message;
-        Handler<Message<T>> theHandler;
-        synchronized (HandlerRegistration.this) {
-          if (demand == 0L || (message = pending.poll()) == null) {
-            return;
-          }
-          if (demand != Long.MAX_VALUE) {
-            demand--;
-          }
-          theHandler = handler;
-        }
-        deliver(theHandler, message);
-      });
-    }
-  }
-
-  /*
-   * Internal API for testing purposes.
-   */
-  public synchronized void discardHandler(Handler<Message<T>> handler) {
-    this.discardHandler = handler;
-  }
-
-  // TODO: 2018/8/1 by zmyer
-  @Override
-  public synchronized MessageConsumer<T> handler(Handler<Message<T>> handler) {
-    this.handler = handler;
-    if (this.handler != null && registered == null) {
-      registered = eventBus.addRegistration(address, this, repliedAddress != null, localOnly);
-    } else if (this.handler == null && registered != null) {
-      // This will set registered to false
-      this.unregister();
-    }
-    return this;
-  }
-
-  @Override
-  public ReadStream<T> bodyStream() {
-    return new BodyReadStream<>(this);
-  }
-
-  @Override
   public synchronized boolean isRegistered() {
     return registered != null;
   }
 
-  @Override
-  public synchronized MessageConsumer<T> pause() {
-    demand = 0L;
-    return this;
-  }
-
-  @Override
-  public synchronized MessageConsumer<T> resume() {
-    return fetch(Long.MAX_VALUE);
-  }
-
-  @Override
-  public MessageConsumer<T> fetch(long amount) {
-    if (amount < 0) {
-      throw new IllegalArgumentException();
+  public void unregister(Handler<AsyncResult<Void>> completionHandler) {
+    synchronized (this) {
+      if (registered != null) {
+        bus.removeRegistration(registered, completionHandler);
+        registered = null;
+        if (bus.metrics != null) {
+          bus.metrics.handlerUnregistered(metric);
+          metric = null;
+        }
+      } else {
+        if (completionHandler != null) {
+          context.owner().runOnContext(v -> completionHandler.handle(Future.succeededFuture()));
+        }
+      }
     }
-    demand += amount;
-    if (demand < 0L) {
-      demand = Long.MAX_VALUE;
+    doUnregister();
+  }
+
+  void dispatch(Handler<Message<T>> theHandler, Message<T> message, ContextInternal context) {
+    InboundDeliveryContext deliveryCtx = new InboundDeliveryContext((MessageImpl<?, T>) message, theHandler, context);
+    deliveryCtx.dispatch();
+  }
+
+  private class InboundDeliveryContext implements DeliveryContext<T> {
+
+    private final MessageImpl<?, T> message;
+    private final Iterator<Handler<DeliveryContext>> iter;
+    private final Handler<Message<T>> handler;
+    private final ContextInternal context;
+
+    private InboundDeliveryContext(MessageImpl<?, T> message, Handler<Message<T>> handler, ContextInternal context) {
+      this.message = message;
+      this.handler = handler;
+      this.iter = message.bus.receiveInterceptors();
+      this.context = context;
     }
-    if (demand > 0L) {
-      checkNextTick();
+
+    void dispatch() {
+      context.dispatch(v -> {
+        next();
+      });
     }
-    return this;
-  }
 
-  @Override
-  public synchronized MessageConsumer<T> endHandler(Handler<Void> endHandler) {
-    if (endHandler != null) {
-      // We should use the HandlerHolder context to properly do this (needs small refactoring)
-      Context endCtx = vertx.getOrCreateContext();
-      this.endHandler = v1 -> endCtx.runOnContext(v2 -> endHandler.handle(null));
-    } else {
-      this.endHandler = null;
+    @Override
+    public Message<T> message() {
+      return message;
     }
-    return this;
-  }
 
-  @Override
-  public synchronized MessageConsumer<T> exceptionHandler(Handler<Throwable> handler) {
-    return this;
-  }
+    @Override
+    public void next() {
+      if (iter.hasNext()) {
+        try {
+          Handler<DeliveryContext> handler = iter.next();
+          if (handler != null) {
+            handler.handle(this);
+          } else {
+            next();
+          }
+        } catch (Throwable t) {
+          log.error("Failure in interceptor", t);
+        }
+      } else {
+        boolean local = true;
+        if (message instanceof ClusteredMessage) {
+          // A bit hacky
+          ClusteredMessage cmsg = (ClusteredMessage)message;
+          if (cmsg.isFromWire()) {
+            local = false;
+          }
+        }
+        Object m = metric;
+        try {
+          if (bus.metrics != null) {
+            bus.metrics.beginHandleMessage(m, local);
+          }
+          VertxTracer tracer = context.tracer();
+          if (tracer != null && !src) {
+            message.trace = tracer.receiveRequest(context, message, message.isSend() ? "send" : "publish", message.headers, MessageTagExtractor.INSTANCE);
+            handler.handle(message);
+            if (message.replyAddress == null) {
+              tracer.sendResponse(context, null, message.trace, null, TagExtractor.empty());
+            }
+          } else {
+            handler.handle(message);
+          }
+          if (bus.metrics != null) {
+            bus.metrics.endHandleMessage(m, null);
+          }
+        } catch (Exception e) {
+          log.error("Failed to handleMessage. address: " + message.address(), e);
+          if (bus.metrics != null) {
+            bus.metrics.endHandleMessage(m, e);
+          }
+          context.reportException(e);
+        }
+      }
+    }
 
-  public Handler<Message<T>> getHandler() {
-    return handler;
-  }
+    @Override
+    public boolean send() {
+      return message.isSend();
+    }
 
-  public Object getMetric() {
-    return metric;
+    @Override
+    public Object body() {
+      return message.receivedBody;
+    }
   }
-
 }

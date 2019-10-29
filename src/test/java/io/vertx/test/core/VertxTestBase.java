@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,26 +11,17 @@
 
 package io.vertx.test.core;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Context;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
+import io.vertx.core.*;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.net.JksOptions;
-import io.vertx.core.net.KeyCertOptions;
-import io.vertx.core.net.PemKeyCertOptions;
-import io.vertx.core.net.PfxOptions;
-import io.vertx.core.net.TCPSSLOptions;
+import io.vertx.core.net.*;
 import io.vertx.core.spi.cluster.ClusterManager;
+import io.vertx.core.spi.tracing.VertxTracer;
+import io.vertx.core.tracing.TracingOptions;
 import io.vertx.test.fakecluster.FakeClusterManager;
 import org.junit.Rule;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,15 +59,23 @@ public class VertxTestBase extends AsyncTestBase {
     vinit();
     VertxOptions options = getOptions();
     boolean nativeTransport = options.getPreferNativeTransport();
-    vertx = Vertx.vertx(options);
+    vertx = vertx(options);
     if (nativeTransport) {
       assertTrue(vertx.isNativeTransportEnabled());
     }
   }
 
+  protected VertxTracer getTracer() {
+    return null;
+  }
+
   protected VertxOptions getOptions() {
     VertxOptions options = new VertxOptions();
     options.setPreferNativeTransport(USE_NATIVE_TRANSPORT);
+    VertxTracer tracer = getTracer();
+    if (tracer != null) {
+      options.setTracingOptions(new TracingOptions().setEnabled(true).setFactory(opts -> tracer));
+    }
     return options;
   }
 
@@ -108,12 +107,7 @@ public class VertxTestBase extends AsyncTestBase {
    * @return create a blank new Vert.x instance with no options closed when tear down executes.
    */
   protected Vertx vertx() {
-    if (created == null) {
-      created = new ArrayList<>();
-    }
-    Vertx vertx = Vertx.vertx();
-    created.add(vertx);
-    return vertx;
+    return vertx(new VertxOptions());
   }
 
   /**
@@ -152,12 +146,22 @@ public class VertxTestBase extends AsyncTestBase {
   }
 
   protected void startNodes(int numNodes, VertxOptions options) {
+    VertxOptions[] array = new VertxOptions[numNodes];
+    for (int i = 0;i < numNodes;i++) {
+      array[i] = options;
+    }
+    startNodes(array);
+  }
+
+  protected void startNodes(VertxOptions... options) {
+    int numNodes = options.length;
     CountDownLatch latch = new CountDownLatch(numNodes);
     vertices = new Vertx[numNodes];
     for (int i = 0; i < numNodes; i++) {
       int index = i;
-      clusteredVertx(options.setClusterHost("localhost").setClusterPort(0).setClustered(true)
-        .setClusterManager(getClusterManager()), ar -> {
+      options[i].setClusterManager(getClusterManager())
+        .getEventBusOptions().setHost("localhost").setPort(0).setClustered(true);
+      clusteredVertx(options[i], ar -> {
           try {
             if (ar.failed()) {
               ar.cause().printStackTrace();
@@ -234,5 +238,19 @@ public class VertxTestBase extends AsyncTestBase {
       contexts.add(createWorker());
     }
     return contexts;
+  }
+
+  protected void assertOnIOContext(Context context) {
+    Context current = Vertx.currentContext();
+    assertNotNull(current);
+    assertSameEventLoop(context, current);
+    for (StackTraceElement elt : Thread.currentThread().getStackTrace()) {
+      String className = elt.getClassName();
+      String methodName = elt.getMethodName();
+      if (className.equals("io.vertx.core.impl.AbstractContext") && methodName.equals("dispatch")) {
+        return;
+      }
+    }
+    fail("Not dispatching");
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -20,8 +20,8 @@ import io.vertx.core.impl.launcher.commands.BareCommand;
 import io.vertx.core.impl.launcher.commands.CommandTestBase;
 import io.vertx.core.impl.launcher.commands.HttpTestVerticle;
 import io.vertx.core.impl.launcher.commands.RunCommandTest;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.spi.launcher.DefaultCommand;
 import org.junit.After;
 import org.junit.Test;
@@ -125,7 +125,7 @@ public class LauncherExtensibilityTest extends CommandTestBase {
 
       @Override
       public void beforeStartingVertx(VertxOptions options) {
-        options.setClustered(true);
+        options.getEventBusOptions().setClustered(true);
       }
 
       @Override

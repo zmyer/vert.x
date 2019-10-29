@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,7 +12,7 @@
 package io.vertx.test.verticles;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 
@@ -22,14 +22,14 @@ import io.vertx.core.http.HttpServerOptions;
 public class SimpleServer extends AbstractVerticle {
 
   @Override
-  public void start(Future<Void> startFuture) throws Exception {
+  public void start(Promise<Void> startPromise) throws Exception {
     HttpServer server = vertx.createHttpServer(new HttpServerOptions().setPort(8080));
     server.requestHandler(req -> req.response().end());
     server.listen(res -> {
       if (res.succeeded()) {
-        startFuture.complete();
+        startPromise.complete();
       } else {
-        startFuture.fail(res.cause());
+        startPromise.fail(res.cause());
       }
     });
   }

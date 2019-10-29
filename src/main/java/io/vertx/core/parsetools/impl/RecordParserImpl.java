@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,6 +11,7 @@
 
 package io.vertx.core.parsetools.impl;
 
+import io.netty.buffer.Unpooled;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.impl.Arguments;
@@ -26,11 +27,13 @@ import java.util.Objects;
 // TODO: 2018/8/1 by zmyer
 public class RecordParserImpl implements RecordParser {
 
-  private Buffer buff;
+  // Empty and unmodifiable
+  private static final Buffer EMPTY_BUFFER = Buffer.buffer(Unpooled.EMPTY_BUFFER);
+
+  private Buffer buff = EMPTY_BUFFER;
   private int pos;            // Current position in buffer
   private int start;          // Position of beginning of current record
   private int delimPos;       // Position of current match in delimiter array
-  private int next = -1;      // Position of the next matching record
 
   private boolean delimited;
   private byte[] delim;
@@ -40,6 +43,8 @@ public class RecordParserImpl implements RecordParser {
   private Handler<Buffer> eventHandler;
   private Handler<Void> endHandler;
   private Handler<Throwable> exceptionHandler;
+  private boolean parsing;
+  private boolean streamEnded;
 
   private final ReadStream<Buffer> stream;
 
@@ -171,56 +176,71 @@ public class RecordParserImpl implements RecordParser {
   }
 
   private void handleParsing() {
-    if (buff == null) {
+    if (parsing) {
       return;
     }
-    int len = buff.length();
-    do {
-      if (next == -1) {
-        if (delimited) {
-          next = parseDelimited();
-        } else {
-          next = parseFixed();
-        }
-      }
-      if (demand > 0L) {
-        if (next == -1) {
-          ReadStream<Buffer> s = stream;
-          if (s != null) {
-            s.resume();
+    parsing = true;
+    try {
+      do {
+        if (demand > 0L) {
+          int next;
+          if (delimited) {
+            next = parseDelimited();
+          } else {
+            next = parseFixed();
           }
-          break;
-        }
-        if (demand != Long.MAX_VALUE) {
-          demand--;
-        }
-        Buffer event = buff.getBuffer(start, next);
-        start = pos;
-        next = -1;
-        Handler<Buffer> handler = eventHandler;
-        if (handler != null) {
-          handler.handle(event);
-        }
-      } else {
-        if (next != -1) {
+          if (next == -1) {
+            if (streamEnded) {
+              if (buff.length() == 0) {
+                break;
+              }
+              next = buff.length();
+            } else {
+              ReadStream<Buffer> s = stream;
+              if (s != null) {
+                s.resume();
+              }
+              if (streamEnded) {
+                continue;
+              }
+              break;
+            }
+          }
+          if (demand != Long.MAX_VALUE) {
+            demand--;
+          }
+          Buffer event = buff.getBuffer(start, next);
+          start = pos;
+          Handler<Buffer> handler = eventHandler;
+          if (handler != null) {
+            handler.handle(event);
+          }
+          if (streamEnded) {
+            break;
+          }
+        } else {
+          // Should use a threshold ?
           ReadStream<Buffer> s = stream;
           if (s != null) {
             s.pause();
           }
+          break;
         }
-        break;
+      } while (true);
+      int len = buff.length();
+      if (start == len) {
+        buff = EMPTY_BUFFER;
+      } else {
+        buff = buff.getBuffer(start, len);
       }
-    } while (true);
-
-    if (start == len) {
-      //Nothing left
-      buff = null;
-      pos = 0;
-    } else {
-      buff = buff.getBuffer(start, len);
-      pos = buff.length();
+      pos -= start;
+      start = 0;
+      if (streamEnded) {
+        end();
+      }
+    } finally {
+      parsing = false;
     }
-    start = 0;
   }
 
   private int parseDelimited() {
@@ -259,7 +279,7 @@ public class RecordParserImpl implements RecordParser {
    * @param buffer  a chunk of data
    */
   public void handle(Buffer buffer) {
-    if (buff == null) {
+    if (buff.length() == 0) {
       buff = buffer;
     } else {
       buff.appendBuffer(buffer);
@@ -293,7 +313,10 @@ public class RecordParserImpl implements RecordParser {
     eventHandler = handler;
     if (stream != null) {
       if (handler != null) {
-        stream.endHandler(v -> end());
+        stream.endHandler(v -> {
+          streamEnded = true;
+          handleParsing();
+        });
         stream.exceptionHandler(err -> {
           if (exceptionHandler != null) {
             exceptionHandler.handle(err);

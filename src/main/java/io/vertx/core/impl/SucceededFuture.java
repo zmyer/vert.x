@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -21,14 +21,22 @@ import io.vertx.core.Handler;
 // TODO: 2018/8/1 by zmyer
 class SucceededFuture<T> implements Future<T> {
 
+  private final ContextInternal context;
   private final T result;
 
   /**
    * Create a future that has already succeeded
+   * @param context the context
    * @param result the result
    */
-  SucceededFuture(T result) {
+  SucceededFuture(ContextInternal context, T result) {
+    this.context = context;
     this.result = result;
+  }
+
+  @Override
+  public ContextInternal context() {
+    return context;
   }
 
   @Override
@@ -43,43 +51,8 @@ class SucceededFuture<T> implements Future<T> {
   }
 
   @Override
-  public void complete(T result) {
-    throw new IllegalStateException("Result is already complete: succeeded");
-  }
-
-  @Override
-  public void complete() {
-    throw new IllegalStateException("Result is already complete: succeeded");
-  }
-
-  @Override
-  public void fail(Throwable cause) {
-    throw new IllegalStateException("Result is already complete: succeeded");
-  }
-
-  @Override
-  public void fail(String failureMessage) {
-    throw new IllegalStateException("Result is already complete: succeeded");
-  }
-
-  @Override
-  public boolean tryComplete(T result) {
-    return false;
-  }
-
-  @Override
-  public boolean tryComplete() {
-    return false;
-  }
-
-  @Override
-  public boolean tryFail(Throwable cause) {
-    return false;
-  }
-
-  @Override
-  public boolean tryFail(String failureMessage) {
-    return false;
+  public Handler<AsyncResult<T>> getHandler() {
+    return null;
   }
 
   @Override
@@ -100,11 +73,6 @@ class SucceededFuture<T> implements Future<T> {
   @Override
   public boolean failed() {
     return false;
-  }
-
-  @Override
-  public void handle(AsyncResult<T> asyncResult) {
-    throw new IllegalStateException("Result is already complete: succeeded");
   }
 
   @Override

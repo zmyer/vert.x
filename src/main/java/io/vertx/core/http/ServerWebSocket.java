@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -15,10 +15,12 @@ import io.vertx.codegen.annotations.CacheReturn;
 import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.codegen.annotations.VertxGen;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.streams.ReadStream;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
@@ -54,25 +56,25 @@ public interface ServerWebSocket extends WebSocketBase {
   ServerWebSocket endHandler(Handler<Void> endHandler);
 
   @Override
-  ServerWebSocket write(Buffer data);
-
-  @Override
   ServerWebSocket setWriteQueueMaxSize(int maxSize);
 
   @Override
   ServerWebSocket drainHandler(Handler<Void> handler);
 
   @Override
-  ServerWebSocket writeFrame(WebSocketFrame frame);
+  ServerWebSocket writeFrame(WebSocketFrame frame, Handler<AsyncResult<Void>> handler);
 
   @Override
-  ServerWebSocket writeFinalTextFrame(String text);
+  ServerWebSocket writeFinalTextFrame(String text, Handler<AsyncResult<Void>> handler);
 
   @Override
-  ServerWebSocket writeFinalBinaryFrame(Buffer data);
+  ServerWebSocket writeFinalBinaryFrame(Buffer data, Handler<AsyncResult<Void>> handler);
 
   @Override
-  ServerWebSocket writeBinaryMessage(Buffer data);
+  ServerWebSocket writeBinaryMessage(Buffer data, Handler<AsyncResult<Void>> handler);
+
+  @Override
+  ServerWebSocket writeTextMessage(String text, Handler<AsyncResult<Void>> handler);
 
   @Override
   ServerWebSocket closeHandler(Handler<Void> handler);
@@ -97,27 +99,25 @@ public interface ServerWebSocket extends WebSocketBase {
   String query();
 
   /**
-   * @return the headers in the WebSocket handshake
-   */
-  @CacheReturn
-  MultiMap headers();
-
-  /**
    * Accept the WebSocket and terminate the WebSocket handshake.
    * <p/>
-   * This method should be called from the websocket handler to explicitely accept the websocker and
+   * This method should be called from the WebSocket handler to explicitly accept the WebSocket and
    * terminate the WebSocket handshake.
+   *
+   * @throws IllegalStateException when the WebSocket handshake is already set
    */
   void accept();
 
   /**
    * Reject the WebSocket.
    * <p>
-   * Calling this method from the websocket handler when it is first passed to you gives you the opportunity to reject
-   * the websocket, which will cause the websocket handshake to fail by returning
+   * Calling this method from the WebSocket handler when it is first passed to you gives you the opportunity to reject
+   * the WebSocket, which will cause the WebSocket handshake to fail by returning
    * a {@literal 502} response code.
    * <p>
    * You might use this method, if for example you only want to accept WebSockets with a particular path.
+   *
+   * @throws IllegalStateException when the WebSocket handshake is already set
    */
   void reject();
 
@@ -127,11 +127,50 @@ public interface ServerWebSocket extends WebSocketBase {
   void reject(int status);
 
   /**
+   * Set an asynchronous result for the handshake, upon completion of the specified {@code future}, the
+   * WebSocket will either be
+   *
+   * <ul>
+   *   <li>accepted when the {@code future} succeeds with the HTTP {@literal 101} status code</li>
+   *   <li>rejected when the {@code future} is succeeds with an HTTP status code different than {@literal 101}</li>
+   *   <li>rejected when the {@code future} fails with the HTTP status code {@code 500}</li>
+   * </ul>
+   *
+   * The provided future might be completed by the WebSocket itself, e.g calling the {@link #close()} method
+   * will try to accept the handshake and close the WebSocket afterward. Thus it is advised to try to complete
+   * the {@code future} with {@link Promise#tryComplete} or {@link Promise#tryFail}.
+   * <p>
+   * This method should be called from the WebSocket handler to explicitly set an asynchronous handshake.
+   * <p>
+   * Calling this method will override the {@code future} completion handler.
+   *
+   * @param future the future to complete with
+   * @param handler the completion handler
+   * @throws IllegalStateException when the WebSocket has already an asynchronous result
+   */
+  void setHandshake(Future<Integer> future, Handler<AsyncResult<Integer>> handler);
+
+  /**
+   * Like {@link #setHandshake(Future, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<Integer> setHandshake(Future<Integer> future);
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>
+   * The WebSocket handshake will be accepted when it hasn't yet been settled or when an asynchronous handshake
+   * is in progress.
+   */
+  @Override
+  Future<Void> close();
+
+  /**
    * @return SSLSession associated with the underlying socket. Returns null if connection is
    *         not SSL.
    * @see javax.net.ssl.SSLSession
    */
-  @SuppressWarnings("codegen-allow-any-java-type")
+  @GenIgnore(GenIgnore.PERMITTED_TYPE)
   SSLSession sslSession();
 
   /**

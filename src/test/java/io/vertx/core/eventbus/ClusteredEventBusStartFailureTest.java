@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -34,8 +34,8 @@ public class ClusteredEventBusStartFailureTest extends AsyncTestBase {
     String hostName = "zoom.zoom.zen.tld";
 
     VertxOptions options = new VertxOptions()
-      .setClusterManager(new FakeClusterManager())
-      .setClusterHost(hostName);
+      .setClusterManager(new FakeClusterManager());
+    options.getEventBusOptions().setHost(hostName);
 
     AtomicReference<AsyncResult<Vertx>> resultRef = new AtomicReference<>();
 

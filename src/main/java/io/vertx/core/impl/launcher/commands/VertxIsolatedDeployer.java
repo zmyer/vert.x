@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,8 +12,8 @@
 package io.vertx.core.impl.launcher.commands;
 
 import io.vertx.core.*;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 
 /**
  * A class isolating the deployment of verticle.
@@ -66,12 +66,12 @@ public class VertxIsolatedDeployer {
     return res -> {
       if (res.failed()) {
         Throwable cause = res.cause();
-        cause.printStackTrace();
         if (cause instanceof VertxException) {
           VertxException ve = (VertxException) cause;
-          log.error(ve.getMessage());
-          if (ve.getCause() != null) {
-            log.error(ve.getCause());
+          if (ve.getCause() == null) {
+            log.error(ve.getMessage());
+          } else {
+            log.error(ve.getMessage(), ve.getCause());
           }
         } else {
           log.error("Failed in " + message, cause);

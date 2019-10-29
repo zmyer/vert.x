@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -14,9 +14,11 @@ package io.vertx.core.parsetools;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.test.core.TestUtils;
+import io.vertx.test.fakestream.FakeStream;
 import org.junit.Test;
 
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,7 +33,7 @@ import static org.junit.Assert.*;
 public class RecordParserTest {
 
   @Test
-  public void testIllegalArguments() throws Exception {
+  public void testIllegalArguments() {
     assertNullPointerException(() -> RecordParser.newDelimited((Buffer) null, handler -> {}));
     assertNullPointerException(() -> RecordParser.newDelimited((String) null, handler -> {}));
 
@@ -91,7 +93,7 @@ public class RecordParserTest {
    */
   public void testMixed() {
     final int lines = 8;
-    final List<Object> types = new ArrayList<Object>();
+    final List<Object> types = new ArrayList<>();
 
     class MyHandler implements Handler<Buffer> {
       RecordParser parser = RecordParser.newFixed(10, this);
@@ -243,7 +245,7 @@ public class RecordParserTest {
 
   private List<Buffer> generateLines(int lines, boolean delim, byte delimByte) {
     //We create lines of length one to <lines> and shuffle them
-    List<Buffer> lineList = new ArrayList<Buffer>();
+    List<Buffer> lineList = new ArrayList<>();
     for (int i = 0; i < lines; i++) {
       lineList.add(TestUtils.randomBuffer(i + 1, delim, delimByte));
     }
@@ -253,7 +255,7 @@ public class RecordParserTest {
 
   private List<Integer> generateChunkSizes(int lines) {
     //Then we try a sequence of random chunk sizes
-    List<Integer> chunkSizes = new ArrayList<Integer>();
+    List<Integer> chunkSizes = new ArrayList<>();
     for (int i = 1; i < lines / 5; i++) {
       chunkSizes.add(i);
     }
@@ -296,9 +298,26 @@ public class RecordParserTest {
     assertTrue(handled.get());
   }
 
+  private void doTestDelimitedMaxRecordSize(final Buffer input, Buffer delim, Integer[] chunkSizes, int maxRecordSize,
+                                            Handler<Throwable> exHandler, final Buffer... expected) {
+    final Buffer[] results = new Buffer[expected.length];
+    Handler<Buffer> out = new Handler<Buffer>() {
+      int pos;
+
+      public void handle(Buffer buff) {
+        results[pos++] = buff;
+      }
+    };
+    RecordParser parser = RecordParser.newDelimited(delim, out);
+    parser.maxRecordSize(maxRecordSize);
+    parser.exceptionHandler(exHandler);
+    feedChunks(input, parser, chunkSizes);
+    checkResults(expected, results);
+  }
+
   @Test
   public void testWrapReadStream() {
-    FakeStream stream = new FakeStream();
+    FakeStream<Buffer> stream = new FakeStream<>();
     RecordParser parser = RecordParser.newDelimited("\r\n", stream);
     AtomicInteger ends = new AtomicInteger();
     parser.endHandler(v -> ends.incrementAndGet());
@@ -307,11 +326,11 @@ public class RecordParserTest {
     assertFalse(stream.isPaused());
     parser.pause();
     parser.resume();
-    stream.handle(Buffer.buffer("first\r\nsecond\r\nthird"));
+    stream.emit(Buffer.buffer("first\r\nsecond\r\nthird"));
     assertEquals("first", records.poll());
     assertEquals("second", records.poll());
     assertNull(records.poll());
-    stream.handle(Buffer.buffer("\r\n"));
+    stream.emit(Buffer.buffer("\r\n"));
     assertEquals("third", records.poll());
     assertNull(records.poll());
     assertEquals(0, ends.get());
@@ -327,7 +346,7 @@ public class RecordParserTest {
     assertFalse(stream.isPaused());
     int count = 0;
     do {
-      stream.handle(Buffer.buffer("item-" + count++ + "\r\n"));
+      stream.emit(Buffer.buffer("item-" + count++ + "\r\n"));
     } while (!stream.isPaused());
     assertNull(records.poll());
     parser.resume();
@@ -343,27 +362,116 @@ public class RecordParserTest {
 
   @Test
   public void testPausedStreamShouldNotPauseOnIncompleteMatch() {
-    FakeStream stream = new FakeStream();
+    FakeStream<Buffer> stream = new FakeStream<>();
     RecordParser parser = RecordParser.newDelimited("\r\n", stream);
     parser.handler(event -> {});
-    parser.pause();
-    stream.handle("abc");
+    parser.pause().fetch(1);
+    stream.emit(Buffer.buffer("abc"));
     assertFalse(stream.isPaused());
   }
 
-  private void doTestDelimitedMaxRecordSize(final Buffer input, Buffer delim, Integer[] chunkSizes, int maxRecordSize,
-                                            Handler<Throwable> exHandler, final Buffer... expected) {
-    final Buffer[] results = new Buffer[expected.length];
-    Handler<Buffer> out = new Handler<Buffer>() {
-      int pos;
-      public void handle(Buffer buff) {
-        results[pos++] = buff;
+  @Test
+  public void testSuspendParsing() {
+    FakeStream<Buffer> stream = new FakeStream<>();
+    RecordParser parser = RecordParser.newDelimited("\r\n", stream);
+    List<Buffer> emitted = new ArrayList<>();
+    parser.handler(emitted::add);
+    parser.pause().fetch(1);
+    stream.emit(Buffer.buffer("abc\r\ndef\r\n"));
+    parser.fetch(1);
+    assertEquals(Arrays.asList(Buffer.buffer("abc"), Buffer.buffer("def")), emitted);
+  }
+
+  @Test
+  public void testParseEmptyChunkOnFetch() {
+    FakeStream<Buffer> stream = new FakeStream<>();
+    RecordParser parser = RecordParser.newDelimited("\r\n", stream);
+    List<Buffer> emitted = new ArrayList<>();
+    parser.handler(emitted::add);
+    parser.pause();
+    stream.emit(Buffer.buffer("abc\r\n\r\n"));
+    parser.fetch(1);
+    assertEquals(Collections.singletonList(Buffer.buffer("abc")), emitted);
+    parser.fetch(1);
+    assertEquals(Arrays.asList(Buffer.buffer("abc"), Buffer.buffer()), emitted);
+  }
+
+  @Test
+  public void testSwitchModeResetsState() {
+    FakeStream<Buffer> stream = new FakeStream<>();
+    RecordParser parser = RecordParser.newDelimited("\r\n", stream);
+    List<Buffer> emitted = new ArrayList<>();
+    parser.handler(emitted::add);
+    parser.pause();
+    stream.emit(Buffer.buffer("3\r\nabc\r\n"));
+    parser.fetch(1);
+    assertEquals(Collections.singletonList(Buffer.buffer("3")), emitted);
+    parser.fixedSizeMode(5);
+    parser.fetch(1);
+    assertEquals(Arrays.asList(Buffer.buffer("3"), Buffer.buffer("abc\r\n")), emitted);
+  }
+
+  @Test
+  public void testEndOfWrappedStreamWithPauseWithFinalDelimiter() throws Exception {
+    endOfWrappedStream(true, true);
+  }
+
+  @Test
+  public void testEndOfWrappedStreamWithPauseWithoutFinalDelimiter() throws Exception {
+    endOfWrappedStream(true, false);
+  }
+
+  @Test
+  public void testEndOfWrappedStreamWithoutPauseWithoutFinalDelimiter() throws Exception {
+    endOfWrappedStream(false, false);
+  }
+
+  @Test
+  public void testEndOfWrappedStreamWithoutPauseWithFinalDelimiter() throws Exception {
+    endOfWrappedStream(false, true);
+  }
+
+  private void endOfWrappedStream(boolean pauseParser, boolean finalDelimiter) throws Exception {
+    FakeStream<Buffer> stream = new FakeStream<>();
+    RecordParser parser = RecordParser.newDelimited("\n", stream);
+    List<Buffer> emitted = Collections.synchronizedList(new ArrayList<>());
+    CountDownLatch endLatch = new CountDownLatch(1);
+    parser.endHandler(v -> {
+      assertEquals(Arrays.asList(Buffer.buffer("toto"), Buffer.buffer("titi")), emitted);
+      endLatch.countDown();
+    });
+    parser.handler(emitted::add);
+    if (pauseParser) {
+      parser.pause();
+    }
+    stream.emit(Buffer.buffer("toto\ntit"));
+    stream.emit(Buffer.buffer(finalDelimiter ? "i\n" : "i"));
+    stream.end();
+    if (pauseParser) {
+      parser.fetch(1);
+      parser.resume();
+    }
+    endLatch.await();
+  }
+
+  @Test
+  public void testParserIsNotReentrant() throws Exception {
+    RecordParser recordParser = RecordParser.newDelimited("\n");
+    AtomicInteger state = new AtomicInteger(0);
+    StringBuffer emitted = new StringBuffer();
+    CountDownLatch latch = new CountDownLatch(2);
+    recordParser.handler(buff -> {
+      emitted.append(buff.toString());
+      if (state.compareAndSet(0, 1)) {
+        recordParser.handle(Buffer.buffer("bar\n"));
+        assertEquals("Parser shouldn't trigger parsing while emitting", "foo", emitted.toString());
+        latch.countDown();
+      } else if (state.compareAndSet(1, 2)) {
+        assertEquals("foobar", emitted.toString());
+        latch.countDown();
       }
-    };
-    RecordParser parser = RecordParser.newDelimited(delim, out);
-    parser.maxRecordSize(maxRecordSize);
-    parser.exceptionHandler(exHandler);
-    feedChunks(input, parser, chunkSizes);
-    checkResults(expected, results);
+    });
+    recordParser.handle(Buffer.buffer("foo\n"));
+    latch.await();
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,8 +11,7 @@
 
 package io.vertx.core.eventbus.impl;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Handler;
+import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
@@ -20,8 +19,8 @@ import io.vertx.core.eventbus.MessageCodec;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.http.CaseInsensitiveHeaders;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -35,24 +34,24 @@ public class MessageImpl<U, V> implements Message<V> {
   private static final Logger log = LoggerFactory.getLogger(MessageImpl.class);
 
   protected MessageCodec<U, V> messageCodec;
-  protected EventBusImpl bus;
+  protected final EventBusImpl bus;
   protected String address;
   protected String replyAddress;
   protected MultiMap headers;
   protected U sentBody;
   protected V receivedBody;
   protected boolean send;
+  protected Object trace;
 
-  public MessageImpl() {
+  public MessageImpl(EventBusImpl bus) {
+    this.bus = bus;
   }
 
-  // TODO: 2018/8/2 by zmyer
-  public MessageImpl(String address, String replyAddress, MultiMap headers, U sentBody,
+  public MessageImpl(String address, MultiMap headers, U sentBody,
                      MessageCodec<U, V> messageCodec,
                      boolean send, EventBusImpl bus) {
     this.messageCodec = messageCodec;
     this.address = address;
-    this.replyAddress = replyAddress;
     this.headers = headers;
     this.sentBody = sentBody;
     this.send = send;
@@ -110,34 +109,29 @@ public class MessageImpl<U, V> implements Message<V> {
   }
 
   @Override
-  public void fail(int failureCode, String message) {
-    if (replyAddress != null) {
-      sendReply(bus.createMessage(true, replyAddress, null,
-        new ReplyException(ReplyFailure.RECIPIENT_FAILURE, failureCode, message), null), null, null);
-    }
-  }
-
-  @Override
-  public void reply(Object message) {
-    reply(message, new DeliveryOptions(), null);
-  }
-
-  @Override
-  public <R> void reply(Object message, Handler<AsyncResult<Message<R>>> replyHandler) {
-    reply(message, new DeliveryOptions(), replyHandler);
-  }
-
-  @Override
   public void reply(Object message, DeliveryOptions options) {
-    reply(message, options, null);
+    if (replyAddress != null) {
+      MessageImpl reply = createReply(message, options);
+      bus.sendReply(reply, options, null);
+    }
   }
 
   @Override
-  public <R> void reply(Object message, DeliveryOptions options, Handler<AsyncResult<Message<R>>> replyHandler) {
+  public <R> Future<Message<R>> replyAndRequest(Object message, DeliveryOptions options) {
     if (replyAddress != null) {
-      sendReply(bus.createMessage(true, replyAddress, options.getHeaders(), message, options.getCodecName()), options,
-        replyHandler);
+      MessageImpl reply = createReply(message, options);
+      ReplyHandler<R> handler = bus.createReplyHandler(reply, false, options);
+      bus.sendReply(reply, options, handler);
+      return handler.result();
+    } else {
+      throw new IllegalStateException();
     }
+  }
+
+  protected MessageImpl createReply(Object message, DeliveryOptions options) {
+    MessageImpl reply = bus.createMessage(true, replyAddress, options.getHeaders(), message, options.getCodecName());
+    reply.trace = trace;
+    return reply;
   }
 
   @Override
@@ -151,17 +145,6 @@ public class MessageImpl<U, V> implements Message<V> {
 
   public MessageCodec<U, V> codec() {
     return messageCodec;
-  }
-
-  public void setBus(EventBusImpl bus) {
-    this.bus = bus;
-  }
-
-  protected <R> void sendReply(MessageImpl msg, DeliveryOptions options,
-                               Handler<AsyncResult<Message<R>>> replyHandler) {
-    if (bus != null) {
-      bus.sendReply(msg, this, options, replyHandler);
-    }
   }
 
   protected boolean isLocal() {

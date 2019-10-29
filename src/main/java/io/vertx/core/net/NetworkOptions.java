@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -222,45 +222,5 @@ public abstract class NetworkOptions {
   public NetworkOptions setReusePort(boolean reusePort) {
     this.reusePort = reusePort;
     return this;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof NetworkOptions)) {
-      return false;
-    }
-
-    NetworkOptions that = (NetworkOptions) o;
-
-    if (receiveBufferSize != that.receiveBufferSize) {
-      return false;
-    }
-    if (reuseAddress != that.reuseAddress) {
-      return false;
-    }
-    if (reusePort != that.reusePort) {
-      return false;
-    }
-    if (sendBufferSize != that.sendBufferSize) {
-      return false;
-    }
-    if (trafficClass != that.trafficClass) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = sendBufferSize;
-    result = 31 * result + receiveBufferSize;
-    result = 31 * result + trafficClass;
-    result = 31 * result + (reuseAddress ? 1 : 0);
-    result = 31 * result + (reusePort ? 1 : 0);
-    return result;
   }
 }

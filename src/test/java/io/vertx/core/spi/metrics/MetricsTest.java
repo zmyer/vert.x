@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,6 +11,8 @@
 
 package io.vertx.core.spi.metrics;
 
+import io.netty.channel.EventLoop;
+import io.netty.channel.EventLoopGroup;
 import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.datagram.DatagramSocket;
@@ -74,33 +76,33 @@ public class MetricsTest extends VertxTestBase {
 
   @Test
   public void testSendMessage() {
-    testBroadcastMessage(vertx, new Vertx[]{vertx}, false, true, false);
+    testBroadcastMessage(vertx, new Vertx[]{vertx}, false, new SentMessage(ADDRESS1, false, true, false));
   }
 
   @Test
   public void testSendMessageInCluster() {
     startNodes(2);
-    testBroadcastMessage(vertices[0], new Vertx[]{vertices[1]}, false, false, true);
+    testBroadcastMessage(vertices[0], new Vertx[]{vertices[1]}, false, new SentMessage(ADDRESS1, false, false, true));
   }
 
   @Test
   public void testPublishMessageToSelf() {
-    testBroadcastMessage(vertx, new Vertx[]{vertx}, true, true, false);
+    testBroadcastMessage(vertx, new Vertx[]{vertx}, true, new SentMessage(ADDRESS1, true, true, false));
   }
 
   @Test
   public void testPublishMessageToRemote() {
     startNodes(2);
-    testBroadcastMessage(vertices[0], new Vertx[]{vertices[1]}, true, false, true);
+    testBroadcastMessage(vertices[0], new Vertx[]{vertices[1]}, true, new SentMessage(ADDRESS1, true, false, true));
   }
 
   @Test
   public void testPublishMessageToCluster() {
     startNodes(2);
-    testBroadcastMessage(vertices[0], vertices, true, true, true);
+    testBroadcastMessage(vertices[0], vertices, true, new SentMessage(ADDRESS1, true, false, true), new SentMessage(ADDRESS1, true, true, false));
   }
 
-  private void testBroadcastMessage(Vertx from, Vertx[] to, boolean publish, boolean expectedLocal, boolean expectedRemote) {
+  private void testBroadcastMessage(Vertx from, Vertx[] to, boolean publish, SentMessage... expected) {
     FakeEventBusMetrics eventBusMetrics = FakeMetricsBase.getMetrics(from.eventBus());
     AtomicInteger broadcastCount = new AtomicInteger();
     AtomicInteger receiveCount = new AtomicInteger();
@@ -119,7 +121,7 @@ public class MetricsTest extends VertxTestBase {
       });
       consumer.handler(msg -> {
         if (receiveCount.incrementAndGet() == to.length) {
-          assertEquals(Arrays.asList(new SentMessage(ADDRESS1, publish, expectedLocal, expectedRemote)), eventBusMetrics.getSentMessages());
+          assertEquals(new HashSet<>(Arrays.asList(expected)), new HashSet<>(eventBusMetrics.getSentMessages()));
           testComplete();
         }
       });
@@ -205,7 +207,7 @@ public class MetricsTest extends VertxTestBase {
     consumer.completionHandler(done -> {
       assertTrue(done.succeeded());
       String msg = TestUtils.randomAlphaString(10);
-      from.eventBus().send(ADDRESS1, msg, reply -> {
+      from.eventBus().request(ADDRESS1, msg, reply -> {
         assertEquals(1, fromMetrics.getReceivedMessages().size());
         ReceivedMessage receivedMessage = fromMetrics.getReceivedMessages().get(0);
         assertEquals(false, receivedMessage.publish);
@@ -246,7 +248,29 @@ public class MetricsTest extends VertxTestBase {
     consumer.unregister(ar -> {
       assertTrue(ar.succeeded());
       assertEquals(0, metrics.getRegistrations().size());
-      testComplete();
+      consumer.unregister(ar2 -> {
+        testComplete();
+      });
+    });
+    await();
+  }
+
+  @Test
+  public void testClusterUnregistration() {
+    startNodes(1);
+    FakeEventBusMetrics metrics = FakeMetricsBase.getMetrics(vertices[0].eventBus());
+    Context ctx = vertices[0].getOrCreateContext();
+    ctx.runOnContext(v -> {
+      MessageConsumer<Object> consumer = vertices[0].eventBus().consumer(ADDRESS1, ar -> {
+        fail("Should not receive message");
+      });
+      consumer.completionHandler(onFailure(err -> {
+        assertSame(Vertx.currentContext(), ctx);
+        List<HandlerMetric> registrations = metrics.getRegistrations();
+        assertEquals(Collections.emptyList(), registrations);
+        testComplete();
+      }));
+      consumer.unregister();
     });
     await();
   }
@@ -271,7 +295,6 @@ public class MetricsTest extends VertxTestBase {
   private void testHandlerProcessMessage(Vertx from, Vertx to, int expectedLocalCount) {
     FakeEventBusMetrics metrics = FakeMetricsBase.getMetrics(to.eventBus());
     CountDownLatch latch1 = new CountDownLatch(1);
-    CountDownLatch latch2 = new CountDownLatch(1);
     to.runOnContext(v -> {
       to.eventBus().consumer(ADDRESS1, msg -> {
         HandlerMetric registration = assertRegistration(metrics);
@@ -287,11 +310,6 @@ public class MetricsTest extends VertxTestBase {
       }).completionHandler(onSuccess(v2 -> {
         to.runOnContext(v3 -> {
           latch1.countDown();
-          try {
-            awaitLatch(latch2);
-          } catch (InterruptedException e) {
-            fail(e);
-          }
         });
       }));
     });
@@ -304,7 +322,7 @@ public class MetricsTest extends VertxTestBase {
     HandlerMetric registration = assertRegistration(metrics);
     assertEquals(ADDRESS1, registration.address);
     assertEquals(null, registration.repliedAddress);
-    from.eventBus().send(ADDRESS1, "ping", reply -> {
+    from.eventBus().request(ADDRESS1, "ping", reply -> {
       assertEquals(1, registration.scheduleCount.get());
       assertEquals(1, registration.beginCount.get());
       // This might take a little time
@@ -314,8 +332,6 @@ public class MetricsTest extends VertxTestBase {
       testComplete();
     });
     assertWaitUntil(() -> registration.scheduleCount.get() == 1);
-    assertEquals(0, registration.beginCount.get());
-    latch2.countDown();
     await();
   }
 
@@ -369,7 +385,7 @@ public class MetricsTest extends VertxTestBase {
       latch.countDown();
     });
     awaitLatch(latch);
-    vertx.eventBus().send(ADDRESS1, "ping", reply -> {
+    vertx.eventBus().request(ADDRESS1, "ping", reply -> {
       assertEquals(ADDRESS1, metrics.getRegistrations().get(0).address);
       HandlerMetric registration = metrics.getRegistrations().get(1);
       assertEquals(ADDRESS1, registration.repliedAddress);
@@ -414,13 +430,13 @@ public class MetricsTest extends VertxTestBase {
   public void testReplyFailureNoHandlers() throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     EventBus eb = vertx.eventBus();
-    eb.send(ADDRESS1, "bar", new DeliveryOptions().setSendTimeout(10), ar -> {
+    eb.request(ADDRESS1, "bar", new DeliveryOptions().setSendTimeout(10), ar -> {
       assertTrue(ar.failed());
       latch.countDown();
     });
     awaitLatch(latch);
     FakeEventBusMetrics metrics = FakeMetricsBase.getMetrics(eb);
-    assertEquals(Collections.singletonList(ADDRESS1), metrics.getReplyFailureAddresses());
+    assertEquals(Collections.singletonList("some-address1"), metrics.getReplyFailureAddresses());
     assertEquals(Collections.singletonList(ReplyFailure.NO_HANDLERS), metrics.getReplyFailures());
   }
 
@@ -432,7 +448,7 @@ public class MetricsTest extends VertxTestBase {
     eb.consumer(ADDRESS1, msg -> {
       // Do not reply
     });
-    eb.send(ADDRESS1, "bar", new DeliveryOptions().setSendTimeout(10), ar -> {
+    eb.request(ADDRESS1, "bar", new DeliveryOptions().setSendTimeout(10), ar -> {
       assertTrue(ar.failed());
       latch.countDown();
     });
@@ -446,12 +462,12 @@ public class MetricsTest extends VertxTestBase {
     CountDownLatch latch = new CountDownLatch(1);
     EventBus eb = vertx.eventBus();
     eb.consumer(ADDRESS1, msg -> {
-      msg.reply("juu", new DeliveryOptions().setSendTimeout(10), ar -> {
+      msg.replyAndRequest("juu", new DeliveryOptions().setSendTimeout(10), ar -> {
         assertTrue(ar.failed());
         latch.countDown();
       });
     });
-    eb.send(ADDRESS1, "bar", ar -> {
+    eb.request(ADDRESS1, "bar", ar -> {
       // Do not reply
     });
     awaitLatch(latch);
@@ -474,12 +490,12 @@ public class MetricsTest extends VertxTestBase {
       regLatch.countDown();
     }));
     awaitLatch(regLatch);
-    eb.send("foo", "bar", new DeliveryOptions(), ar -> {
+    eb.request("foo", "bar", new DeliveryOptions(), ar -> {
       assertTrue(ar.failed());
       latch.countDown();
     });
     awaitLatch(latch);
-    assertEquals(Collections.singletonList(replyAddress.get()), metrics.getReplyFailureAddresses());
+    assertEquals(Collections.singletonList("foo"), metrics.getReplyFailureAddresses());
     assertEquals(Collections.singletonList(ReplyFailure.RECIPIENT_FAILURE), metrics.getReplyFailures());
   }
 
@@ -500,10 +516,10 @@ public class MetricsTest extends VertxTestBase {
     server.listen(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, ar -> {
       assertTrue(ar.succeeded());
       client = vertx.createHttpClient();
-      client.websocket(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", ws -> {
+      client.webSocket(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", onSuccess(ws -> {
         ws.write(Buffer.buffer("wibble"));
         ws.handler(buff -> ws.close());
-      });
+      }));
     });
     await();
   }
@@ -529,12 +545,12 @@ public class MetricsTest extends VertxTestBase {
     server.listen(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, ar -> {
       assertTrue(ar.succeeded());
       client = vertx.createHttpClient();
-      client.websocket(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", ws -> {
+      client.webSocket(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", onSuccess(ws -> {
         ws.write(Buffer.buffer("wibble"));
         ws.handler(buff -> {
           ws.close();
         });
-      });
+      }));
     });
     await();
   }
@@ -549,7 +565,7 @@ public class MetricsTest extends VertxTestBase {
     server.listen(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, ar -> {
       assertTrue(ar.succeeded());
       client = vertx.createHttpClient();
-      client.websocket(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", ws -> {
+      client.webSocket(HttpTestBase.DEFAULT_HTTP_PORT, HttpTestBase.DEFAULT_HTTP_HOST, "/", onSuccess(ws -> {
         FakeHttpClientMetrics metrics = FakeMetricsBase.getMetrics(client);
         WebSocketMetric metric = metrics.getMetric(ws);
         assertNotNull(metric);
@@ -559,7 +575,7 @@ public class MetricsTest extends VertxTestBase {
           testComplete();
         });
         ws.handler(ws::write);
-      });
+      }));
     });
     await();
   }
@@ -678,7 +694,7 @@ public class MetricsTest extends VertxTestBase {
     awaitLatch(started);
     CountDownLatch closed = new CountDownLatch(1);
     HttpClientRequest req = client.get(8080, "localhost", "/somepath");
-    req.handler(resp -> {
+    req.setHandler(onSuccess(resp -> {
       resp.endHandler(v1 -> {
         HttpConnection conn = req.connection();
         conn.closeHandler(v2 -> {
@@ -686,7 +702,7 @@ public class MetricsTest extends VertxTestBase {
         });
         conn.close();
       });
-    });
+    }));
     req.end();
     awaitLatch(closed);
     EndpointMetric val = endpointMetrics.get();
@@ -761,7 +777,7 @@ public class MetricsTest extends VertxTestBase {
       client = vertx.createHttpClient();
       HttpClientRequest request = client.request(HttpMethod.CONNECT, 8080, host, "/");
       FakeHttpClientMetrics metrics = FakeMetricsBase.getMetrics(client);
-      request.handler(resp -> {
+      request.setHandler(onSuccess(resp -> {
         assertEquals(200, resp.statusCode());
         clientMetric.set(metrics.getMetric(request));
         assertNotNull(clientMetric.get());
@@ -772,7 +788,7 @@ public class MetricsTest extends VertxTestBase {
           assertNull(metrics.getMetric(request));
           socket.close();
         });
-      }).end();
+      })).end();
     });
     await();
   }
@@ -839,7 +855,7 @@ public class MetricsTest extends VertxTestBase {
     assertThat(metrics.getPoolSize(), is(getOptions().getInternalBlockingPoolSize()));
     assertThat(metrics.numberOfIdleThreads(), is(getOptions().getWorkerPoolSize()));
 
-    Handler<Future<Void>> job = getSomeDumbTask();
+    Handler<Promise<Void>> job = getSomeDumbTask();
 
     AtomicInteger counter = new AtomicInteger();
     AtomicBoolean hadWaitingQueue = new AtomicBoolean();
@@ -936,16 +952,7 @@ public class MetricsTest extends VertxTestBase {
   }
 
   @Test
-  public void testThreadPoolMetricsWithWorkerVerticle() {
-    testWithWorkerVerticle(new DeploymentOptions().setWorker(true));
-  }
-
-  @Test
-  public void testThreadPoolMetricsWithWorkerVerticleAndMultiThread() {
-    testWithWorkerVerticle(new DeploymentOptions().setWorker(true).setMultiThreaded(true));
-  }
-
-  private void testWithWorkerVerticle(DeploymentOptions options) {
+  public void testThreadPoolMetricsWithWorkerVerticle() throws Exception {
     AtomicInteger counter = new AtomicInteger();
     Map<String, PoolMetrics> all = FakePoolMetrics.getPoolMetrics();
     FakePoolMetrics metrics = (FakePoolMetrics) all.get("vert.x-worker-thread");
@@ -961,9 +968,10 @@ public class MetricsTest extends VertxTestBase {
 
     AtomicInteger msg = new AtomicInteger();
 
+    CountDownLatch latch = new CountDownLatch(1);
     Verticle worker = new AbstractVerticle() {
       @Override
-      public void start(Future<Void> done) throws Exception {
+      public void start(Promise<Void> startPromise) throws Exception {
         vertx.eventBus().localConsumer("message", d -> {
             msg.incrementAndGet();
             try {
@@ -980,7 +988,7 @@ public class MetricsTest extends VertxTestBase {
               }
 
               if (counter.incrementAndGet() == count) {
-                testComplete();
+                latch.countDown();
               }
 
             } catch (InterruptedException e) {
@@ -988,20 +996,20 @@ public class MetricsTest extends VertxTestBase {
             }
           }
         );
-        done.complete();
+        startPromise.complete();
       }
     };
 
 
-    vertx.deployVerticle(worker, options, s -> {
+    vertx.deployVerticle(worker, new DeploymentOptions().setWorker(true), s -> {
       for (int i = 0; i < count; i++) {
         vertx.eventBus().send("message", i);
       }
     });
 
+    awaitLatch(latch);
+
     assertWaitUntil(() -> count + 1 == metrics.numberOfCompletedTasks());
-
-
 
     // The verticle deployment is also executed on the worker thread pool
     assertEquals(count + 1, metrics.numberOfSubmittedTask());
@@ -1029,7 +1037,7 @@ public class MetricsTest extends VertxTestBase {
     assertThat(metrics.getPoolSize(), is(10));
     assertThat(metrics.numberOfIdleThreads(), is(10));
 
-    Handler<Future<Void>> job = getSomeDumbTask();
+    Handler<Promise<Void>> job = getSomeDumbTask();
 
     AtomicInteger counter = new AtomicInteger();
     AtomicBoolean hadWaitingQueue = new AtomicBoolean();
@@ -1092,7 +1100,7 @@ public class MetricsTest extends VertxTestBase {
     assertTrue(metrics2.isClosed());
   }
 
-  private Handler<Future<Void>> getSomeDumbTask() {
+  private Handler<Promise<Void>> getSomeDumbTask() {
     return (future) -> {
       try {
         Thread.sleep(50);
@@ -1101,5 +1109,24 @@ public class MetricsTest extends VertxTestBase {
       }
       future.complete(null);
     };
+  }
+
+  @Test
+  public void testInitialization() {
+    assertSame(vertx, ((FakeVertxMetrics)FakeMetricsBase.getMetrics(vertx)).vertx());
+    startNodes(1);
+    assertSame(vertices[0], ((FakeVertxMetrics)FakeMetricsBase.getMetrics(vertices[0])).vertx());
+    EventLoopGroup group = vertx.nettyEventLoopGroup();
+    Set<EventLoop> loops = new HashSet<>();
+    int count = 0;
+    while (true) {
+      EventLoop next = group.next();
+      if (!loops.add(next)) {
+        break;
+      }
+      count++;
+      assertTrue(count <= VertxOptions.DEFAULT_EVENT_LOOP_POOL_SIZE);
+    }
+    assertEquals(loops.size(), VertxOptions.DEFAULT_EVENT_LOOP_POOL_SIZE);
   }
 }

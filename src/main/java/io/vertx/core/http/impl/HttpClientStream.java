@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,17 +12,21 @@
 package io.vertx.core.http.impl;
 
 import io.netty.buffer.ByteBuf;
-import io.vertx.core.Context;
+import io.netty.util.concurrent.FutureListener;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpConnection;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpVersion;
+import io.vertx.core.http.StreamPriority;
+import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.net.NetSocket;
 
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
-interface HttpClientStream {
+public interface HttpClientStream {
 
   /**
    * @return the stream id, {@code 1} denotes the first stream, HTTP/1 is a simple sequence, HTTP/2
@@ -30,30 +34,31 @@ interface HttpClientStream {
    */
   int id();
 
+  Object metric();
+
   /**
    * @return the stream version or null if it's not yet determined
    */
   HttpVersion version();
 
   HttpConnection connection();
-  Context getContext();
+  ContextInternal getContext();
 
-  void writeHead(HttpMethod method, String rawMethod, String uri, MultiMap headers, String hostHeader, boolean chunked, ByteBuf buf, boolean end);
-  void writeBuffer(ByteBuf buf, boolean end);
+  void writeHead(HttpMethod method, String rawMethod, String uri, MultiMap headers, String hostHeader, boolean chunked, ByteBuf buf, boolean end, StreamPriority priority, Handler<Void> contHandler, Handler<AsyncResult<Void>> listener);
+  void writeBuffer(ByteBuf buf, boolean end, Handler<AsyncResult<Void>> listener);
   void writeFrame(int type, int flags, ByteBuf payload);
-
-  void reportBytesWritten(long numberOfBytes);
-  void reportBytesRead(long numberOfBytes);
 
   void doSetWriteQueueMaxSize(int size);
   boolean isNotWritable();
   void doPause();
-  void doResume();
   void doFetch(long amount);
 
-  void reset(long code);
+  void reset(Throwable cause);
   void beginRequest(HttpClientRequestImpl req);
   void endRequest();
 
   NetSocket createNetSocket();
+
+  StreamPriority priority();
+  void updatePriority(StreamPriority streamPriority);
 }

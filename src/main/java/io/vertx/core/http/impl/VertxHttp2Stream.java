@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -16,8 +16,11 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.EmptyHttp2Headers;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Stream;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.StreamPriority;
 import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.streams.impl.InboundBuffer;
@@ -35,19 +38,23 @@ abstract class VertxHttp2Stream<C extends Http2ConnectionBase> {
   protected final ChannelHandlerContext handlerContext;
   protected final Http2Stream stream;
 
-  private InboundBuffer<Buffer> pending;
+  private final InboundBuffer<Object> pending;
   private int pendingBytes;
   private MultiMap trailers;
   private boolean writable;
+  private StreamPriority priority;
+  private long bytesRead;
+  private long bytesWritten;
 
-  VertxHttp2Stream(C conn, Http2Stream stream, boolean writable) {
+  VertxHttp2Stream(C conn, ContextInternal context, Http2Stream stream, boolean writable) {
     this.conn = conn;
     this.vertx = conn.vertx();
     this.handlerContext = conn.handlerContext;
     this.stream = stream;
-    this.context = conn.getContext();
+    this.context = context;
     this.writable = writable;
     this.pending = new InboundBuffer<>(context, 5);
+    this.priority = HttpUtils.DEFAULT_STREAM_PRIORITY;
 
     pending.drainHandler(v -> {
       int numBytes = pendingBytes;
@@ -55,13 +62,17 @@ abstract class VertxHttp2Stream<C extends Http2ConnectionBase> {
       conn.handler.consume(stream, numBytes);
     });
 
-    pending.handler(this::handleData);
-    pending.exceptionHandler(context.exceptionHandler());
-    pending.emptyHandler(v -> {
-      if (trailers != null) {
+    pending.handler(buff -> {
+      if (buff == InboundBuffer.END_SENTINEL) {
+        conn.reportBytesRead(bytesRead);
         handleEnd(trailers);
+      } else {
+        Buffer data = (Buffer) buff;
+        bytesRead += data.length();
+        handleData(data);
       }
     });
+    pending.exceptionHandler(context.exceptionHandler());
 
     pending.resume();
   }
@@ -81,8 +92,8 @@ abstract class VertxHttp2Stream<C extends Http2ConnectionBase> {
   void onWritabilityChanged() {
     synchronized (conn) {
       writable = !writable;
-      handleInterestedOpsChanged();
     }
+    handleInterestedOpsChanged();
   }
 
   void onEnd() {
@@ -92,22 +103,24 @@ abstract class VertxHttp2Stream<C extends Http2ConnectionBase> {
   void onEnd(MultiMap map) {
     synchronized (conn) {
       trailers = map;
-      if (pending.isEmpty()) {
-        handleEnd(trailers);
-      }
     }
+    pending.write(InboundBuffer.END_SENTINEL);
   }
 
   int id() {
     return stream.id();
   }
 
-  public void doPause() {
-    pending.pause();
+  long bytesWritten() {
+    return bytesWritten;
   }
 
-  public void doResume() {
-    pending.resume();
+  long bytesRead() {
+    return bytesRead;
+  }
+
+  public void doPause() {
+    pending.pause();
   }
 
   public void doFetch(long amount) {
@@ -124,12 +137,21 @@ abstract class VertxHttp2Stream<C extends Http2ConnectionBase> {
     conn.handler.writeFrame(stream, (byte) type, (short) flags, payload);
   }
 
-  void writeHeaders(Http2Headers headers, boolean end) {
-    conn.handler.writeHeaders(stream, headers, end);
+  void writeHeaders(Http2Headers headers, boolean end, Handler<AsyncResult<Void>> handler) {
+    conn.handler.writeHeaders(stream, headers, end, priority.getDependency(), priority.getWeight(), priority.isExclusive(), context.toFutureListener(handler));
+  }
+
+  private void writePriorityFrame(StreamPriority priority) {
+    conn.handler.writePriority(stream, priority.getDependency(), priority.getWeight(), priority.isExclusive());
   }
 
   void writeData(ByteBuf chunk, boolean end) {
-    conn.handler.writeData(stream, chunk, end);
+    writeData(chunk, end, null);
+  }
+
+  void writeData(ByteBuf chunk, boolean end, Handler<AsyncResult<Void>> handler) {
+    bytesWritten += chunk.readableBytes();
+    conn.handler.writeData(stream, chunk, end, context.toFutureListener(handler));
   }
 
   void writeReset(long code) {
@@ -155,5 +177,26 @@ abstract class VertxHttp2Stream<C extends Http2ConnectionBase> {
   }
 
   void handleClose() {
+    conn.reportBytesWritten(bytesWritten);
   }
+
+  synchronized void priority(StreamPriority streamPriority) {
+    this.priority = streamPriority;
+  }
+
+  synchronized StreamPriority priority() {
+    return priority;
+  }
+
+  synchronized void updatePriority(StreamPriority priority) {
+    if (!this.priority.equals(priority)) {
+      this.priority = priority;
+      if (stream.isHeadersSent()) {
+        writePriorityFrame(priority);
+      }
+    }
+  }
+
+  abstract void handlePriorityChange(StreamPriority streamPriority);
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -76,23 +76,6 @@ public class OpenSSLEngineOptions extends SSLEngineOptions {
     return sessionCacheEnabled;
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof OpenSSLEngineOptions)) return false;
-
-    OpenSSLEngineOptions that = (OpenSSLEngineOptions) o;
-
-    if (sessionCacheEnabled != that.sessionCacheEnabled) return false;
-
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    return sessionCacheEnabled ? 1 : 0;
-  }
-
   public JsonObject toJson() {
     JsonObject json = new JsonObject();
     OpenSSLEngineOptionsConverter.toJson(this, json);
@@ -100,7 +83,7 @@ public class OpenSSLEngineOptions extends SSLEngineOptions {
   }
 
   @Override
-  public OpenSSLEngineOptions clone() {
+  public OpenSSLEngineOptions copy() {
     return new OpenSSLEngineOptions(this);
   }
 }

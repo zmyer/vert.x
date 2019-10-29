@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -256,8 +256,7 @@ public class VerticleFactoryTest extends VertxTestBase {
         return true;
       }
       @Override
-      public void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader, Future<String> resolution) {
-        deploymentOptions.setMultiThreaded(true);
+      public void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader, Promise<String> resolution) {
         vertx.runOnContext(v -> {
           // Async resolution
           resolution.complete("whatever");
@@ -274,7 +273,7 @@ public class VerticleFactoryTest extends VertxTestBase {
     // With completion handler
     vertx.deployVerticle("resolve:someid", onFailure(err -> {
       // Expected since we deploy a non multi-threaded worker verticle
-      assertEquals(IllegalArgumentException.class, err.getClass());
+      assertEquals(ClassNotFoundException.class, err.getClass());
       testComplete();
     }));
     await();
@@ -586,7 +585,7 @@ public class VerticleFactoryTest extends VertxTestBase {
     }
 
     @Override
-    public void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader, Future<String> resolution) {
+    public void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader, Promise<String> resolution) {
       if (failInResolve) {
         resolution.fail(new IOException("whatever"));
       } else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,6 +12,7 @@
 package io.vertx.test.fakemetrics;
 
 import io.vertx.core.Verticle;
+import io.vertx.core.Vertx;
 import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpServerOptions;
@@ -25,21 +26,15 @@ import io.vertx.core.spi.metrics.*;
  */
 public class FakeVertxMetrics extends FakeMetricsBase implements VertxMetrics {
 
+  private volatile Vertx vertx;
+
+  public Vertx vertx() {
+    return vertx;
+  }
+
   @Override
   public boolean isMetricsEnabled() {
     return true;
-  }
-
-  public void verticleDeployed(Verticle verticle) {
-  }
-
-  public void verticleUndeployed(Verticle verticle) {
-  }
-
-  public void timerCreated(long id) {
-  }
-
-  public void timerEnded(long id, boolean cancelled) {
   }
 
   public EventBusMetrics createEventBusMetrics() {
@@ -56,57 +51,11 @@ public class FakeVertxMetrics extends FakeMetricsBase implements VertxMetrics {
 
   public TCPMetrics<?> createNetServerMetrics(NetServerOptions options, SocketAddress localAddress) {
     return new TCPMetrics<Object>() {
-
-      public Object connected(SocketAddress remoteAddress, String remoteName) {
-        return null;
-      }
-
-      public void disconnected(Object socketMetric, SocketAddress remoteAddress) {
-      }
-
-      public void bytesRead(Object socketMetric, SocketAddress remoteAddress, long numberOfBytes) {
-      }
-
-      public void bytesWritten(Object socketMetric, SocketAddress remoteAddress, long numberOfBytes) {
-      }
-
-      public void exceptionOccurred(Object socketMetric, SocketAddress remoteAddress, Throwable t) {
-      }
-
-      public boolean isEnabled() {
-        return false;
-      }
-
-      public void close() {
-      }
-    };
+   };
   }
 
   public TCPMetrics<?> createNetClientMetrics(NetClientOptions options) {
     return new TCPMetrics<Object>() {
-
-      public Object connected(SocketAddress remoteAddress, String remoteName) {
-        return null;
-      }
-
-      public void disconnected(Object socketMetric, SocketAddress remoteAddress) {
-      }
-
-      public void bytesRead(Object socketMetric, SocketAddress remoteAddress, long numberOfBytes) {
-      }
-
-      public void bytesWritten(Object socketMetric, SocketAddress remoteAddress, long numberOfBytes) {
-      }
-
-      public void exceptionOccurred(Object socketMetric, SocketAddress remoteAddress, Throwable t) {
-      }
-
-      public boolean isEnabled() {
-        return false;
-      }
-
-      public void close() {
-      }
     };
   }
 
@@ -119,8 +68,8 @@ public class FakeVertxMetrics extends FakeMetricsBase implements VertxMetrics {
     return new FakePoolMetrics(poolName, maxPoolSize);
   }
 
-  public boolean isEnabled() {
-    return true;
+  @Override
+  public void vertxCreated(Vertx vertx) {
+    this.vertx = vertx;
   }
-
 }

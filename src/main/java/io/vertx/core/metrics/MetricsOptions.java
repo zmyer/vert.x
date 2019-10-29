@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -113,25 +113,6 @@ public class MetricsOptions {
 
   public JsonObject toJson() {
     return json != null ? json.copy() : new JsonObject();
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-
-    MetricsOptions that = (MetricsOptions) o;
-
-    if (enabled != that.enabled) return false;
-    return !(json != null ? !json.equals(that.json) : that.json != null);
-
-  }
-
-  @Override
-  public int hashCode() {
-    int result = (enabled ? 1 : 0);
-    result = 31 * result + (json != null ? json.hashCode() : 0);
-    return result;
   }
 
   @Override

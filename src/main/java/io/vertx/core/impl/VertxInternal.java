@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,11 +12,11 @@
 package io.vertx.core.impl;
 
 
+import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 import io.netty.resolver.AddressResolverGroup;
 import io.vertx.core.*;
 import io.vertx.core.http.impl.HttpServerImpl;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.impl.NetServerImpl;
 import io.vertx.core.net.impl.ServerID;
 import io.vertx.core.net.impl.transport.Transport;
@@ -37,8 +37,11 @@ import java.util.concurrent.TimeUnit;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-// TODO: 2018/8/1 by zmyer
 public interface VertxInternal extends Vertx {
+
+  long maxEventLoopExecTime();
+
+  TimeUnit maxEventLoopExecTimeUnit();
 
   @Override
   ContextInternal getOrCreateContext();
@@ -59,7 +62,6 @@ public interface VertxInternal extends Vertx {
 
   /**
    * Get the current context
-   *
    * @return the context
    */
   ContextInternal getContext();
@@ -67,14 +69,14 @@ public interface VertxInternal extends Vertx {
   /**
    * @return event loop context
    */
-  EventLoopContext createEventLoopContext(String deploymentID, WorkerPool workerPool, JsonObject config,
-                                          ClassLoader tccl);
+  ContextInternal createEventLoopContext(Deployment deployment, WorkerPool workerPool, ClassLoader tccl);
+
+  ContextInternal createEventLoopContext(EventLoop eventLoop, WorkerPool workerPool, ClassLoader tccl);
 
   /**
    * @return worker loop context
    */
-  ContextImpl createWorkerContext(boolean multiThreaded, String deploymentID, WorkerPool pool, JsonObject config,
-                                  ClassLoader tccl);
+  ContextInternal createWorkerContext(Deployment deployment, WorkerPool pool, ClassLoader tccl);
 
   @Override
   WorkerExecutorInternal createSharedWorkerExecutor(String name);
@@ -85,10 +87,8 @@ public interface VertxInternal extends Vertx {
   @Override
   WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime);
 
-  // TODO: 2018/11/26 by zmyer
   @Override
-  WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime,
-                                                    TimeUnit maxExecuteTimeUnit);
+  WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime, TimeUnit maxExecuteTimeUnit);
 
   void simulateKill();
 
@@ -107,7 +107,7 @@ public interface VertxInternal extends Vertx {
   /**
    * Like {@link #executeBlocking(Handler, Handler)} but using the internal worker thread pool.
    */
-  <T> void executeBlockingInternal(Handler<Future<T>> blockingCodeHandler, Handler<AsyncResult<T>> resultHandler);
+  <T> void executeBlockingInternal(Handler<Promise<T>> blockingCodeHandler, Handler<AsyncResult<T>> resultHandler);
 
   ClusterManager getClusterManager();
 
@@ -116,7 +116,7 @@ public interface VertxInternal extends Vertx {
   /**
    * Resolve an address (e.g. {@code vertx.io} into the first found A (IPv4) or AAAA (IPv6) record.
    *
-   * @param hostname      the hostname to resolve
+   * @param hostname the hostname to resolve
    * @param resultHandler the result handler
    */
   void resolveAddress(String hostname, Handler<AsyncResult<InetAddress>> resultHandler);
@@ -131,7 +131,10 @@ public interface VertxInternal extends Vertx {
    */
   AddressResolverGroup<InetSocketAddress> nettyAddressResolverGroup();
 
+  BlockedThreadChecker blockedThreadChecker();
+
   void addCloseHook(Closeable hook);
 
   void removeCloseHook(Closeable hook);
+
 }

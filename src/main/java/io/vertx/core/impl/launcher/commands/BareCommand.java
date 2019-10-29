@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,10 +13,11 @@ package io.vertx.core.impl.launcher.commands;
 
 import io.vertx.core.*;
 import io.vertx.core.cli.annotations.*;
+import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.impl.launcher.VertxLifecycleHooks;
+import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
 import io.vertx.core.metrics.MetricsOptions;
 import io.vertx.core.spi.VertxMetricsFactory;
 import io.vertx.core.spi.launcher.ExecutionContext;
@@ -29,6 +30,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
@@ -51,11 +53,13 @@ public class BareCommand extends ClasspathHandler {
   public static final String METRICS_OPTIONS_PROP_PREFIX = "vertx.metrics.options.";
 
   protected Vertx vertx;
+
   protected int clusterPort;
-
   protected String clusterHost;
-  protected int quorum;
+  protected int clusterPublicPort;
+  protected String clusterPublicHost;
 
+  protected int quorum;
   protected String haGroup;
 
   protected String vertxOptions;
@@ -111,6 +115,29 @@ public class BareCommand extends ClasspathHandler {
     " from the available interfaces.")
   public void setClusterHost(String host) {
     this.clusterHost = host;
+  }
+
+  /**
+   * Sets the cluster public port.
+   *
+   * @param port the port
+   */
+  @Option(longName = "cluster-public-port", argName = "public-port")
+  @Description("Public port to use for cluster communication. Default is -1 which means same as cluster port.")
+  @DefaultValue("-1")
+  public void setClusterPublicPort(int port) {
+    this.clusterPublicPort = port;
+  }
+
+  /**
+   * Sets the cluster public host.
+   *
+   * @param host the host
+   */
+  @Option(longName = "cluster-public-host", argName = "public-host")
+  @Description("Public host to bind to for cluster communication. If not specified, Vert.x will use the same as cluster host.")
+  public void setClusterPublicHost(String host) {
+    this.clusterPublicHost = host;
   }
 
   /**
@@ -186,11 +213,18 @@ public class BareCommand extends ClasspathHandler {
     Vertx instance;
     if (isClustered()) {
       log.info("Starting clustering...");
-      if (!options.getClusterHost().equals(VertxOptions.DEFAULT_CLUSTER_HOST)) {
-        clusterHost = options.getClusterHost();
+      EventBusOptions eventBusOptions = options.getEventBusOptions();
+      if (!Objects.equals(eventBusOptions.getHost(), EventBusOptions.DEFAULT_CLUSTER_HOST)) {
+        clusterHost = eventBusOptions.getHost();
       }
-      if (options.getClusterPort() != VertxOptions.DEFAULT_CLUSTER_PORT) {
-        clusterPort = options.getClusterPort();
+      if (eventBusOptions.getPort() != EventBusOptions.DEFAULT_CLUSTER_PORT) {
+        clusterPort = eventBusOptions.getPort();
+      }
+      if (!Objects.equals(eventBusOptions.getClusterPublicHost(), EventBusOptions.DEFAULT_CLUSTER_PUBLIC_HOST)) {
+        clusterPublicHost = eventBusOptions.getClusterPublicHost();
+      }
+      if (eventBusOptions.getClusterPublicPort() != EventBusOptions.DEFAULT_CLUSTER_PUBLIC_PORT) {
+        clusterPublicPort = eventBusOptions.getClusterPublicPort();
       }
       if (clusterHost == null) {
         clusterHost = getDefaultAddress();
@@ -204,7 +238,12 @@ public class BareCommand extends ClasspathHandler {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<AsyncResult<Vertx>> result = new AtomicReference<>();
 
-      options.setClusterHost(clusterHost).setClusterPort(clusterPort).setClustered(true);
+      eventBusOptions.setClustered(true)
+        .setHost(clusterHost).setPort(clusterPort)
+        .setClusterPublicHost(clusterPublicHost);
+      if (clusterPublicPort != -1) {
+        eventBusOptions.setClusterPublicPort(clusterPublicPort);
+      }
       if (getHA()) {
         options.setHAEnabled(true);
         if (haGroup != null) {
@@ -230,8 +269,7 @@ public class BareCommand extends ClasspathHandler {
         return null;
       }
       if (result.get().failed()) {
-        log.error("Failed to form cluster");
-        result.get().cause().printStackTrace();
+        log.error("Failed to form cluster", result.get().cause());
         return null;
       }
       instance = result.get().result();
@@ -259,8 +297,7 @@ public class BareCommand extends ClasspathHandler {
           conf = new JsonObject(jsonFileOrString);
         } catch (DecodeException e2) {
           // The configuration is not printed for security purpose, it can contain sensitive data.
-          log.error("The -" + argName + " argument does not point to an existing file or is not a valid JSON object");
-          e2.printStackTrace();
+          log.error("The -" + argName + " argument does not point to an existing file or is not a valid JSON object", e2);
           return null;
         }
       }

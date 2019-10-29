@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.net.ClientOptionsBase}.
+ * Converter and mapper for {@link io.vertx.core.net.ClientOptionsBase}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.net.ClientOptionsBase} original class using Vert.x codegen.
  */
- class ClientOptionsBaseConverter {
+public class ClientOptionsBaseConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, ClientOptionsBase obj) {
     for (java.util.Map.Entry<String, Object> member : json) {

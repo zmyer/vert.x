@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -15,7 +15,8 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Closeable;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.logging.Logger;
+import io.vertx.core.Promise;
+import io.vertx.core.impl.logging.Logger;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -54,10 +55,13 @@ class CloseHooks {
    * Remove an existing hook.
    *
    * @param hook the hook to remove
+   * @return {@code} true if the hook was removed
    */
-  synchronized void remove(Closeable hook) {
+  synchronized boolean remove(Closeable hook) {
     if (closeHooks != null) {
-      closeHooks.remove(hook);
+      return closeHooks.remove(hook);
+    } else {
+      return false;
     }
   }
 
@@ -80,29 +84,31 @@ class CloseHooks {
       }
     }
     if (copy != null && !copy.isEmpty()) {
-      final int num = copy.size();
-      final AtomicInteger count = new AtomicInteger();
-      final AtomicBoolean failed = new AtomicBoolean();
-      for (final Closeable hook : copy) {
-        final Future<Void> a = Future.future();
-        a.setHandler(ar -> {
-          if (ar.failed()) {
-            if (failed.compareAndSet(false, true)) {
-              // Only report one failure
-              completionHandler.handle(Future.failedFuture(ar.cause()));
+      int num = copy.size();
+      if (num != 0) {
+        AtomicInteger count = new AtomicInteger();
+        AtomicBoolean failed = new AtomicBoolean();
+        for (Closeable hook : copy) {
+          Promise<Void> promise = Promise.promise();
+          promise.future().setHandler(ar -> {
+            if (ar.failed()) {
+              if (failed.compareAndSet(false, true)) {
+                // Only report one failure
+                completionHandler.handle(Future.failedFuture(ar.cause()));
+              }
+            } else {
+              if (count.incrementAndGet() == num) {
+                // closeHooksRun = true;
+                completionHandler.handle(Future.succeededFuture());
+              }
             }
-          } else {
-            if (count.incrementAndGet() == num) {
-              // closeHooksRun = true;
-              completionHandler.handle(Future.succeededFuture());
-            }
+          });
+          try {
+            hook.close(promise);
+          } catch (Throwable t) {
+            log.warn("Failed to run close hooks", t);
+            promise.tryFail(t);
           }
-        });
-        try {
-          hook.close(a);
-        } catch (Throwable t) {
-          log.warn("Failed to run close hooks", t);
-          a.tryFail(t);
         }
       }
     } else {

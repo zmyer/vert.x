@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -29,6 +29,7 @@ import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.net.ClientOptionsBase;
 import io.vertx.core.net.NetServerOptions;
 import io.vertx.core.net.impl.PartialPooledByteBufAllocator;
+import io.vertx.core.net.impl.SocketAddressImpl;
 
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -44,6 +45,9 @@ import java.util.concurrent.ThreadFactory;
  */
 // TODO: 2018/8/1 by zmyer
 public class Transport {
+
+  public static final int ACCEPTOR_EVENT_LOOP_GROUP = 0;
+  public static final int IO_EVENT_LOOP_GROUP = 1;
 
   /**
    * The JDK transport, always there.
@@ -122,6 +126,14 @@ public class Transport {
     }
   }
 
+  public io.vertx.core.net.SocketAddress convert(SocketAddress address) {
+    if (address instanceof InetSocketAddress) {
+      return new SocketAddressImpl((InetSocketAddress) address);
+    } else {
+      return null;
+    }
+  }
+
   /**
    * Return a channel option for given {@code name} or null if that options does not exist
    * for this transport.
@@ -134,10 +146,14 @@ public class Transport {
   }
 
   /**
+   * @param type one of {@link #ACCEPTOR_EVENT_LOOP_GROUP} or {@link #IO_EVENT_LOOP_GROUP}.
+   * @param nThreads the number of threads that will be used by this instance.
+   * @param threadFactory the ThreadFactory to use.
+   * @param ioRatio the IO ratio
+   *
    * @return a new event loop group
    */
-  // TODO: 2018/8/1 by zmyer
-  public EventLoopGroup eventLoopGroup(int nThreads, ThreadFactory threadFactory, int ioRatio) {
+  public EventLoopGroup eventLoopGroup(int type, int nThreads, ThreadFactory threadFactory, int ioRatio) {
     NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(nThreads, threadFactory);
     eventLoopGroup.setIoRatio(ioRatio);
     return eventLoopGroup;
@@ -165,23 +181,22 @@ public class Transport {
   }
 
   /**
-   * @param domain whether to create a unix domain channel or a socket channel
    * @return the type for channel
+   * @param domainSocket whether to create a unix domain channel or a socket channel
    */
-  public ChannelFactory<? extends Channel> channelFactory(boolean domain) {
-    if (domain) {
+  public ChannelFactory<? extends Channel> channelFactory(boolean domainSocket) {
+    if (domainSocket) {
       throw new IllegalArgumentException();
     }
     return NioSocketChannel::new;
   }
 
   /**
-   * @param domain whether to create a server unix domain channel or a regular server socket channel
    * @return the type for server channel
+   * @param domainSocket whether to create a server unix domain channel or a regular server socket channel
    */
-  // TODO: 2018/8/3 by zmyer
-  public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {
-    if (domain) {
+  public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domainSocket) {
+    if (domainSocket) {
       throw new IllegalArgumentException();
     }
     return NioServerSocketChannel::new;
@@ -217,11 +232,15 @@ public class Transport {
     }
   }
 
-  public void configure(ClientOptionsBase options, Bootstrap bootstrap) {
+  public void configure(ClientOptionsBase options, boolean domainSocket, Bootstrap bootstrap) {
+    if (!domainSocket) {
+      bootstrap.option(ChannelOption.SO_REUSEADDR, options.isReuseAddress());
+      bootstrap.option(ChannelOption.TCP_NODELAY, options.isTcpNoDelay());
+      bootstrap.option(ChannelOption.SO_KEEPALIVE, options.isTcpKeepAlive());
+    }
     if (options.getLocalAddress() != null) {
       bootstrap.localAddress(options.getLocalAddress(), 0);
     }
-    bootstrap.option(ChannelOption.TCP_NODELAY, options.isTcpNoDelay());
     if (options.getSendBufferSize() != -1) {
       bootstrap.option(ChannelOption.SO_SNDBUF, options.getSendBufferSize());
     }
@@ -237,13 +256,14 @@ public class Transport {
     }
     bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, options.getConnectTimeout());
     bootstrap.option(ChannelOption.ALLOCATOR, PartialPooledByteBufAllocator.INSTANCE);
-    bootstrap.option(ChannelOption.SO_KEEPALIVE, options.isTcpKeepAlive());
-    bootstrap.option(ChannelOption.SO_REUSEADDR, options.isReuseAddress());
   }
 
-  // TODO: 2018/8/1 by zmyer
-  public void configure(NetServerOptions options, ServerBootstrap bootstrap) {
-    bootstrap.childOption(ChannelOption.TCP_NODELAY, options.isTcpNoDelay());
+  public void configure(NetServerOptions options, boolean domainSocket, ServerBootstrap bootstrap) {
+    bootstrap.option(ChannelOption.SO_REUSEADDR, options.isReuseAddress());
+    if (!domainSocket) {
+      bootstrap.childOption(ChannelOption.SO_KEEPALIVE, options.isTcpKeepAlive());
+      bootstrap.childOption(ChannelOption.TCP_NODELAY, options.isTcpNoDelay());
+    }
     if (options.getSendBufferSize() != -1) {
       bootstrap.childOption(ChannelOption.SO_SNDBUF, options.getSendBufferSize());
     }
@@ -259,8 +279,6 @@ public class Transport {
       bootstrap.childOption(ChannelOption.IP_TOS, options.getTrafficClass());
     }
     bootstrap.childOption(ChannelOption.ALLOCATOR, PartialPooledByteBufAllocator.INSTANCE);
-    bootstrap.childOption(ChannelOption.SO_KEEPALIVE, options.isTcpKeepAlive());
-    bootstrap.option(ChannelOption.SO_REUSEADDR, options.isReuseAddress());
     if (options.getAcceptBacklog() != -1) {
       bootstrap.option(ChannelOption.SO_BACKLOG, options.getAcceptBacklog());
     }

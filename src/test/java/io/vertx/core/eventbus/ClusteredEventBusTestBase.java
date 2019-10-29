@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -99,7 +99,7 @@ public class ClusteredEventBusTestBase extends EventBusTestBase {
     });
     reg.completionHandler(ar -> {
       assertTrue(ar.succeeded());
-      vertices[0].eventBus().send(ADDRESS1, str, onSuccess((Message<R> reply) -> {
+      vertices[0].eventBus().request(ADDRESS1, str, onSuccess((Message<R> reply) -> {
         if (consumer == null) {
           assertTrue(reply.isSend());
           assertEquals(received, reply.body());
@@ -205,7 +205,7 @@ public class ClusteredEventBusTestBase extends EventBusTestBase {
             sendMsg();
           });
         } else {
-          getVertx().eventBus().send("whatever", "marseille", ar -> {
+          getVertx().eventBus().request("whatever", "marseille", ar -> {
             Throwable cause = ar.cause();
             assertThat(cause, instanceOf(ReplyException.class));
             ReplyException replyException = (ReplyException) cause;
@@ -220,7 +220,7 @@ public class ClusteredEventBusTestBase extends EventBusTestBase {
       boolean unregisterCalled;
 
       @Override
-      public void start(Future<Void> startFuture) throws Exception {
+      public void start(Promise<Void> startPromise) throws Exception {
         EventBus eventBus = getVertx().eventBus();
         MessageConsumer<String> consumer = eventBus.consumer("whatever");
         consumer.handler(m -> {
@@ -229,7 +229,7 @@ public class ClusteredEventBusTestBase extends EventBusTestBase {
             unregisterCalled = true;
           }
           m.reply("ok");
-        }).completionHandler(startFuture);
+        }).completionHandler(startPromise);
       }
     };
 

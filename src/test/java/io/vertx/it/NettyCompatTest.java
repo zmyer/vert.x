@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -47,12 +47,12 @@ public class NettyCompatTest extends VertxTestBase {
               .setSsl(true)
               .setSslEngineOptions(new OpenSSLEngineOptions())
               .setTrustStoreOptions(Trust.SERVER_JKS.get()));
-          client.getNow(8443, "localhost", "/somepath", resp -> {
+          client.getNow(8443, "localhost", "/somepath", onSuccess(resp -> {
             resp.bodyHandler(buff -> {
               assertEquals("OK", buff.toString());
               testComplete();
             });
-          });
+          }));
         }));
     await();
   }

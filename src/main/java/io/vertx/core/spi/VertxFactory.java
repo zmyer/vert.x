@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -16,6 +16,7 @@ import io.vertx.core.Context;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.net.impl.transport.Transport;
 
 /**
  * Factory for creating Vertx instances.<p>
@@ -31,7 +32,11 @@ public interface VertxFactory {
 
   Vertx vertx(VertxOptions options);
 
+  Vertx vertx(VertxOptions options, Transport transport);
+
   void clusteredVertx(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler);
+
+  void clusteredVertx(VertxOptions options, Transport transport, Handler<AsyncResult<Vertx>> resultHandler);
 
   Context context();
 

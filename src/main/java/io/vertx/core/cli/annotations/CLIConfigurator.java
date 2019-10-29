@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -48,10 +48,11 @@ public class CLIConfigurator {
     if (name == null) {
       throw new IllegalArgumentException("The command cannot be defined, the @Name annotation is missing.");
     }
-    if (name.value() == null || name.value().isEmpty()) {
+    if (name.value().isEmpty()) {
       throw new IllegalArgumentException("The command cannot be defined, the @Name value is empty or null.");
     }
     cli.setName(name.value());
+    cli.setPriority(name.priority());
 
     if (summary != null) {
       cli.setSummary(summary.value());

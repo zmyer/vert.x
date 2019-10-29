@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -24,6 +24,8 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpVersion;
 import io.vertx.core.http.impl.pool.ConnectionListener;
 import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.SocketAddress;
 
@@ -35,6 +37,8 @@ import javax.security.cert.X509Certificate;
  * An HTTP/2 connection in clear text that upgraded from an HTTP/1 upgrade.
  */
 public class Http2UpgradedClientConnection implements HttpClientConnection {
+
+  private static final Logger log = LoggerFactory.getLogger(Http2UpgradedClientConnection.class);
 
   private HttpClientImpl client;
   private HttpClientConnection current;
@@ -62,8 +66,8 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
   }
 
   @Override
-  public void close() {
-    current.close();
+  public Future<Void> close() {
+    return current.close();
   }
 
   @Override
@@ -102,7 +106,10 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
                           String hostHeader,
                           boolean chunked,
                           ByteBuf buf,
-                          boolean end) {
+                          boolean end,
+                          StreamPriority priority,
+                          Handler<Void> continueHandler,
+                          Handler<AsyncResult<Void>> listener) {
       ChannelPipeline pipeline = conn.channel().pipeline();
       HttpClientCodec httpCodec = pipeline.get(HttpClientCodec.class);
       class UpgradeRequestHandler extends ChannelInboundHandlerAdapter {
@@ -136,10 +143,12 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
           // Now we need to upgrade this to an HTTP2
           ConnectionListener<HttpClientConnection> listener = conn.listener();
           VertxHttp2ConnectionHandler<Http2ClientConnection> handler = Http2ClientConnection.createHttp2ConnectionHandler(client, conn.endpointMetric(), listener, conn.getContext(), current.metric(), (conn, concurrency) -> {
-            conn.upgradeStream(request, ar -> {
+            conn.upgradeStream(stream.metric(), stream.getContext(), ar -> {
               UpgradingStream.this.conn.closeHandler(null);
               UpgradingStream.this.conn.exceptionHandler(null);
               if (ar.succeeded()) {
+                HttpClientStream upgradedStream = ar.result();
+                upgradedStream.beginRequest(request);
                 current = conn;
                 conn.closeHandler(closeHandler);
                 conn.exceptionHandler(exceptionHandler);
@@ -150,7 +159,7 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
                 listener.onConcurrencyChange(concurrency);
               } else {
                 // Handle me
-                ar.cause().printStackTrace();
+                log.error(ar.cause().getMessage(), ar.cause());
               }
             });
           });
@@ -161,7 +170,7 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
       HttpClientUpgradeHandler upgradeHandler = new HttpClientUpgradeHandler(httpCodec, upgradeCodec, 65536);
       pipeline.addAfter("codec", null, new UpgradeRequestHandler());
       pipeline.addAfter("codec", null, upgradeHandler);
-      stream.writeHead(method, rawMethod, uri, headers, hostHeader, chunked, buf, end);
+      stream.writeHead(method, rawMethod, uri, headers, hostHeader, chunked, buf, end, priority, continueHandler, listener);
     }
 
     @Override
@@ -170,33 +179,28 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
     }
 
     @Override
+    public Object metric() {
+      return stream.metric();
+    }
+
+    @Override
     public HttpVersion version() {
       return HttpVersion.HTTP_2;
     }
 
     @Override
-    public Context getContext() {
+    public ContextInternal getContext() {
       return stream.getContext();
     }
 
     @Override
-    public void writeBuffer(ByteBuf buf, boolean end) {
-      stream.writeBuffer(buf, end);
+    public void writeBuffer(ByteBuf buf, boolean end, Handler<AsyncResult<Void>> handler) {
+      stream.writeBuffer(buf, end, handler);
     }
 
     @Override
     public void writeFrame(int type, int flags, ByteBuf payload) {
       stream.writeFrame(type, flags, payload);
-    }
-
-    @Override
-    public void reportBytesWritten(long numberOfBytes) {
-      stream.reportBytesWritten(numberOfBytes);
-    }
-
-    @Override
-    public void reportBytesRead(long numberOfBytes) {
-      stream.reportBytesRead(numberOfBytes);
     }
 
     @Override
@@ -215,18 +219,13 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
     }
 
     @Override
-    public void doResume() {
-      stream.doResume();
-    }
-
-    @Override
     public void doFetch(long amount) {
       stream.doFetch(amount);
     }
 
     @Override
-    public void reset(long code) {
-      stream.reset(code);
+    public void reset(Throwable cause) {
+      stream.reset(cause);
     }
 
     @Override
@@ -244,12 +243,22 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
     public NetSocket createNetSocket() {
       return stream.createNetSocket();
     }
+
+    @Override
+    public StreamPriority priority() {
+      return stream.priority();
+    }
+
+    @Override
+    public void updatePriority(StreamPriority streamPriority) {
+      stream.updatePriority(streamPriority);
+    }
   }
 
   @Override
-  public void createStream(Handler<AsyncResult<HttpClientStream>> handler) {
+  public void createStream(ContextInternal context, Handler<AsyncResult<HttpClientStream>> handler) {
     if (current instanceof Http1xClientConnection) {
-      current.createStream(ar -> {
+      current.createStream(context, ar -> {
         if (ar.succeeded()) {
           HttpClientStream stream = ar.result();
           UpgradingStream upgradingStream = new UpgradingStream(stream, (Http1xClientConnection) current);
@@ -259,7 +268,7 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
         }
       });
     } else {
-      current.createStream(handler);
+      current.createStream(context, handler);
     }
   }
 
@@ -338,7 +347,7 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
   }
 
   @Override
-  public HttpConnection updateSettings(Http2Settings settings) {
+  public Future<Void> updateSettings(Http2Settings settings) {
     return current.updateSettings(settings);
   }
 
@@ -360,6 +369,11 @@ public class Http2UpgradedClientConnection implements HttpClientConnection {
   @Override
   public HttpConnection ping(Buffer data, Handler<AsyncResult<Buffer>> pongHandler) {
     return current.ping(data, pongHandler);
+  }
+
+  @Override
+  public Future<Buffer> ping(Buffer data) {
+    return current.ping(data);
   }
 
   @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 The Netty Project
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -19,6 +19,8 @@ import io.netty.handler.codec.dns.DnsRecordType;
 import io.netty.util.CharsetUtil;
 import io.vertx.core.dns.impl.MxRecordImpl;
 import io.vertx.core.dns.impl.SrvRecordImpl;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -34,6 +36,7 @@ import java.util.function.Function;
  */
 public class RecordDecoder {
 
+    private static final Logger log = LoggerFactory.getLogger(RecordDecoder.class);
 
     /**
      * Decodes MX (mail exchanger) resource records.
@@ -223,7 +226,7 @@ public class RecordDecoder {
         try {
             result = (T) decoder.apply(record);
         } catch (Exception e) {
-            e.printStackTrace();
+          log.error(e.getMessage(), e.getCause());
         }
         return result;
     }

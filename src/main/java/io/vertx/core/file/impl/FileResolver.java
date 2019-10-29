@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Enumeration;
 import java.util.UUID;
@@ -51,13 +52,9 @@ public class FileResolver {
 
   public static final String DISABLE_FILE_CACHING_PROP_NAME = "vertx.disableFileCaching";
   public static final String DISABLE_CP_RESOLVING_PROP_NAME = "vertx.disableFileCPResolving";
-
-
   public static final String CACHE_DIR_BASE_PROP_NAME = "vertx.cacheDirBase";
-  private static final String DEFAULT_CACHE_DIR_BASE = ".vertx";
   private static final String FILE_SEP = System.getProperty("file.separator");
   private static final boolean NON_UNIX_FILE_SEP = !FILE_SEP.equals("/");
-  private static final String CACHE_DIR_BASE = System.getProperty(CACHE_DIR_BASE_PROP_NAME, DEFAULT_CACHE_DIR_BASE);
   private static final String JAR_URL_SEP = "!/";
   private static final Pattern JAR_URL_SEP_PATTERN = Pattern.compile(JAR_URL_SEP);
 
@@ -66,6 +63,7 @@ public class FileResolver {
   private Thread shutdownHook;
   private final boolean enableCaching;
   private final boolean enableCpResolving;
+  private final String fileCacheDir;
 
   public FileResolver() {
     this(new FileSystemOptions());
@@ -78,6 +76,8 @@ public class FileResolver {
   public FileResolver(FileSystemOptions fileSystemOptions) {
     this.enableCaching = fileSystemOptions.isFileCachingEnabled();
     this.enableCpResolving = fileSystemOptions.isClassPathResolvingEnabled();
+    this.fileCacheDir = fileSystemOptions.getFileCacheDir();
+
     String cwdOverride = System.getProperty("vertx.cwd");
     if (cwdOverride != null) {
       cwd = new File(cwdOverride).getAbsoluteFile();
@@ -93,7 +93,6 @@ public class FileResolver {
    * Close this file resolver, this is a blocking operation.
    */
   public void close() throws IOException {
-    deleteCacheDir();
     synchronized (this) {
       if (shutdownHook != null) {
         // May throw IllegalStateException if called from other shutdown hook so ignore that
@@ -103,6 +102,7 @@ public class FileResolver {
         }
       }
     }
+    deleteCacheDir();
   }
 
   public File resolveFile(String fileName) {
@@ -328,7 +328,7 @@ public class FileResolver {
 
   // TODO: 2018/8/1 by zmyer
   private void setupCacheDir() {
-    String cacheDirName = CACHE_DIR_BASE + "/file-cache-" + UUID.randomUUID().toString();
+    String cacheDirName = fileCacheDir + "/file-cache-" + UUID.randomUUID().toString();
     cacheDir = new File(cacheDirName);
     if (!cacheDir.mkdirs()) {
       throw new IllegalStateException("Failed to create cache dir");
@@ -356,9 +356,15 @@ public class FileResolver {
 
   // TODO: 2018/8/1 by zmyer
   private void deleteCacheDir() throws IOException {
-    if (cacheDir != null && cacheDir.exists()) {
-      FileSystemImpl.delete(cacheDir.toPath(), true);
+    Path path;
+    synchronized (this) {
+      if (cacheDir == null || !cacheDir.exists()) {
+        return;
+      }
+      path = cacheDir.toPath();
+      cacheDir = null;
     }
+    FileSystemImpl.delete(path, true);
   }
 }
 

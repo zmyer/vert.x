@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -24,6 +24,8 @@ class FakeStream implements ReadStream<Buffer> {
   private Handler<Buffer> eventHandler;
   private Handler<Void> endHandler;
   private Handler<Throwable> exceptionHandler;
+  private volatile int pauseCount;
+  private volatile int resumeCount;
 
   @Override
   public ReadStream<Buffer> exceptionHandler(Handler<Throwable> handler) {
@@ -50,11 +52,13 @@ class FakeStream implements ReadStream<Buffer> {
   @Override
   public ReadStream<Buffer> pause() {
     demand = 0L;
+    pauseCount++;
     return this;
   }
 
   @Override
   public ReadStream<Buffer> resume() {
+    resumeCount++;
     return fetch(Long.MAX_VALUE);
   }
 
@@ -88,5 +92,13 @@ class FakeStream implements ReadStream<Buffer> {
 
   void end() {
     endHandler.handle(null);
+  }
+
+  public int pauseCount() {
+    return pauseCount;
+  }
+
+  public int resumeCount() {
+    return resumeCount;
   }
 }

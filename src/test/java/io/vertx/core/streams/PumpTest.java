@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,10 +11,9 @@
 
 package io.vertx.core.streams;
 
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.streams.Pump;
-import io.vertx.core.streams.ReadStream;
-import io.vertx.core.streams.WriteStream;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -196,9 +195,15 @@ public class PumpTest {
       return this;
     }
 
-    public FakeWriteStream write(T data) {
+    public Future<Void> write(T data) {
+      Future<Void> fut = Future.failedFuture("Not yet implemented");
       received.add(data);
-      return this;
+      return fut;
+    }
+
+    @Override
+    public void write(T data, Handler<AsyncResult<Void>> handler) {
+      throw new UnsupportedOperationException();
     }
 
     public FakeWriteStream exceptionHandler(Handler<Throwable> handler) {
@@ -206,7 +211,13 @@ public class PumpTest {
     }
 
     @Override
-    public void end() {
+    public Future<Void> end() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void end(Handler<AsyncResult<Void>> handler) {
+      throw new UnsupportedOperationException();
     }
   }
 

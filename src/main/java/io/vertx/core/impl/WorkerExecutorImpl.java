@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,11 +11,8 @@
 
 package io.vertx.core.impl;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Context;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
+import io.vertx.codegen.annotations.Nullable;
+import io.vertx.core.*;
 import io.vertx.core.spi.metrics.Metrics;
 import io.vertx.core.spi.metrics.MetricsProvider;
 import io.vertx.core.spi.metrics.PoolMetrics;
@@ -23,14 +20,12 @@ import io.vertx.core.spi.metrics.PoolMetrics;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
-// TODO: 2018/8/1 by zmyer
 class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
 
   private final Context ctx;
   private final VertxImpl.SharedWorkerPool pool;
   private boolean closed;
 
-  // TODO: 2018/11/26 by zmyer
   public WorkerExecutorImpl(Context ctx, VertxImpl.SharedWorkerPool pool) {
     this.ctx = ctx;
     this.pool = pool;
@@ -57,18 +52,20 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
     return pool;
   }
 
-  // TODO: 2018/11/26 by zmyer
-  public synchronized <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-                                               Handler<AsyncResult<T>> asyncResultHandler) {
+  @Override
+  public <T> Future<@Nullable T> executeBlocking(Handler<Promise<T>> blockingCodeHandler, boolean ordered) {
     if (closed) {
       throw new IllegalStateException("Worker executor closed");
     }
-    ContextImpl context = (ContextImpl) ctx.owner().getOrCreateContext();
-    context.executeBlocking(blockingCodeHandler, asyncResultHandler, pool.executor(),
-      ordered ? context.orderedTasks : null, pool.metrics());
+    ContextInternal context = (ContextInternal) ctx.owner().getOrCreateContext();
+    ContextImpl impl = context instanceof ContextImpl.Duplicated ? ((ContextImpl.Duplicated)context).delegate : (ContextImpl) context;
+    return ContextImpl.executeBlocking(context, blockingCodeHandler, pool, ordered ? impl.orderedTasks : null);
   }
 
-  // TODO: 2018/11/26 by zmyer
+  public synchronized <T> void executeBlocking(Handler<Promise<T>> blockingCodeHandler, boolean ordered, Handler<AsyncResult<T>> asyncResultHandler) {
+    executeBlocking(blockingCodeHandler, ordered).setHandler(asyncResultHandler);
+  }
+
   @Override
   public void close() {
     synchronized (this) {
@@ -82,7 +79,6 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
     pool.release();
   }
 
-  // TODO: 2018/11/26 by zmyer
   @Override
   public void close(Handler<AsyncResult<Void>> completionHandler) {
     close();

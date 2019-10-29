@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -146,25 +146,8 @@ public class PemTrustOptions implements TrustOptions, Cloneable {
   }
 
   @Override
-  public PemTrustOptions clone() {
+  public PemTrustOptions copy() {
     return new PemTrustOptions(this);
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-
-    PemTrustOptions that = (PemTrustOptions) o;
-
-    if (!certPaths.equals(that.certPaths)) return false;
-    return certValues.equals(that.certValues);
-  }
-
-  @Override
-  public int hashCode() {
-    int result = certPaths.hashCode();
-    result = 31 * result + certValues.hashCode();
-    return result;
-  }
 }

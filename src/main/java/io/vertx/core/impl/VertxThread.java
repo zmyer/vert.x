@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -18,16 +18,17 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
-// TODO: 2018/8/1 by zmyer
-public final class VertxThread extends FastThreadLocalThread {
+public final class VertxThread extends FastThreadLocalThread implements BlockedThreadChecker.Task {
+
+  static final String DISABLE_TCCL_PROP_NAME = "vertx.disableTCCL";
+  static final boolean DISABLE_TCCL = Boolean.getBoolean(DISABLE_TCCL_PROP_NAME);
 
   private final boolean worker;
   private final long maxExecTime;
   private final TimeUnit maxExecTimeUnit;
   private long execStart;
-  private ContextImpl context;
+  private ContextInternal context;
 
-  // TODO: 2018/11/23 by zmyer
   public VertxThread(Runnable target, String name, boolean worker, long maxExecTime, TimeUnit maxExecTimeUnit) {
     super(target, name);
     this.worker = worker;
@@ -35,21 +36,23 @@ public final class VertxThread extends FastThreadLocalThread {
     this.maxExecTimeUnit = maxExecTimeUnit;
   }
 
-  ContextImpl getContext() {
+  /**
+   * @return the current context of this thread, this method must be called from the current thread
+   */
+  ContextInternal context() {
     return context;
   }
 
-  void setContext(ContextImpl context) {
-    this.context = context;
+  private void executeStart() {
+    if (context == null) {
+      execStart = System.nanoTime();
+    }
   }
 
-  // TODO: 2018/8/1 by zmyer
-  public final void executeStart() {
-    execStart = System.nanoTime();
-  }
-
-  public final void executeEnd() {
-    execStart = 0;
+  private void executeEnd() {
+    if (context == null) {
+      execStart = 0;
+    }
   }
 
   public long startTime() {
@@ -60,11 +63,48 @@ public final class VertxThread extends FastThreadLocalThread {
     return worker;
   }
 
-  public long getMaxExecTime() {
+  @Override
+  public long maxExecTime() {
     return maxExecTime;
   }
 
-  public TimeUnit getMaxExecTimeUnit() {
+  @Override
+  public TimeUnit maxExecTimeUnit() {
     return maxExecTimeUnit;
+  }
+
+  /**
+   * Begin the dispatch of a context task.
+   * <p>
+   * This is a low level interface that should not be used, instead {@link ContextInternal#dispatch(Object, io.vertx.core.Handler)}
+   * shall be used.
+   *
+   * @param context the context on which the task is dispatched on
+   * @return the current context that shall be restored
+   */
+  ContextInternal beginDispatch(ContextInternal context) {
+    if (!ContextImpl.DISABLE_TIMINGS) {
+      executeStart();
+    }
+    ContextInternal prev = this.context;
+    this.context = context;
+    return prev;
+  }
+
+  /**
+   * End the dispatch of a context task.
+   * <p>
+   * This is a low level interface that should not be used, instead {@link ContextInternal#dispatch(Object, io.vertx.core.Handler)}
+   * shall be used.
+   *
+   * @param prev the previous context thread to restore, might be {@code null}
+   */
+  void endDispatch(ContextInternal prev) {
+    // We don't unset the context after execution - this is done later when the context is closed via
+    // VertxThreadFactory
+    context = prev;
+    if (!ContextImpl.DISABLE_TIMINGS) {
+      executeEnd();
+    }
   }
 }

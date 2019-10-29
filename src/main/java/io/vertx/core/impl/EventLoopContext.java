@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,9 +13,12 @@ package io.vertx.core.impl;
 
 import io.netty.channel.EventLoop;
 import io.vertx.core.Handler;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.Vertx;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
+import io.vertx.core.spi.tracing.VertxTracer;
+
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -25,28 +28,50 @@ public class EventLoopContext extends ContextImpl {
 
   private static final Logger log = LoggerFactory.getLogger(EventLoopContext.class);
 
-  // TODO: 2018/8/1 by zmyer
-  EventLoopContext(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool, String deploymentID,
-                   JsonObject config,
+  EventLoopContext(VertxInternal vertx, VertxTracer<?, ?> tracer, WorkerPool internalBlockingPool, WorkerPool workerPool, Deployment deployment,
                    ClassLoader tccl) {
-    super(vertx, internalBlockingPool, workerPool, deploymentID, config, tccl);
+    super(vertx, tracer, internalBlockingPool, workerPool, deployment, tccl);
   }
 
-  public EventLoopContext(VertxInternal vertx, EventLoop eventLoop, WorkerPool internalBlockingPool,
-                          WorkerPool workerPool, String deploymentID, JsonObject config,
+  public EventLoopContext(VertxInternal vertx, VertxTracer<?, ?> tracer, EventLoop eventLoop, WorkerPool internalBlockingPool, WorkerPool workerPool, Deployment deployment,
                           ClassLoader tccl) {
-    super(vertx, eventLoop, internalBlockingPool, workerPool, deploymentID, config, tccl);
+    super(vertx, tracer, eventLoop, internalBlockingPool, workerPool, deployment, tccl);
   }
 
-  // TODO: 2018/11/26 by zmyer
-  void executeAsync(Handler<Void> task) {
-    nettyEventLoop().execute(() -> executeTask(null, task));
-  }
-
-  // TODO: 2018/11/26 by zmyer
   @Override
-  <T> void execute(T value, Handler<T> task) {
-    executeTask(value, task);
+  <T> void executeAsync(T value, Handler<T> task) {
+    nettyEventLoop().execute(() -> dispatch(value, task));
+  }
+
+  @Override
+  public <T> void schedule(T value, Handler<T> task) {
+    task.handle(value);
+  }
+
+  @Override
+  public <T> void executeFromIO(T value, Handler<T> task) {
+    if (THREAD_CHECKS) {
+      checkEventLoopThread();
+    }
+    dispatch(value, task);
+  }
+
+  @Override
+  public <T> void execute(T value, Handler<T> task) {
+    execute(this, value, task);
+  }
+
+  private static <T> void execute(AbstractContext ctx, T value, Handler<T> task) {
+    EventLoop eventLoop = ctx.nettyEventLoop();
+    if (eventLoop.inEventLoop()) {
+      if (AbstractContext.context() == ctx) {
+        ctx.dispatch(value, task);
+      } else {
+        ctx.executeFromIO(value, task);
+      }
+    } else {
+      ctx.executeAsync(value, task);
+    }
   }
 
   @Override
@@ -54,9 +79,44 @@ public class EventLoopContext extends ContextImpl {
     return true;
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
-  public boolean isMultiThreadedWorkerContext() {
-    return false;
+  public ContextInternal duplicate(ContextInternal in) {
+    return new Duplicated(this, in);
   }
 
+  static class Duplicated extends ContextImpl.Duplicated<EventLoopContext> {
+
+    Duplicated(EventLoopContext delegate, ContextInternal other) {
+      super(delegate, other);
+    }
+
+    @Override
+    <T> void executeAsync(T value, Handler<T> task) {
+      nettyEventLoop().execute(() -> dispatch(value, task));
+    }
+
+    @Override
+    public <T> void executeFromIO(T value, Handler<T> task) {
+      if (THREAD_CHECKS) {
+        checkEventLoopThread();
+      }
+      dispatch(value, task);
+    }
+
+    @Override
+    public <T> void execute(T value, Handler<T> task) {
+      EventLoopContext.execute(this, value, task);
+    }
+
+    @Override
+    public boolean isEventLoopContext() {
+      return true;
+    }
+
+    @Override
+    public ContextInternal duplicate(ContextInternal context) {
+      return new Duplicated(delegate, context);
+    }
+  }
 }

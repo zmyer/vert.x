@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -24,7 +24,12 @@ import io.netty.util.CharsetUtil;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.CaseInsensitiveHeaders;
+import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.StreamPriority;
+import io.vertx.core.spi.tracing.TagExtractor;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -44,6 +49,123 @@ import static io.vertx.core.http.Http2Settings.*;
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
 public final class HttpUtils {
+
+  static final int SC_SWITCHING_PROTOCOLS = 101;
+  static final int SC_BAD_GATEWAY = 502;
+
+  static final TagExtractor<HttpServerRequest> SERVER_REQUEST_TAG_EXTRACTOR = new TagExtractor<HttpServerRequest>() {
+    @Override
+    public int len(HttpServerRequest req) {
+      return 2;
+    }
+    @Override
+    public String name(HttpServerRequest req, int index) {
+      switch (index) {
+        case 0:
+          return "http.url";
+        case 1:
+          return "http.method";
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+    @Override
+    public String value(HttpServerRequest req, int index) {
+      switch (index) {
+        case 0:
+          return req.absoluteURI();
+        case 1:
+          return req.method().name();
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+  };
+
+  static final TagExtractor<HttpServerResponse> SERVER_RESPONSE_TAG_EXTRACTOR = new TagExtractor<HttpServerResponse>() {
+    @Override
+    public int len(HttpServerResponse resp) {
+      return 1;
+    }
+    @Override
+    public String name(HttpServerResponse resp, int index) {
+      if (index == 0) {
+        return "http.status_code";
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+    @Override
+    public String value(HttpServerResponse resp, int index) {
+      if (index == 0) {
+        return "" + resp.getStatusCode();
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+  };
+
+  static final TagExtractor<HttpClientRequest> CLIENT_REQUEST_TAG_EXTRACTOR = new TagExtractor<HttpClientRequest>() {
+    @Override
+    public int len(HttpClientRequest req) {
+      return 2;
+    }
+    @Override
+    public String name(HttpClientRequest req, int index) {
+      switch (index) {
+        case 0:
+          return "http.url";
+        case 1:
+          return "http.method";
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+    @Override
+    public String value(HttpClientRequest req, int index) {
+      switch (index) {
+        case 0:
+          return req.absoluteURI();
+        case 1:
+          return req.method().name();
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+  };
+
+  static final TagExtractor<HttpClientResponse> CLIENT_RESPONSE_TAG_EXTRACTOR = new TagExtractor<HttpClientResponse>() {
+    @Override
+    public int len(HttpClientResponse resp) {
+      return 1;
+    }
+    @Override
+    public String name(HttpClientResponse resp, int index) {
+      if (index == 0) {
+        return "http.status_code";
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+    @Override
+    public String value(HttpClientResponse resp, int index) {
+      if (index == 0) {
+        return "" + resp.statusCode();
+      }
+      throw new IndexOutOfBoundsException("Invalid tag index " + index);
+    }
+  };
+
+  static final StreamPriority DEFAULT_STREAM_PRIORITY = new StreamPriority() {
+    @Override
+    public StreamPriority setWeight(short weight) {
+      throw new UnsupportedOperationException("Unmodifiable stream priority");
+    }
+
+    @Override
+    public StreamPriority setDependency(int dependency) {
+      throw new UnsupportedOperationException("Unmodifiable stream priority");
+    }
+
+    @Override
+    public StreamPriority setExclusive(boolean exclusive) {
+      throw new UnsupportedOperationException("Unmodifiable stream priority");
+    }
+  };
+
 
   private HttpUtils() {
   }
@@ -82,11 +204,96 @@ public final class HttpUtils {
   }
 
   /**
-   * Removed dots as per <a href="http://tools.ietf.org/html/rfc3986#section-5.2.4>rfc3986</a>.
+   * Normalizes a path as per <a href="http://tools.ietf.org/html/rfc3986#section-5.2.4>rfc3986</a>.
    *
    * There are 2 extra transformations that are not part of the spec but kept for backwards compatibility:
    *
    * double slash // will be converted to single slash and the path will always start with slash.
+   *
+   * Null paths are not normalized as nothing can be said about them.
+   *
+   * @param pathname raw path
+   * @return normalized path
+   */
+  public static String normalizePath(String pathname) {
+    if (pathname == null) {
+      return null;
+    }
+
+    // add trailing slash if not set
+    if (pathname.length() == 0) {
+      return "/";
+    }
+
+    StringBuilder ibuf = new StringBuilder(pathname.length() + 1);
+
+    // Not standard!!!
+    if (pathname.charAt(0) != '/') {
+      ibuf.append('/');
+    }
+
+    ibuf.append(pathname);
+    int i = 0;
+
+    while (i < ibuf.length()) {
+      // decode unreserved chars described in
+      // http://tools.ietf.org/html/rfc3986#section-2.4
+      if (ibuf.charAt(i) == '%') {
+        decodeUnreserved(ibuf, i);
+      }
+
+      i++;
+    }
+
+    // remove dots as described in
+    // http://tools.ietf.org/html/rfc3986#section-5.2.4
+    return removeDots(ibuf);
+  }
+
+  private static void decodeUnreserved(StringBuilder path, int start) {
+    if (start + 3 <= path.length()) {
+      // these are latin chars so there is no danger of falling into some special unicode char that requires more
+      // than 1 byte
+      final String escapeSequence = path.substring(start + 1, start + 3);
+      int unescaped;
+      try {
+        unescaped = Integer.parseInt(escapeSequence, 16);
+        if (unescaped < 0) {
+          throw new IllegalArgumentException("Invalid escape sequence: %" + escapeSequence);
+        }
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Invalid escape sequence: %" + escapeSequence);
+      }
+      // validate if the octet is within the allowed ranges
+      if (
+        // ALPHA
+        (unescaped >= 0x41 && unescaped <= 0x5A) ||
+          (unescaped >= 0x61 && unescaped <= 0x7A) ||
+          // DIGIT
+          (unescaped >= 0x30 && unescaped <= 0x39) ||
+          // HYPHEN
+          (unescaped == 0x2D) ||
+          // PERIOD
+          (unescaped == 0x2E) ||
+          // UNDERSCORE
+          (unescaped == 0x5F) ||
+          // TILDE
+          (unescaped == 0x7E)) {
+
+        path.setCharAt(start, (char) unescaped);
+        path.delete(start + 1, start + 3);
+      }
+    } else {
+      throw new IllegalArgumentException("Invalid position for escape character: " + start);
+    }
+  }
+
+  /**
+   * Removed dots as per <a href="http://tools.ietf.org/html/rfc3986#section-5.2.4>rfc3986</a>.
+   *
+   * There is 1 extra transformation that are not part of the spec but kept for backwards compatibility:
+   *
+   * double slash // will be converted to single slash.
    *
    * @param path raw path
    * @return normalized path
@@ -400,6 +607,10 @@ public final class HttpUtils {
       return Unpooled.copyShort(statusCode);
   }
 
+  static void sendError(Channel ch, HttpResponseStatus status) {
+    sendError(ch, status, status.reasonPhrase());
+  }
+
   static void sendError(Channel ch, HttpResponseStatus status, CharSequence err) {
     FullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, status);
     if (status.code() == METHOD_NOT_ALLOWED.code()) {
@@ -415,7 +626,7 @@ public final class HttpUtils {
     ch.writeAndFlush(resp);
   }
 
-  static String getWebSocketLocation(HttpRequest req, boolean ssl) throws Exception {
+  static String getWebSocketLocation(HttpServerRequest req, boolean ssl) throws Exception {
     String prefix;
     if (ssl) {
       prefix = "ws://";

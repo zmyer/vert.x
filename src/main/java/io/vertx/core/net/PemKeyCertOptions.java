@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -88,7 +88,7 @@ import java.util.List;
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 @DataObject(generateConverter = true, publicConverter = false)
-public class PemKeyCertOptions implements KeyCertOptions, Cloneable {
+public class PemKeyCertOptions implements KeyCertOptions {
 
   private List<String> keyPaths;
   private List<Buffer> keyValues;
@@ -378,44 +378,7 @@ public class PemKeyCertOptions implements KeyCertOptions, Cloneable {
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof PemKeyCertOptions)) {
-      return false;
-    }
-
-    PemKeyCertOptions that = (PemKeyCertOptions) o;
-    if (!keyPaths.equals(that.keyPaths)) {
-      return false;
-    }
-    if (!keyValues.equals(that.keyValues)) {
-      return false;
-    }
-    if (!certPaths.equals(that.certPaths)) {
-      return false;
-    }
-    if (!certValues.equals(that.certValues)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = 1;
-    result += 31 * result + keyPaths.hashCode();
-    result += 31 * result + keyValues.hashCode();
-    result += 31 * result + certPaths.hashCode();
-    result += 31 * result + certValues.hashCode();
-
-    return result;
-  }
-
-  @Override
-  public PemKeyCertOptions clone() {
+  public PemKeyCertOptions copy() {
     return new PemKeyCertOptions(this);
   }
 }

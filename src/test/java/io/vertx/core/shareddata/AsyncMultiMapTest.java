@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -111,11 +111,7 @@ public class AsyncMultiMapTest extends VertxTestBase {
                 map.remove("some-sub2", serverID3, onSuccess(res7 -> {
 
                   map.get("some-sub2", onSuccess(res8 -> {
-                    Set<ServerID> set3 = new HashSet<>();
-                    for (ServerID sid : res8) {
-                      set3.add(sid);
-                    }
-                    assertEquals(0, set3.size());
+                    waitUntil(res8::isEmpty);
                     testComplete();
                   }));
                 }));

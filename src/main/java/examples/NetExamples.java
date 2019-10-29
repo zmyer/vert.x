@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -562,8 +562,8 @@ public class NetExamples {
       .setKeyCertOptions(certificate.keyCertOptions())
       .setTrustOptions(certificate.trustOptions());
 
-    NetServer server = vertx.createNetServer(serverOptions)
-      .connectHandler(socket -> socket.write("Hello!").end())
+    vertx.createNetServer(serverOptions)
+      .connectHandler(socket -> socket.end(Buffer.buffer("Hello!")))
       .listen(1234, "localhost");
 
     NetClientOptions clientOptions = new NetClientOptions()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -14,6 +14,7 @@ package io.vertx.core.cli.impl;
 import io.vertx.core.cli.*;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class DefaultCLI implements CLI {
 
   protected String name;
+  protected int priority;
   protected String description;
   protected String summary;
   protected boolean hidden;
@@ -159,25 +161,25 @@ public class DefaultCLI implements CLI {
   @Override
   public Option getOption(String name) {
     Objects.requireNonNull(name);
-    // The option by name look up is a three steps lookup:
-    // first check by long name
-    // then by short name
-    // finally by arg name
-    for (Option option : options) {
-      if (name.equalsIgnoreCase(option.getLongName())) {
-        return option;
-      }
-    }
+    List<Predicate<Option>> equalityChecks = Arrays.asList(
+        // The option by name look up is a three steps lookup:
+        // first check by long name
+        // then by short name
+        // finally by arg name
+        option -> name.equals(option.getLongName()),
+        option -> name.equals(option.getShortName()),
+        option -> name.equals(option.getArgName()),
+        // If there's no exact match, check again in the same order, this time ignoring case-sensitivity
+        option -> name.equalsIgnoreCase(option.getLongName()),
+        option -> name.equalsIgnoreCase(option.getShortName()),
+        option -> name.equalsIgnoreCase(option.getArgName())
+    );
 
-    for (Option option : options) {
-      if (name.equalsIgnoreCase(option.getShortName())) {
-        return option;
-      }
-    }
-
-    for (Option option : options) {
-      if (name.equalsIgnoreCase(option.getArgName())) {
-        return option;
+    for (Predicate<Option> equalityCheck : equalityChecks) {
+      for (Option option : options) {
+        if (equalityCheck.test(option)) {
+          return option;
+        }
       }
     }
 
@@ -236,6 +238,17 @@ public class DefaultCLI implements CLI {
   @Override
   public CLI usage(StringBuilder builder, String prefix) {
     new UsageMessageFormatter().usage(builder, prefix, this);
+    return this;
+  }
+
+  @Override
+  public int getPriority() {
+    return priority;
+  }
+
+  @Override
+  public CLI setPriority(int priority) {
+    this.priority = priority;
     return this;
   }
 }

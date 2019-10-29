@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -13,13 +13,14 @@ package io.vertx.core.net.impl;
 
 import io.netty.channel.EventLoop;
 import io.vertx.core.impl.ContextInternal;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -47,7 +48,13 @@ public class HandlerManager<T> {
     return hasHandlers;
   }
 
-  // TODO: 2018/8/1 by zmyer
+  public synchronized List<T> handlers() {
+    return handlerMap.values().stream()
+      .flatMap(handlers -> handlers.list.stream())
+      .map(holder -> holder.handler)
+      .collect(Collectors.toList());
+  }
+
   public HandlerHolder<T> chooseHandler(EventLoop worker) {
     final Handlers<T> handlers = handlerMap.get(worker);
     return handlers == null ? null : handlers.chooseHandler();

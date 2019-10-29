@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -71,7 +71,6 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
   private final Function<ChannelHandlerContext, C> connectionFactory;
   private final ContextInternal context;
   private C conn;
-  private Handler<Void> endReadAndFlush;
   private Handler<C> addHandler;
   private Handler<C> removeHandler;
   private Handler<Object> messageHandler;
@@ -90,8 +89,7 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
   // TODO: 2018/11/26 by zmyer
   private void setConnection(C connection) {
     conn = connection;
-    endReadAndFlush = v -> conn.endReadAndFlush();
-    messageHandler = conn::handleRead; // Dubious cast to make compiler happy
+    messageHandler = ((ConnectionBase)conn)::handleMessage; // Dubious cast to make compiler happy
     if (addHandler != null) {
       addHandler.handle(connection);
     }
@@ -148,7 +146,7 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
   @Override
   public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
     C conn = getConnection();
-    context.executeFromIO(v -> conn.handleInterestedOpsChanged());
+    context.schedule(v -> conn.handleInterestedOpsChanged());
   }
 
   // TODO: 2018/8/1 by zmyer
@@ -178,27 +176,29 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
     if (removeHandler != null) {
       removeHandler.handle(conn);
     }
-    context.executeFromIO(v -> conn.handleClosed());
+    context.schedule(v -> conn.handleClosed());
   }
 
   // TODO: 2018/8/1 by zmyer
   @Override
   public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
-    context.executeFromIO(endReadAndFlush);
+    conn.endReadAndFlush();
   }
 
   // TODO: 2018/8/1 by zmyer
   @Override
   public void channelRead(ChannelHandlerContext chctx, Object msg) throws Exception {
-    context.executeFromIO(msg, messageHandler);
+    conn.setRead();
+    context.schedule(msg, messageHandler);
   }
 
   // TODO: 2018/8/1 by zmyer
   @Override
   public void userEventTriggered(final ChannelHandlerContext ctx, final Object evt) throws Exception {
     if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.ALL_IDLE) {
-      ctx.close();
+      context.schedule(v -> conn.handleIdle());
+    } else {
+      ctx.fireUserEventTriggered(evt);
     }
-    ctx.fireUserEventTriggered(evt);
   }
 }

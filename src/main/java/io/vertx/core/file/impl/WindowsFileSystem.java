@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -16,8 +16,8 @@ import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.OpenOptions;
 import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 
 import java.util.Objects;
 
@@ -41,8 +41,7 @@ public class WindowsFileSystem extends FileSystemImpl {
   }
 
   @Override
-  protected BlockingAction<Void> chmodInternal(String path, String perms, String dirPerms,
-                                               Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> chmodInternal(String path, String perms, String dirPerms) {
     Objects.requireNonNull(path);
     Objects.requireNonNull(perms);
     logInternal(perms);
@@ -50,7 +49,7 @@ public class WindowsFileSystem extends FileSystemImpl {
     if (log.isDebugEnabled()) {
       log.debug("You are running on Windows and POSIX style file permissions are not supported!");
     }
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       @Override
       public Void perform() {
         return null;
@@ -59,10 +58,9 @@ public class WindowsFileSystem extends FileSystemImpl {
   }
 
   @Override
-  protected BlockingAction<Void> mkdirInternal(String path, final String perms, final boolean createParents,
-                                               Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> mkdirInternal(String path, final String perms, final boolean createParents) {
     logInternal(perms);
-    return super.mkdirInternal(path, null, createParents, handler);
+    return super.mkdirInternal(path, null, createParents);
   }
 
   @Override
@@ -73,16 +71,16 @@ public class WindowsFileSystem extends FileSystemImpl {
   }
 
   @Override
-  protected BlockingAction<Void> createFileInternal(String p, final String perms, Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> createFileInternal(String p, final String perms) {
     logInternal(perms);
-    return super.createFileInternal(p, null, handler);
+    return super.createFileInternal(p, null);
   }
 
   @Override
-  protected BlockingAction<Void> chownInternal(String path, String user, String group, Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> chownInternal(String path, String user, String group) {
     if (group != null && log.isDebugEnabled()) {
       log.debug("You are running on Windows and POSIX style file ownership is not supported");
     }
-    return super.chownInternal(path, user, group, handler);
+    return super.chownInternal(path, user, group);
   }
 }

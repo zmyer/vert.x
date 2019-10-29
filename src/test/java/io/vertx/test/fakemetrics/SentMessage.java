@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -32,6 +32,15 @@ public class SentMessage {
   public boolean equals(Object obj) {
     SentMessage that = (SentMessage) obj;
     return address.equals(that.address) && publish == that.publish && local == that.local && remote == that.remote;
+  }
+
+  @Override
+  public int hashCode() {
+    int hashCode = address.hashCode();
+    hashCode = hashCode * 31 + (publish ? 1 : 0);
+    hashCode = hashCode * 31 + (local ? 1 : 0);
+    hashCode = hashCode * 31 + (remote ? 1 : 0);
+    return hashCode;
   }
 
   @Override

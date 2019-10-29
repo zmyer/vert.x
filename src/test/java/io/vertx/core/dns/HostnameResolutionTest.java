@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -144,14 +144,14 @@ public class HostnameResolutionTest extends VertxTestBase {
         listenLatch.countDown();
       }));
       awaitLatch(listenLatch);
-      client.getNow(8080, "vertx.io", "/somepath", resp -> {
+      client.getNow(8080, "vertx.io", "/somepath", onSuccess(resp -> {
         Buffer buffer = Buffer.buffer();
         resp.handler(buffer::appendBuffer);
         resp.endHandler(v -> {
           assertEquals(Buffer.buffer("foo"), buffer);
           testComplete();
         });
-      });
+      }));
       await();
     } finally {
       client.close();
@@ -391,6 +391,17 @@ public class HostnameResolutionTest extends VertxTestBase {
   }
 
   @Test
+  public void testTrailingDotResolveFromHosts() {
+    VertxInternal vertx = (VertxInternal) vertx(new VertxOptions().setAddressResolverOptions(new AddressResolverOptions().setHostsPath("hosts_config.txt")));
+    vertx.resolveAddress("server.net.", onSuccess(addr -> {
+      assertEquals("192.168.0.15", addr.getHostAddress());
+      assertEquals("server.net", addr.getHostName());
+      testComplete();
+    }));
+    await();
+  }
+
+  @Test
   public void testResolveMissingLocalhost() throws Exception {
 
     InetAddress localhost = InetAddress.getByName("localhost");
@@ -439,7 +450,7 @@ public class HostnameResolutionTest extends VertxTestBase {
     NetServer server = vertx.createNetServer(new NetServerOptions().setPort(1234).setHost(localhost.getHostAddress()));
     try {
       server.connectHandler(so -> {
-        so.write("hello").end();
+        so.end(Buffer.buffer("hello"));
       });
       server.listen(ar -> {
         if (ar.succeeded()) {

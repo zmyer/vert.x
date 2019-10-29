@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -19,23 +19,29 @@ import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpData;
 import io.netty.util.CharsetUtil;
 import io.vertx.codegen.annotations.Nullable;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
+import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpVersion;
+import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.NetSocket;
 import io.vertx.core.net.SocketAddress;
-import io.vertx.core.spi.metrics.Metrics;
+import io.vertx.core.spi.tracing.TagExtractor;
+import io.vertx.core.spi.tracing.VertxTracer;
 import io.vertx.core.streams.impl.InboundBuffer;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.security.cert.X509Certificate;
 import java.net.URISyntaxException;
+import java.util.Map;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED;
 import static io.netty.handler.codec.http.HttpHeaderValues.MULTIPART_FORM_DATA;
@@ -57,8 +63,9 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   private static final Logger log = LoggerFactory.getLogger(HttpServerRequestImpl.class);
 
   private final Http1xServerConnection conn;
+  final ContextInternal context;
 
-  private DefaultHttpRequest request;
+  private HttpRequest request;
   private io.vertx.core.http.HttpVersion version;
   private io.vertx.core.http.HttpMethod method;
   private String rawMethod;
@@ -69,6 +76,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   private HttpServerResponseImpl response;
   private HttpServerRequestImpl next;
   private Object metric;
+  private Object trace;
 
   private Handler<Buffer> dataHandler;
   private Handler<Throwable> exceptionHandler;
@@ -84,96 +92,97 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   private HttpPostRequestDecoder decoder;
   private boolean ended;
   private long bytesRead;
+  private InboundBuffer<Object> pending;
+  private Buffer body;
+  private Promise<Buffer> bodyPromise;
 
-  private boolean paused;
-  private InboundBuffer<Buffer> pending;
-
-  HttpServerRequestImpl(Http1xServerConnection conn, DefaultHttpRequest request) {
+  HttpServerRequestImpl(Http1xServerConnection conn, HttpRequest request) {
     this.conn = conn;
+    this.context = conn.getContext().duplicate();
     this.request = request;
   }
 
-  DefaultHttpRequest getRequest() {
+  /**
+   *
+   * @return
+   */
+  HttpRequest nettyRequest() {
     synchronized (conn) {
       return request;
     }
   }
 
-  void setRequest(DefaultHttpRequest request) {
+  void setRequest(HttpRequest request) {
     synchronized (conn) {
       this.request = request;
     }
   }
 
-  private InboundBuffer<Buffer> pendingQueue() {
+  private InboundBuffer<Object> pendingQueue() {
     if (pending == null) {
       pending = new InboundBuffer<>(conn.getContext(), 8);
       pending.drainHandler(v -> conn.doResume());
-      pending.emptyHandler(v -> {
-        if (ended) {
-          doEnd();
+      pending.handler(buffer -> {
+        if (buffer == InboundBuffer.END_SENTINEL) {
+          onEnd();
+        } else {
+          onData((Buffer) buffer);
         }
       });
-      pending.handler(this::handleData);
     }
     return pending;
   }
 
-  private void enqueueData(Buffer chunk) {
-    // We queue requests if paused or a request is in progress to prevent responses being written in the wrong order
-    if (!pendingQueue().write(chunk)) {
-      // We only pause when we are actively called by the connection
-      conn.doPause();
-    }
-  }
-
   void handleContent(Buffer buffer) {
-    if (paused || pending != null) {
-      enqueueData(buffer);
+    InboundBuffer<Object> queue;
+    synchronized (conn) {
+      queue = pending;
+    }
+    if (queue != null) {
+      // We queue requests if paused or a request is in progress to prevent responses being written in the wrong order
+      if (!queue.write(buffer)) {
+        // We only pause when we are actively called by the connection
+        conn.doPause();
+      }
     } else {
-      handleData(buffer);
+      onData(buffer);
     }
   }
 
   void handleBegin() {
-    if (Metrics.METRICS_ENABLED) {
-      reportRequestBegin();
-    }
-    response = new HttpServerResponseImpl((VertxInternal) conn.vertx(), conn, request, metric);
+    response = new HttpServerResponseImpl((VertxInternal) conn.vertx(), context, conn, request, metric);
     if (conn.handle100ContinueAutomatically) {
       check100();
     }
-    conn.requestHandler.handle(this);
   }
 
-  void appendRequest(HttpServerRequestImpl next) {
+  /**
+   * Enqueue a pipelined request.
+   *
+   * @param request the enqueued request
+   */
+  void enqueue(HttpServerRequestImpl request) {
     HttpServerRequestImpl current = this;
     while (current.next != null) {
       current = current.next;
     }
-    current.next = next;
+    current.next = request;
   }
 
-  HttpServerRequestImpl nextRequest() {
+  /**
+   * @return the next request following this one
+   */
+  HttpServerRequestImpl next() {
     return next;
   }
 
-  void handlePipelined() {
-    paused = false;
-    boolean end = ended;
-    ended = false;
-    handleBegin();
-    if (!paused && pending != null && pending.size() > 0) {
-      pending.resume();
-    }
-    if (end) {
-      handleEnd();
-    }
-  }
-
-  private void reportRequestBegin() {
+  void reportRequestBegin() {
     if (conn.metrics != null) {
       metric = conn.metrics.requestBegin(conn.metric(), this);
+    }
+    VertxTracer tracer = context.tracer();
+    if (tracer != null) {
+      trace = tracer.receiveRequest(context, this, method().name(), headers(), HttpUtils.SERVER_REQUEST_TAG_EXTRACTOR);
     }
   }
 
@@ -185,6 +194,10 @@ public class HttpServerRequestImpl implements HttpServerRequest {
 
   Object metric() {
     return metric;
+  }
+
+  Object trace() {
+    return trace;
   }
 
   @Override
@@ -323,9 +336,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   @Override
   public HttpServerRequest pause() {
     synchronized (conn) {
-      if (!isEnded()) {
-        pendingQueue().pause();
-      }
+      pendingQueue().pause();
       return this;
     }
   }
@@ -340,12 +351,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
 
   @Override
   public HttpServerRequest resume() {
-    synchronized (conn) {
-      if (!isEnded()) {
-        pendingQueue().resume();
-      }
-      return this;
-    }
+    return fetch(Long.MAX_VALUE);
   }
 
   @Override
@@ -366,7 +372,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
 
   @Override
   public boolean isSSL() {
-    return conn.isSSL();
+    return conn.isSsl();
   }
 
   @Override
@@ -427,7 +433,10 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   @Override
   public ServerWebSocket upgrade() {
     ServerWebSocketImpl ws = conn.createWebSocket(this);
-    ws.connectNow();
+    if (ws == null) {
+      throw new IllegalStateException("Can't upgrade this request");
+    }
+    ws.accept();
     return ws;
   }
 
@@ -477,7 +486,7 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   @Override
   public boolean isEnded() {
     synchronized (conn) {
-      return ended && (pending == null || pending.isEmpty());
+      return ended && (pending == null || (!pending.isPaused() && pending.isEmpty()));
     }
   }
 
@@ -491,7 +500,17 @@ public class HttpServerRequestImpl implements HttpServerRequest {
     return conn;
   }
 
-  private void handleData(Buffer data) {
+  @Override
+  public synchronized Future<Buffer> body() {
+    if (bodyPromise == null) {
+      bodyPromise = Promise.promise();
+      body = Buffer.buffer();
+    }
+    return bodyPromise.future();
+  }
+
+  private void onData(Buffer data) {
+    Handler<Buffer> handler;
     synchronized (conn) {
       bytesRead += data.length();
       if (decoder != null) {
@@ -501,28 +520,47 @@ public class HttpServerRequestImpl implements HttpServerRequest {
           handleException(e);
         }
       }
-      if (dataHandler != null) {
-        dataHandler.handle(data);
+      handler = dataHandler;
+      if (body != null) {
+        body.appendBuffer(data);
       }
+    }
+    if (handler != null) {
+      handler.handle(data);
     }
   }
 
   void handleEnd() {
+    InboundBuffer<Object> queue;
     synchronized (conn) {
       ended = true;
-      if (isEnded()) {
-        doEnd();
-      }
+      queue = pending;
+    }
+    if (queue != null) {
+      queue.write(InboundBuffer.END_SENTINEL);
+    } else {
+      onEnd();
     }
   }
 
-  private void doEnd() {
-    if (decoder != null) {
-      endDecode();
+  private void onEnd() {
+    Handler<Void> handler;
+    Promise<Buffer> bodyPromise;
+    Buffer body;
+    synchronized (conn) {
+      if (decoder != null) {
+        endDecode();
+      }
+      handler = endHandler;
+      bodyPromise = this.bodyPromise;
+      body = this.body;
     }
     // If there have been uploads then we let the last one call the end handler once any fileuploads are complete
-    if (endHandler != null) {
-      endHandler.handle(null);
+    if (handler != null) {
+      handler.handle(null);
+    }
+    if (body != null) {
+      bodyPromise.tryComplete(body);
     }
   }
 
@@ -553,28 +591,47 @@ public class HttpServerRequestImpl implements HttpServerRequest {
   void handleException(Throwable t) {
     Handler<Throwable> handler = null;
     HttpServerResponseImpl resp = null;
+    InterfaceHttpData upload = null;
+    Promise<Buffer> bodyPromise;
+    Buffer body;
     synchronized (conn) {
       if (!isEnded()) {
         handler = exceptionHandler;
+        if (decoder != null) {
+          upload = decoder.currentPartialHttpData();
+        }
       }
       if (!response.ended()) {
         if (METRICS_ENABLED) {
-          reportRequestReset();
+          reportRequestReset(t);
         }
         resp = response;
       }
+      bodyPromise = this.bodyPromise;
+      this.bodyPromise = null;
+      this.body = null;
     }
     if (resp != null) {
       resp.handleException(t);
     }
+    if (upload instanceof NettyFileUpload) {
+      ((NettyFileUpload)upload).handleException(t);
+    }
     if (handler != null) {
       handler.handle(t);
     }
+    if (bodyPromise != null) {
+      bodyPromise.tryFail(t);
+    }
   }
 
-  private void reportRequestReset() {
+  private void reportRequestReset(Throwable err) {
     if (conn.metrics != null) {
       conn.metrics.requestReset(metric);
+    }
+    VertxTracer tracer = context.tracer();
+    if (tracer != null) {
+      tracer.sendResponse(context, null, trace, err, TagExtractor.empty());
     }
   }
 
@@ -603,4 +660,23 @@ public class HttpServerRequestImpl implements HttpServerRequest {
     return QueryStringDecoder.decodeComponent(str, CharsetUtil.UTF_8);
   }
 
+  @Override
+  public HttpServerRequest streamPriorityHandler(Handler<StreamPriority> handler) {
+    return this;
+  }
+
+  @Override
+  public @Nullable Cookie getCookie(String name) {
+    return response.cookies().get(name);
+  }
+
+  @Override
+  public int cookieCount() {
+    return response.cookies().size();
+  }
+
+  @Override
+  public Map<String, Cookie> cookieMap() {
+    return (Map)response.cookies();
+  }
 }

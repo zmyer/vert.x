@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Red Hat, Inc. and others
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -56,6 +56,7 @@ public class DNSTest extends VertxTestBase {
   @Override
   protected void tearDown() throws Exception {
     dnsServer.stop();
+    super.tearDown();
   }
 
   @Test
@@ -360,20 +361,6 @@ public class DNSTest extends VertxTestBase {
       assertEquals(ptr, result);
       testComplete();
     }));
-    await();
-  }
-
-  @Test
-  public void testUseInMultithreadedWorker() throws Exception {
-    class MyVerticle extends AbstractVerticle {
-      @Override
-      public void start() {
-        assertIllegalStateException(() -> vertx.createDnsClient(1234, "localhost"));
-        testComplete();
-      }
-    }
-    MyVerticle verticle = new MyVerticle();
-    vertx.deployVerticle(verticle, new DeploymentOptions().setWorker(true).setMultiThreaded(true));
     await();
   }
 

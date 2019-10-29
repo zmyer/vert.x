@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.file.FileSystemOptions}.
+ * Converter and mapper for {@link io.vertx.core.file.FileSystemOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.file.FileSystemOptions} original class using Vert.x codegen.
  */
- class FileSystemOptionsConverter {
+public class FileSystemOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, FileSystemOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {
@@ -17,6 +18,11 @@ import java.time.format.DateTimeFormatter;
         case "classPathResolvingEnabled":
           if (member.getValue() instanceof Boolean) {
             obj.setClassPathResolvingEnabled((Boolean)member.getValue());
+          }
+          break;
+        case "fileCacheDir":
+          if (member.getValue() instanceof String) {
+            obj.setFileCacheDir((String)member.getValue());
           }
           break;
         case "fileCachingEnabled":
@@ -34,6 +40,9 @@ import java.time.format.DateTimeFormatter;
 
    static void toJson(FileSystemOptions obj, java.util.Map<String, Object> json) {
     json.put("classPathResolvingEnabled", obj.isClassPathResolvingEnabled());
+    if (obj.getFileCacheDir() != null) {
+      json.put("fileCacheDir", obj.getFileCacheDir());
+    }
     json.put("fileCachingEnabled", obj.isFileCachingEnabled());
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -14,6 +14,7 @@ package io.vertx.core.http.impl;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.http.HttpConnection;
 import io.vertx.core.impl.ContextInternal;
@@ -27,9 +28,9 @@ public interface HttpClientConnection extends HttpConnection {
 
   ChannelHandlerContext channelHandlerContext();
 
-  void close();
+  Future<Void> close();
 
-  void createStream(Handler<AsyncResult<HttpClientStream>> handler);
+  void createStream(ContextInternal context, Handler<AsyncResult<HttpClientStream>> handler);
 
   ContextInternal getContext();
 

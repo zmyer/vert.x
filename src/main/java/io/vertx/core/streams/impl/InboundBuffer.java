@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -10,13 +10,13 @@
  */
 package io.vertx.core.streams.impl;
 
+import io.netty.util.concurrent.FastThreadLocalThread;
 import io.vertx.core.Context;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.impl.Arguments;
+import io.vertx.core.impl.ContextInternal;
 
 import java.util.ArrayDeque;
-import java.util.Objects;
 
 /**
  * A buffer that transfers elements to an handler with back-pressure.
@@ -38,9 +38,9 @@ import java.util.Objects;
  * <h3>Buffer mode</h3>
  * The buffer is either in <i>flowing</i> or <i>fetch</i> mode.
  * <ul>
- * <i>Initially the buffer is in <i>flowing</i> mode.</i>
- * <li>When the buffer is in <i>flowing</i> mode, elements are delivered to the {@code handler}.</li>
- * <li>When the buffer is in <i>fetch</i> mode, only the number of requested elements will be delivered to the {@code handler}.</li>
+ *   <i>Initially the buffer is in <i>flowing</i> mode.</i>
+ *   <li>When the buffer is in <i>flowing</i> mode, elements are delivered to the {@code handler}.</li>
+ *   <li>When the buffer is in <i>fetch</i> mode, only the number of requested elements will be delivered to the {@code handler}.</li>
  * </ul>
  * The mode can be changed with the {@link #pause()}, {@link #resume()} and {@link #fetch} methods:
  * <ul>
@@ -66,7 +66,12 @@ import java.util.Objects;
 // TODO: 2018/11/27 by zmyer
 public class InboundBuffer<E> {
 
-  private final Context context;
+  /**
+   * A reusable sentinel for signaling the end of a stream.
+   */
+  public static final Object END_SENTINEL = new Object();
+
+  private final ContextInternal context;
   private final ArrayDeque<E> pending;
   private final long highWaterMark;
   private long demand;
@@ -82,17 +87,22 @@ public class InboundBuffer<E> {
   }
 
   public InboundBuffer(Context context, long highWaterMark) {
-    Objects.requireNonNull(context, "context must not be null");
-    Arguments.require(highWaterMark >= 0, "highWaterMark " + highWaterMark + " >= 0");
-    this.context = context;
+    if (context == null) {
+      throw new NullPointerException("context must not be null");
+    }
+    if (highWaterMark < 0) {
+      throw new IllegalArgumentException("highWaterMark " + highWaterMark + " >= 0");
+    }
+    this.context = (ContextInternal) context;
     this.highWaterMark = highWaterMark;
     this.demand = Long.MAX_VALUE;
     this.pending = new ArrayDeque<>();
   }
 
-  private void checkContext() {
-    if (context != Vertx.currentContext()) {
-      throw new IllegalStateException("This operation must be called from the context thread");
+  private void checkThread() {
+    Thread thread = Thread.currentThread();
+    if (!(thread instanceof FastThreadLocalThread)) {
+      throw new IllegalStateException("This operation must be called from a Vert.x thread");
     }
   }
 
@@ -101,19 +111,16 @@ public class InboundBuffer<E> {
    * it is possible, otherwise it will be queued for later delivery.
    *
    * @param element the element to add
-   * @return {@code true} when the buffer is full and the producer should stop writing
+   * @return {@code false} when the producer should stop writing
    */
   public boolean write(E element) {
-    checkContext();
+    checkThread();
     Handler<E> handler;
     synchronized (this) {
-      if (emitting || demand == 0L) {
+      if (demand == 0L || emitting) {
         pending.add(element);
-        boolean writable = pending.size() <= highWaterMark;
-        overflow |= !writable;
-        return writable;
+        return checkWritable();
       } else {
-        assert pending.size() == 0; // Try to break this...
         if (demand != Long.MAX_VALUE) {
           --demand;
         }
@@ -125,23 +132,31 @@ public class InboundBuffer<E> {
     return emitPending();
   }
 
+  private boolean checkWritable() {
+    if (demand == Long.MAX_VALUE) {
+      return true;
+    } else {
+      long actual = pending.size() - demand;
+      boolean writable = actual < highWaterMark;
+      overflow |= !writable;
+      return writable;
+    }
+  }
+
   /**
    * Write an {@code iterable} of {@code elements}.
    *
    * @param elements the elements to add
-   * @return {@code true} if the buffer is full
-   * @see #write(E)
+   * @return {@code false} when the producer should stop writing
    */
   public boolean write(Iterable<E> elements) {
-    checkContext();
+    checkThread();
     synchronized (this) {
       for (E element : elements) {
         pending.add(element);
       }
-      if (emitting || demand == 0L) {
-        boolean writable = pending.size() <= highWaterMark;
-        overflow |= !writable;
-        return writable;
+      if (demand == 0L || emitting) {
+        return checkWritable();
       } else {
         emitting = true;
       }
@@ -151,40 +166,26 @@ public class InboundBuffer<E> {
 
   private boolean emitPending() {
     E element;
-    Handler<E> handler;
+    Handler<E> h;
     while (true) {
       synchronized (this) {
         int size = pending.size();
-        if (size == 0) {
-          checkCallDrainHandler();
+        if (demand == 0L) {
           emitting = false;
-          return true;
-        } else if (demand == 0L) {
-          emitting = false;
-          boolean writable = pending.size() <= highWaterMark;
+          boolean writable = size < highWaterMark;
           overflow |= !writable;
           return writable;
+        } else if (size == 0) {
+          emitting = false;
+          return true;
         }
         if (demand != Long.MAX_VALUE) {
           demand--;
         }
         element = pending.poll();
-        handler = this.handler;
+        h = this.handler;
       }
-      handleEvent(handler, element);
-    }
-  }
-
-  private void checkCallDrainHandler() {
-    if (overflow) {
-      overflow = false;
-      context.runOnContext(v -> {
-        Handler<Void> drainHandler;
-        synchronized (InboundBuffer.this) {
-          drainHandler = this.drainHandler;
-        }
-        handleEvent(drainHandler, null);
-      });
+      handleEvent(h, element);
     }
   }
 
@@ -194,7 +195,9 @@ public class InboundBuffer<E> {
    * Calling this assumes {@code (demand > 0L && !pending.isEmpty()) == true}
    */
   private void drain() {
-    Handler<Void> emptyHandler = null;
+    int emitted = 0;
+    Handler<Void> drainHandler;
+    Handler<Void> emptyHandler;
     while (true) {
       E element;
       Handler<E> handler;
@@ -202,13 +205,19 @@ public class InboundBuffer<E> {
         int size = pending.size();
         if (size == 0) {
           emitting = false;
-          checkCallDrainHandler();
-          emptyHandler = this.emptyHandler;
+          if (overflow) {
+            overflow = false;
+            drainHandler = this.drainHandler;
+          } else {
+            drainHandler = null;
+          }
+          emptyHandler = emitted > 0 ? this.emptyHandler : null;
           break;
         } else if (demand == 0L) {
           emitting = false;
           return;
         }
+        emitted++;
         if (demand != Long.MAX_VALUE) {
           demand--;
         }
@@ -217,7 +226,12 @@ public class InboundBuffer<E> {
       }
       handleEvent(handler, element);
     }
-    handleEvent(emptyHandler, null);
+    if (drainHandler != null) {
+      handleEvent(drainHandler, null);
+    }
+    if (emptyHandler != null) {
+      handleEvent(emptyHandler, null);
+    }
   }
 
   private <T> void handleEvent(Handler<T> handler, T element) {
@@ -247,9 +261,9 @@ public class InboundBuffer<E> {
    * <p/>
    * This method can be called from any thread.
    *
-   * @return a reference to this, so the API can be used fluently
+   * @return {@code true} when the buffer will be drained
    */
-  public InboundBuffer<E> fetch(long amount) {
+  public boolean fetch(long amount) {
     if (amount < 0L) {
       throw new IllegalArgumentException();
     }
@@ -258,13 +272,13 @@ public class InboundBuffer<E> {
       if (demand < 0L) {
         demand = Long.MAX_VALUE;
       }
-      if (emitting || pending.isEmpty()) {
-        return this;
+      if (emitting || (pending.isEmpty() && !overflow)) {
+        return false;
       }
       emitting = true;
     }
     context.runOnContext(v -> drain());
-    return this;
+    return true;
   }
 
   /**
@@ -309,9 +323,9 @@ public class InboundBuffer<E> {
    * <p/>
    * This method can be called from any thread.
    *
-   * @return a reference to this, so the API can be used fluently
+   * @return {@code true} when the buffer will be drained
    */
-  public InboundBuffer<E> resume() {
+  public boolean resume() {
     return fetch(Long.MAX_VALUE);
   }
 
@@ -370,7 +384,7 @@ public class InboundBuffer<E> {
    * @return whether the buffer is writable
    */
   public synchronized boolean isWritable() {
-    return pending.size() <= highWaterMark;
+    return pending.size() < highWaterMark;
   }
 
   /**

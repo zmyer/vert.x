@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -20,10 +20,10 @@ import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.FutureListener;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.impl.ContextInternal;
 
 import java.util.function.Function;
 
@@ -90,7 +90,11 @@ class VertxHttp2ConnectionHandler<C extends Http2ConnectionBase> extends Http2Co
 
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-    super.exceptionCaught(ctx, cause);
+    Http2Exception http2Cause = Http2CodecUtil.getEmbeddedHttp2Exception(cause);
+    if (http2Cause != null) {
+      // Super will only handle Http2Exception otherwise it will be reach the end of the pipeline
+      super.exceptionCaught(ctx, http2Cause);
+    }
     ctx.close();
   }
 
@@ -116,8 +120,7 @@ class VertxHttp2ConnectionHandler<C extends Http2ConnectionBase> extends Http2Co
   public void channelInactive(ChannelHandlerContext chctx) throws Exception {
     super.channelInactive(chctx);
     if (connection != null) {
-      ContextInternal ctx = connection.getContext();
-      ctx.executeFromIO(v -> connection.handleClosed());
+      connection.handleClosed();
       if (removeHandler != null) {
         removeHandler.handle(connection);
       }
@@ -126,18 +129,14 @@ class VertxHttp2ConnectionHandler<C extends Http2ConnectionBase> extends Http2Co
 
   @Override
   protected void onConnectionError(ChannelHandlerContext ctx, boolean outbound, Throwable cause, Http2Exception http2Ex) {
-    connection.getContext().executeFromIO(v -> {
-      connection.onConnectionError(cause);
-    });
+    connection.onConnectionError(cause);
     // Default behavior send go away
     super.onConnectionError(ctx, outbound, cause, http2Ex);
   }
 
   @Override
   protected void onStreamError(ChannelHandlerContext ctx, boolean outbound, Throwable cause, Http2Exception.StreamException http2Ex) {
-    connection.getContext().executeFromIO(v -> {
-      connection.onStreamError(http2Ex.streamId(), http2Ex);
-    });
+    connection.onStreamError(http2Ex.streamId(), http2Ex);
     // Default behavior reset stream
     super.onStreamError(ctx, outbound, cause, http2Ex);
   }
@@ -148,7 +147,7 @@ class VertxHttp2ConnectionHandler<C extends Http2ConnectionBase> extends Http2Co
       super.userEventTriggered(ctx, evt);
     } finally {
       if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.ALL_IDLE) {
-        ctx.close();
+        connection.handleIdle();
       }
     }
   }
@@ -188,34 +187,36 @@ class VertxHttp2ConnectionHandler<C extends Http2ConnectionBase> extends Http2Co
 
   //
 
-  void writeHeaders(Http2Stream stream, Http2Headers headers, boolean end) {
+  void writeHeaders(Http2Stream stream, Http2Headers headers, boolean end, int streamDependency, short weight, boolean exclusive, FutureListener<Void> listener) {
     EventExecutor executor = chctx.executor();
     if (executor.inEventLoop()) {
-      _writeHeaders(stream, headers, end);
+      _writeHeaders(stream, headers, end, streamDependency, weight, exclusive, listener);
     } else {
       executor.execute(() -> {
-        _writeHeaders(stream, headers, end);
+        _writeHeaders(stream, headers, end, streamDependency, weight, exclusive, listener);
       });
     }
   }
 
-  private void _writeHeaders(Http2Stream stream, Http2Headers headers, boolean end) {
-    encoder().writeHeaders(chctx, stream.id(), headers, 0, end, chctx.newPromise());
+  private void _writeHeaders(Http2Stream stream, Http2Headers headers, boolean end, int streamDependency, short weight, boolean exclusive, FutureListener<Void> listener) {
+    ChannelPromise promise = listener == null ? chctx.voidPromise() : chctx.newPromise().addListener(listener);
+    encoder().writeHeaders(chctx, stream.id(), headers, streamDependency, weight, exclusive, 0, end, promise);
   }
 
-  void writeData(Http2Stream stream, ByteBuf chunk, boolean end) {
+  void writeData(Http2Stream stream, ByteBuf chunk, boolean end, FutureListener<Void> promise) {
     EventExecutor executor = chctx.executor();
     if (executor.inEventLoop()) {
-      _writeData(stream, chunk, end);
+      _writeData(stream, chunk, end, promise);
     } else {
       executor.execute(() -> {
-        _writeData(stream, chunk, end);
+        _writeData(stream, chunk, end, promise);
       });
     }
   }
 
-  private void _writeData(Http2Stream stream, ByteBuf chunk, boolean end) {
-    encoder().writeData(chctx, stream.id(), chunk, 0, end, chctx.newPromise());
+  private void _writeData(Http2Stream stream, ByteBuf chunk, boolean end, FutureListener<Void> listener) {
+    ChannelPromise promise = listener == null ? chctx.voidPromise() : chctx.newPromise().addListener(listener);
+    encoder().writeData(chctx, stream.id(), chunk, 0, end, promise);
     Http2RemoteFlowController controller = encoder().flowController();
     if (!controller.isWritable(stream) || end) {
       try {
@@ -440,5 +441,20 @@ class VertxHttp2ConnectionHandler<C extends Http2ConnectionBase> extends Http2Co
   @Override
   public void onUnknownFrame(ChannelHandlerContext ctx, byte frameType, int streamId, Http2Flags flags, ByteBuf payload) throws Http2Exception {
     throw new UnsupportedOperationException();
+  }
+
+  private void _writePriority(Http2Stream stream, int streamDependency, short weight, boolean exclusive) {
+      encoder().writePriority(chctx, stream.id(), streamDependency, weight, exclusive, chctx.newPromise());
+  }
+
+  void writePriority(Http2Stream stream, int streamDependency, short weight, boolean exclusive) {
+    EventExecutor executor = chctx.executor();
+    if (executor.inEventLoop()) {
+      _writePriority(stream, streamDependency, weight, exclusive);
+    } else {
+      executor.execute(() -> {
+        _writePriority(stream, streamDependency, weight, exclusive);
+      });
+    }
   }
 }

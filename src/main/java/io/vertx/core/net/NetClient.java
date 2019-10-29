@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,6 +12,7 @@
 package io.vertx.core.net;
 
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.VertxGen;
@@ -45,6 +46,11 @@ public interface NetClient extends Measured {
   NetClient connect(int port, String host, Handler<AsyncResult<NetSocket>> connectHandler);
 
   /**
+   * Like {@link #connect(int, String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<NetSocket> connect(int port, String host);
+
+  /**
    * Open a connection to a server at the specific {@code port} and {@code host}.
    * <p>
    * {@code host} can be a valid host name or IP address. The connect is done asynchronously and on success, a
@@ -59,6 +65,11 @@ public interface NetClient extends Measured {
   NetClient connect(int port, String host, String serverName, Handler<AsyncResult<NetSocket>> connectHandler);
 
   /**
+   * Like {@link #connect(int, String, String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<NetSocket> connect(int port, String host, String serverName);
+
+  /**
    * Open a connection to a server at the specific {@code remoteAddress}.
    * <p>
    * The connect is done asynchronously and on success, a {@link NetSocket} instance is supplied via the {@code connectHandler} instance
@@ -68,6 +79,11 @@ public interface NetClient extends Measured {
    */
   @Fluent
   NetClient connect(SocketAddress remoteAddress, Handler<AsyncResult<NetSocket>> connectHandler);
+
+  /**
+   * Like {@link #connect(SocketAddress, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<NetSocket> connect(SocketAddress remoteAddress);
 
   /**
    * Open a connection to a server at the specific {@code remoteAddress}.
@@ -80,6 +96,11 @@ public interface NetClient extends Measured {
    */
   @Fluent
   NetClient connect(SocketAddress remoteAddress, String serverName, Handler<AsyncResult<NetSocket>> connectHandler);
+
+  /**
+   * Like {@link #connect(SocketAddress, String, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  Future<NetSocket> connect(SocketAddress remoteAddress, String serverName);
 
   /**
    * Close the client.

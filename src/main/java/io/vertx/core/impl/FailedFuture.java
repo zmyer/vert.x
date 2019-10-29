@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -20,22 +20,29 @@ import io.vertx.core.Handler;
  */
 public class FailedFuture<T> implements Future<T> {
 
+  private final ContextInternal context;
   private final Throwable cause;
 
   /**
    * Create a future that has already failed
    * @param t the throwable
    */
-  FailedFuture(Throwable t) {
-    cause = t != null ? t : new NoStackTraceThrowable(null);
+  FailedFuture(ContextInternal context, Throwable t) {
+    this.context = context;
+    this.cause = t != null ? t : new NoStackTraceThrowable(null);
   }
 
   /**
    * Create a future that has already failed
    * @param failureMessage the failure message
    */
-  FailedFuture(String failureMessage) {
-    this(new NoStackTraceThrowable(failureMessage));
+  FailedFuture(ContextInternal context, String failureMessage) {
+    this(context, new NoStackTraceThrowable(failureMessage));
+  }
+
+  @Override
+  public ContextInternal context() {
+    return context;
   }
 
   @Override
@@ -50,43 +57,8 @@ public class FailedFuture<T> implements Future<T> {
   }
 
   @Override
-  public void complete(T result) {
-    throw new IllegalStateException("Result is already complete: failed");
-  }
-
-  @Override
-  public void complete() {
-    throw new IllegalStateException("Result is already complete: failed");
-  }
-
-  @Override
-  public void fail(Throwable cause) {
-    throw new IllegalStateException("Result is already complete: failed");
-  }
-
-  @Override
-  public void fail(String failureMessage) {
-    throw new IllegalStateException("Result is already complete: failed");
-  }
-
-  @Override
-  public boolean tryComplete(T result) {
-    return false;
-  }
-
-  @Override
-  public boolean tryComplete() {
-    return false;
-  }
-
-  @Override
-  public boolean tryFail(Throwable cause) {
-    return false;
-  }
-
-  @Override
-  public boolean tryFail(String failureMessage) {
-    return false;
+  public Handler<AsyncResult<T>> getHandler() {
+    return null;
   }
 
   @Override
@@ -107,11 +79,6 @@ public class FailedFuture<T> implements Future<T> {
   @Override
   public boolean failed() {
     return true;
-  }
-
-  @Override
-  public void handle(AsyncResult<T> asyncResult) {
-    throw new IllegalStateException("Result is already complete: failed");
   }
 
   @Override

@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.eventbus.EventBusOptions}.
+ * Converter and mapper for {@link io.vertx.core.eventbus.EventBusOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.eventbus.EventBusOptions} original class using Vert.x codegen.
  */
- class EventBusOptionsConverter {
+public class EventBusOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, EventBusOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {
@@ -188,6 +189,16 @@ import java.time.format.DateTimeFormatter;
             obj.setSsl((Boolean)member.getValue());
           }
           break;
+        case "sslHandshakeTimeout":
+          if (member.getValue() instanceof Number) {
+            obj.setSslHandshakeTimeout(((Number)member.getValue()).longValue());
+          }
+          break;
+        case "sslHandshakeTimeoutUnit":
+          if (member.getValue() instanceof String) {
+            obj.setSslHandshakeTimeoutUnit(java.util.concurrent.TimeUnit.valueOf((String)member.getValue()));
+          }
+          break;
         case "tcpCork":
           if (member.getValue() instanceof Boolean) {
             obj.setTcpCork((Boolean)member.getValue());
@@ -231,11 +242,6 @@ import java.time.format.DateTimeFormatter;
         case "useAlpn":
           if (member.getValue() instanceof Boolean) {
             obj.setUseAlpn((Boolean)member.getValue());
-          }
-          break;
-        case "usePooledBuffers":
-          if (member.getValue() instanceof Boolean) {
-            obj.setUsePooledBuffers((Boolean)member.getValue());
           }
           break;
       }
@@ -317,6 +323,10 @@ import java.time.format.DateTimeFormatter;
     json.put("sendBufferSize", obj.getSendBufferSize());
     json.put("soLinger", obj.getSoLinger());
     json.put("ssl", obj.isSsl());
+    json.put("sslHandshakeTimeout", obj.getSslHandshakeTimeout());
+    if (obj.getSslHandshakeTimeoutUnit() != null) {
+      json.put("sslHandshakeTimeoutUnit", obj.getSslHandshakeTimeoutUnit().name());
+    }
     json.put("tcpCork", obj.isTcpCork());
     json.put("tcpFastOpen", obj.isTcpFastOpen());
     json.put("tcpKeepAlive", obj.isTcpKeepAlive());
@@ -328,6 +338,5 @@ import java.time.format.DateTimeFormatter;
       json.put("trustStoreOptions", obj.getTrustStoreOptions().toJson());
     }
     json.put("useAlpn", obj.isUseAlpn());
-    json.put("usePooledBuffers", obj.isUsePooledBuffers());
   }
 }

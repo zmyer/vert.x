@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -19,10 +19,10 @@ import io.vertx.core.spi.FutureFactory;
  */
 public class FutureFactoryImpl implements FutureFactory {
 
-  private static final SucceededFuture EMPTY = new SucceededFuture<>(null);
+  private static final SucceededFuture EMPTY = new SucceededFuture<>(null, null);
 
   @Override
-  public <T> Future<T> future() {
+  public <T> PromiseInternal<T> promise() {
     return new FutureImpl<>();
   }
 
@@ -37,16 +37,41 @@ public class FutureFactoryImpl implements FutureFactory {
   // TODO: 2018/8/1 by zmyer
   @Override
   public <T> Future<T> succeededFuture(T result) {
-    return new SucceededFuture<>(result);
+    return new SucceededFuture<>(null, result);
   }
 
   @Override
   public <T> Future<T> failedFuture(Throwable t) {
-    return new FailedFuture<>(t);
+    return new FailedFuture<>(null, t);
   }
 
   @Override
   public <T> Future<T> failureFuture(String failureMessage) {
-    return new FailedFuture<>(failureMessage);
+    return new FailedFuture<>(null, failureMessage);
+  }
+
+  @Override
+  public <T> PromiseInternal<T> promise(ContextInternal context) {
+    return new FutureImpl<>(context);
+  }
+
+  @Override
+  public <T> Future<T> succeededFuture(ContextInternal context) {
+    return new SucceededFuture<>(context, null);
+  }
+
+  @Override
+  public <T> Future<T> succeededFuture(ContextInternal context, T result) {
+    return new SucceededFuture<>(context, result);
+  }
+
+  @Override
+  public <T> Future<T> failedFuture(ContextInternal context, Throwable t) {
+    return new FailedFuture<>(context, t);
+  }
+
+  @Override
+  public <T> Future<T> failedFuture(ContextInternal context, String failureMessage) {
+    return new FailedFuture<>(context, failureMessage);
   }
 }

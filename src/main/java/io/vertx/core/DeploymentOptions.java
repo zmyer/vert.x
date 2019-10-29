@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -30,14 +30,12 @@ import java.util.concurrent.TimeUnit;
 public class DeploymentOptions {
 
   public static final boolean DEFAULT_WORKER = false;
-  public static final boolean DEFAULT_MULTI_THREADED = false;
   public static final String DEFAULT_ISOLATION_GROUP = null;
   public static final boolean DEFAULT_HA = false;
   public static final int DEFAULT_INSTANCES = 1;
 
   private JsonObject config;
   private boolean worker;
-  private boolean multiThreaded;
   private String isolationGroup;
   private String workerPoolName;
   private int workerPoolSize;
@@ -54,7 +52,6 @@ public class DeploymentOptions {
   public DeploymentOptions() {
     this.worker = DEFAULT_WORKER;
     this.config = null;
-    this.multiThreaded = DEFAULT_MULTI_THREADED;
     this.isolationGroup = DEFAULT_ISOLATION_GROUP;
     this.ha = DEFAULT_HA;
     this.instances = DEFAULT_INSTANCES;
@@ -72,7 +69,6 @@ public class DeploymentOptions {
   public DeploymentOptions(DeploymentOptions other) {
     this.config = other.getConfig() == null ? null : other.getConfig().copy();
     this.worker = other.isWorker();
-    this.multiThreaded = other.isMultiThreaded();
     this.isolationGroup = other.getIsolationGroup();
     this.ha = other.isHa();
     this.extraClasspath = other.getExtraClasspath() == null ? null : new ArrayList<>(other.getExtraClasspath());
@@ -102,7 +98,6 @@ public class DeploymentOptions {
   public void fromJson(JsonObject json) {
     this.config = json.getJsonObject("config");
     this.worker = json.getBoolean("worker", DEFAULT_WORKER);
-    this.multiThreaded = json.getBoolean("multiThreaded", DEFAULT_MULTI_THREADED);
     this.isolationGroup = json.getString("isolationGroup", DEFAULT_ISOLATION_GROUP);
     this.ha = json.getBoolean("ha", DEFAULT_HA);
     JsonArray arr = json.getJsonArray("extraClasspath", null);
@@ -153,28 +148,6 @@ public class DeploymentOptions {
    */
   public DeploymentOptions setWorker(boolean worker) {
     this.worker = worker;
-    return this;
-  }
-
-  /**
-   * Should the verticle(s) be deployed as a multi-threaded worker verticle?
-   * <p>
-   * Ignored if {@link #isWorker} is not true.
-   *
-   * @return true if will be deployed as multi-threaded worker, false otherwise
-   */
-  public boolean isMultiThreaded() {
-    return multiThreaded;
-  }
-
-  /**
-   * Set whether the verticle(s) should be deployed as a multi-threaded worker verticle
-   *
-   * @param multiThreaded true for multi-threaded worker, false otherwise
-   * @return a reference to this, so the API can be used fluently
-   */
-  public DeploymentOptions setMultiThreaded(boolean multiThreaded) {
-    this.multiThreaded = multiThreaded;
     return this;
   }
 
@@ -385,57 +358,5 @@ public class DeploymentOptions {
     JsonObject json = new JsonObject();
     DeploymentOptionsConverter.toJson(this, json);
     return json;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-
-    DeploymentOptions that = (DeploymentOptions) o;
-
-    if (worker != that.worker) {
-      return false;
-    }
-    if (multiThreaded != that.multiThreaded) {
-      return false;
-    }
-    if (ha != that.ha) {
-      return false;
-    }
-    if (instances != that.instances) {
-      return false;
-    }
-    if (config != null ? !config.equals(that.config) : that.config != null) {
-      return false;
-    }
-    if (isolationGroup != null ? !isolationGroup.equals(that.isolationGroup) : that.isolationGroup != null) {
-      return false;
-    }
-    if (extraClasspath != null ? !extraClasspath.equals(that.extraClasspath) : that.extraClasspath != null) {
-      return false;
-    }
-    return !(isolatedClasses != null ? !isolatedClasses.equals(that.isolatedClasses) : that.isolatedClasses != null);
-
-  }
-
-  @Override
-  public int hashCode() {
-    int result = config != null ? config.hashCode() : 0;
-    result = 31 * result + (worker ? 1 : 0);
-    result = 31 * result + (multiThreaded ? 1 : 0);
-    result = 31 * result + (isolationGroup != null ? isolationGroup.hashCode() : 0);
-    result = 31 * result + (ha ? 1 : 0);
-    result = 31 * result + (extraClasspath != null ? extraClasspath.hashCode() : 0);
-    result = 31 * result + instances;
-    result = 31 * result + (isolatedClasses != null ? isolatedClasses.hashCode() : 0);
-    result = 31 * result + (workerPoolName != null ? workerPoolName.hashCode() : 0);
-    result = 31 * result + workerPoolSize;
-    result = 31 * result + Long.hashCode(maxWorkerExecuteTime);
-    return result;
   }
 }

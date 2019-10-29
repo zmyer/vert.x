@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -156,6 +156,9 @@ public class DnsResolverProvider implements ResolverProvider {
             builder.hostsFileEntriesResolver(new HostsFileEntriesResolver() {
               @Override
               public InetAddress address(String inetHost, ResolvedAddressTypes resolvedAddressTypes) {
+                if (inetHost.endsWith(".")) {
+                  inetHost = inetHost.substring(0, inetHost.length() - 1);
+                }
                 InetAddress address = lookup(inetHost, resolvedAddressTypes);
                 if (address == null) {
                   address = lookup(inetHost.toLowerCase(Locale.ENGLISH), resolvedAddressTypes);

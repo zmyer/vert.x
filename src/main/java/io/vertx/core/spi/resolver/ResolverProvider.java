@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -18,9 +18,8 @@ import io.vertx.core.VertxException;
 import io.vertx.core.dns.AddressResolverOptions;
 import io.vertx.core.impl.VertxImpl;
 import io.vertx.core.impl.resolver.DefaultResolverProvider;
-import io.vertx.core.impl.resolver.DnsResolverProvider;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 
 import java.net.InetSocketAddress;
 

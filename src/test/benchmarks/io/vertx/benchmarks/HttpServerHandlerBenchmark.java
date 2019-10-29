@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -220,9 +220,7 @@ public class HttpServerHandlerBenchmark extends BenchmarkBase {
     );
     vertxChannel.config().setAllocator(new Alloc());
 
-
-
-    ContextInternal context = new EventLoopContext(vertx, vertxChannel.eventLoop(), null, null, null, new JsonObject(), Thread.currentThread().getContextClassLoader());
+    ContextInternal context = vertx.createEventLoopContext(vertxChannel.eventLoop(), null, Thread.currentThread().getContextClassLoader());
     Handler<HttpServerRequest> app = request -> {
       HttpServerResponse response = request.response();
       MultiMap headers = response.headers();
@@ -233,16 +231,18 @@ public class HttpServerHandlerBenchmark extends BenchmarkBase {
           .add(HEADER_CONTENT_LENGTH, HELLO_WORLD_LENGTH);
       response.end(HELLO_WORLD_BUFFER);
     };
-    HandlerHolder<HttpHandlers> holder = new HandlerHolder<>(context, new HttpHandlers(app, null, null, null));
-    VertxHandler<Http1xServerConnection> handler = VertxHandler.create(holder.context, chctx -> new Http1xServerConnection(
-      holder.context.owner(),
-      null,
-      new HttpServerOptions(),
-      chctx,
-      holder.context,
-      "localhost",
-      holder.handler,
-      null));
+    VertxHandler<Http1xServerConnection> handler = VertxHandler.create(context, chctx -> {
+      Http1xServerConnection conn = new Http1xServerConnection(
+        context.owner(),
+        null,
+        new HttpServerOptions(),
+        chctx,
+        context,
+        "localhost",
+        null);
+      conn.handler(app);
+      return conn;
+    });
     vertxChannel.pipeline().addLast("handler", handler);
 
     nettyChannel = new EmbeddedChannel(new HttpRequestDecoder(

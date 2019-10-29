@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -15,6 +15,7 @@ import io.vertx.codegen.annotations.CacheReturn;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 
@@ -77,16 +78,9 @@ public interface Message<T> {
    *
    * @param message  the message to reply with.
    */
-  void reply(Object message);
-
-  /**
-   * The same as {@code reply(R message)} but you can specify handler for the reply - i.e.
-   * to receive the reply to the reply.
-   *
-   * @param message  the message to reply with.
-   * @param replyHandler  the reply handler for the reply.
-   */
-  <R> void reply(Object message, Handler<AsyncResult<Message<R>>> replyHandler);
+  default void reply(Object message) {
+    reply(message, new DeliveryOptions());
+  }
 
   /**
    * Link {@link #reply(Object)} but allows you to specify delivery options for the reply.
@@ -97,14 +91,43 @@ public interface Message<T> {
   void reply(Object message, DeliveryOptions options);
 
   /**
-   * The same as {@code reply(R message, DeliveryOptions)} but you can specify handler for the reply - i.e.
+   * Reply to this message, specifying a {@code replyHandler} for the reply - i.e.
    * to receive the reply to the reply.
+   * <p>
+   * If the message was sent specifying a reply handler, that handler will be
+   * called when it has received a reply. If the message wasn't sent specifying a receipt handler
+   * this method does nothing.
    *
-   * @param message  the reply message
-   * @param options  the delivery options
+   * @param message  the message to reply with.
    * @param replyHandler  the reply handler for the reply.
    */
-  <R> void reply(Object message, DeliveryOptions options, Handler<AsyncResult<Message<R>>> replyHandler);
+  default <R> void replyAndRequest(Object message, Handler<AsyncResult<Message<R>>> replyHandler) {
+    replyAndRequest(message, new DeliveryOptions(), replyHandler);
+  }
+
+  /**
+   * Like {@link #replyAndRequest(Object, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  default <R> Future<Message<R>> replyAndRequest(Object message) {
+    return replyAndRequest(message, new DeliveryOptions());
+  }
+
+  /**
+   * Like {@link #replyAndRequest(Object, Handler)} but specifying {@code options} that can be used
+   * to configure the delivery.
+   *
+   * @param message  the message body, may be {@code null}
+   * @param options  delivery options
+   * @param replyHandler  reply handler will be called when any reply from the recipient is received
+   */
+  default <R> void replyAndRequest(Object message, DeliveryOptions options, Handler<AsyncResult<Message<R>>> replyHandler) {
+    this.<R>replyAndRequest(message, options).setHandler(replyHandler);
+  }
+
+  /**
+   * Like {@link #replyAndRequest(Object, DeliveryOptions, Handler)} but returns a {@code Future} of the asynchronous result
+   */
+  <R> Future<Message<R>> replyAndRequest(Object message, DeliveryOptions options);
 
   /**
    * Signal to the sender that processing of this message failed.
@@ -115,6 +138,8 @@ public interface Message<T> {
    * @param failureCode A failure code to pass back to the sender
    * @param message A message to pass back to the sender
    */
-  void fail(int failureCode, String message);
+  default void fail(int failureCode, String message) {
+    reply(new ReplyException(ReplyFailure.RECIPIENT_FAILURE, failureCode, message));
+  }
 
 }

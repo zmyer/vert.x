@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Converter for {@link io.vertx.core.http.HttpServerOptions}.
+ * Converter and mapper for {@link io.vertx.core.http.HttpServerOptions}.
  * NOTE: This class has been automatically generated from the {@link io.vertx.core.http.HttpServerOptions} original class using Vert.x codegen.
  */
- class HttpServerOptionsConverter {
+public class HttpServerOptionsConverter {
+
 
    static void fromJson(Iterable<java.util.Map.Entry<String, Object>> json, HttpServerOptions obj) {
     for (java.util.Map.Entry<String, Object> member : json) {
@@ -148,7 +149,10 @@ import java.time.format.DateTimeFormatter;
     json.put("maxInitialLineLength", obj.getMaxInitialLineLength());
     json.put("maxWebsocketFrameSize", obj.getMaxWebsocketFrameSize());
     json.put("maxWebsocketMessageSize", obj.getMaxWebsocketMessageSize());
+    json.put("perFrameWebsocketCompressionSupported", obj.getPerFrameWebsocketCompressionSupported());
+    json.put("perMessageWebsocketCompressionSupported", obj.getPerMessageWebsocketCompressionSupported());
     json.put("websocketAllowServerNoContext", obj.getWebsocketAllowServerNoContext());
+    json.put("websocketCompressionLevel", obj.getWebsocketCompressionLevel());
     json.put("websocketPreferredClientNoContext", obj.getWebsocketPreferredClientNoContext());
     if (obj.getWebsocketSubProtocols() != null) {
       json.put("websocketSubProtocols", obj.getWebsocketSubProtocols());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -32,4 +32,9 @@ public @interface Name {
    */
   String value();
 
+  /**
+   * The command priority. If more than 1 with same name are available on the classpath the one with highest priority
+   * replaces the existing.
+   */
+  int priority() default 0;
 }

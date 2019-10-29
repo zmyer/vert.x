@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -17,19 +17,18 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Vertx;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.*;
+import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.impl.utils.ConcurrentCyclicSequence;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.spi.metrics.EventBusMetrics;
 import io.vertx.core.spi.metrics.MetricsProvider;
 import io.vertx.core.spi.metrics.VertxMetrics;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -43,7 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
 // TODO: 2018/8/1 by zmyer
 public class EventBusImpl implements EventBus, MetricsProvider {
 
-  private static final Logger log = LoggerFactory.getLogger(EventBusImpl.class);
+  static final Logger log = LoggerFactory.getLogger(EventBusImpl.class);
 
   private final List<Handler<DeliveryContext>> sendInterceptors = new CopyOnWriteArrayList<>();
   private final List<Handler<DeliveryContext>> receiveInterceptors = new CopyOnWriteArrayList<>();
@@ -53,12 +52,14 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   protected final ConcurrentMap<String, ConcurrentCyclicSequence<HandlerHolder>> handlerMap = new ConcurrentHashMap<>();
   protected final CodecManager codecManager = new CodecManager();
   protected volatile boolean started;
+  private final ContextInternal sendNoContext;
 
   // TODO: 2018/8/1 by zmyer
   public EventBusImpl(VertxInternal vertx) {
     VertxMetrics metrics = vertx.metricsSPI();
     this.vertx = vertx;
     this.metrics = metrics != null ? metrics.createEventBusMetrics() : null;
+    this.sendNoContext = vertx.getOrCreateContext();
   }
 
   @Override
@@ -79,6 +80,10 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     return this;
   }
 
+  Iterator<Handler<DeliveryContext>> receiveInterceptors() {
+    return receiveInterceptors.iterator();
+  }
+
   @Override
   public <T> EventBus removeInboundInterceptor(Handler<DeliveryContext<T>> interceptor) {
     receiveInterceptors.remove(interceptor);
@@ -97,26 +102,23 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   // TODO: 2018/8/2 by zmyer
   @Override
   public EventBus send(String address, Object message) {
-    return send(address, message, new DeliveryOptions(), null);
-  }
-
-  @Override
-  public <T> EventBus send(String address, Object message, Handler<AsyncResult<Message<T>>> replyHandler) {
-    return send(address, message, new DeliveryOptions(), replyHandler);
+    return send(address, message, new DeliveryOptions());
   }
 
   @Override
   public EventBus send(String address, Object message, DeliveryOptions options) {
-    return send(address, message, options, null);
+    MessageImpl msg = createMessage(true, address, options.getHeaders(), message, options.getCodecName());
+    sendOrPubInternal(msg, options, null, null);
+    return this;
   }
 
   // TODO: 2018/8/2 by zmyer
   @Override
-  public <T> EventBus send(String address, Object message, DeliveryOptions options,
-                           final Handler<AsyncResult<Message<T>>> replyHandler) {
-    sendOrPubInternal(createMessage(true, address, options.getHeaders(), message, options.getCodecName()), options,
-      replyHandler);
-    return this;
+  public <T> Future<Message<T>> request(String address, Object message, DeliveryOptions options) {
+    MessageImpl msg = createMessage(true, address, options.getHeaders(), message, options.getCodecName());
+    ReplyHandler<T> handler = createReplyHandler(msg, true, options);
+    sendOrPubInternal(msg, options, handler, null);
+    return handler.result();
   }
 
   @Override
@@ -154,8 +156,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   // TODO: 2018/11/30 by zmyer
   @Override
   public EventBus publish(String address, Object message, DeliveryOptions options) {
-    sendOrPubInternal(createMessage(false, address, options.getHeaders(), message, options.getCodecName()), options,
-      null);
+    sendOrPubInternal(createMessage(false, address, options.getHeaders(), message, options.getCodecName()), options, null, null);
     return this;
   }
 
@@ -163,7 +164,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   public <T> MessageConsumer<T> consumer(String address) {
     checkStarted();
     Objects.requireNonNull(address, "address");
-    return new HandlerRegistration<>(vertx, metrics, this, address, null, false, null, -1);
+    return new MessageConsumerImpl<>(vertx, vertx.getOrCreateContext(), this, address,  false);
   }
 
   @Override
@@ -179,7 +180,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   public <T> MessageConsumer<T> localConsumer(String address) {
     checkStarted();
     Objects.requireNonNull(address, "address");
-    return new HandlerRegistration<>(vertx, metrics, this, address, null, true, null, -1);
+    return new MessageConsumerImpl<>(vertx, vertx.getOrCreateContext(), this, address,  true);
   }
 
   @Override
@@ -236,28 +237,26 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     return metrics;
   }
 
-  // TODO: 2018/8/2 by zmyer
-  protected MessageImpl createMessage(boolean send, String address, MultiMap headers, Object body, String codecName) {
+  public MessageImpl createMessage(boolean send, String address, MultiMap headers, Object body, String codecName) {
     Objects.requireNonNull(address, "no null address accepted");
     final MessageCodec codec = codecManager.lookupCodec(body, codecName);
     @SuppressWarnings("unchecked")
-    MessageImpl msg = new MessageImpl(address, null, headers, body, codec, send, this);
+    MessageImpl msg = new MessageImpl(address, headers, body, codec, send, this);
     return msg;
   }
 
-  // TODO: 2018/8/1 by zmyer
-  protected <T> HandlerHolder<T> addRegistration(String address, HandlerRegistration<T> registration,
-                                                 boolean replyHandler, boolean localOnly) {
-    Objects.requireNonNull(registration.getHandler(), "handler");
-    final LocalRegistrationResult<T> result = addLocalRegistration(address, registration, replyHandler, localOnly);
-    addRegistration(result.newAddress, address, replyHandler, localOnly, registration::setResult);
+  protected <T> HandlerHolder<T> addRegistration(String address,
+                                                 HandlerRegistration<T> registration,
+                                                 boolean replyHandler,
+                                                 boolean localOnly,
+                                                 Handler<AsyncResult<Void>> completionHandler) {
+//    Objects.requireNonNull(registration.getHandler(), "handler");
+    LocalRegistrationResult<T> result = addLocalRegistration(address, registration, replyHandler, localOnly);
+    addRegistration(result.newAddress, result.holder, completionHandler);
     return result.holder;
   }
 
-  // TODO: 2018/8/1 by zmyer
-  protected <T> void addRegistration(boolean newAddress, String address,
-                                     boolean replyHandler, boolean localOnly,
-                                     final Handler<AsyncResult<Void>> completionHandler) {
+  protected <T> void addRegistration(boolean newAddress, HandlerHolder<T> holder, Handler<AsyncResult<Void>> completionHandler) {
     completionHandler.handle(Future.succeededFuture());
   }
 
@@ -277,15 +276,9 @@ public class EventBusImpl implements EventBus, MetricsProvider {
                                                               boolean replyHandler, boolean localOnly) {
     Objects.requireNonNull(address, "address");
 
-    Context context = Vertx.currentContext();
-    final boolean hasContext = context != null;
-    if (!hasContext) {
-      // Embedded
-      context = vertx.getOrCreateContext();
-    }
-    registration.setHandlerContext(context);
+    Context context = registration.context;
 
-    final HandlerHolder<T> holder = new HandlerHolder<>(metrics, registration, replyHandler, localOnly, context);
+    HandlerHolder<T> holder = new HandlerHolder<>(registration, address, replyHandler, localOnly, context);
 
     final ConcurrentCyclicSequence<HandlerHolder> handlers = new ConcurrentCyclicSequence<HandlerHolder>().add(holder);
     final ConcurrentCyclicSequence<HandlerHolder> actualHandlers = handlerMap.merge(
@@ -293,8 +286,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
       handlers,
       (old, prev) -> old.add(prev.first()));
 
-    if (hasContext) {
-      final HandlerEntry entry = new HandlerEntry<>(address, registration);
+    if (context.deploymentID() != null) {
+      HandlerEntry entry = new HandlerEntry<>(address, registration);
       context.addCloseHook(entry);
     }
 
@@ -304,8 +297,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/2 by zmyer
   protected <T> void removeRegistration(HandlerHolder<T> holder, Handler<AsyncResult<Void>> completionHandler) {
-    final boolean last = removeLocalRegistration(holder);
-    removeRegistration(last ? holder : null, holder.getHandler().address(), completionHandler);
+    boolean last = removeLocalRegistration(holder);
+    removeRegistration(last ? holder : null, holder.address, completionHandler);
   }
 
   protected <T> void removeRegistration(HandlerHolder<T> handlerHolder, String address,
@@ -315,58 +308,34 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/2 by zmyer
   private <T> boolean removeLocalRegistration(HandlerHolder<T> holder) {
-    String address = holder.getHandler().address();
-    boolean last = handlerMap.compute(address, (key, val) -> {
+    boolean last = handlerMap.compute(holder.address, (key, val) -> {
       if (val == null) {
         return null;
       }
       final ConcurrentCyclicSequence<HandlerHolder> next = val.remove(holder);
       return next.size() == 0 ? null : next;
     }) == null;
-    if (holder.setRemoved()) {
-      holder.getContext().removeCloseHook(new HandlerEntry<>(address, holder.getHandler()));
+    if (holder.setRemoved() && holder.getContext().deploymentID() != null) {
+      holder.getContext().removeCloseHook(new HandlerEntry<>(holder.address, holder.getHandler()));
     }
     return last;
   }
 
-  protected <T> void sendReply(MessageImpl replyMessage, MessageImpl replierMessage, DeliveryOptions options,
-                               Handler<AsyncResult<Message<T>>> replyHandler) {
+  protected <T> void sendReply(MessageImpl replyMessage, DeliveryOptions options, ReplyHandler<T> replyHandler) {
     if (replyMessage.address() == null) {
       throw new IllegalStateException("address not specified");
     } else {
-      HandlerRegistration<T> replyHandlerRegistration = createReplyHandlerRegistration(replyMessage, options, replyHandler);
-      new OutboundDeliveryContext<>(replyMessage, options, replyHandlerRegistration, replierMessage).next();
+      ContextInternal ctx = vertx.getOrCreateContext();
+      if (ctx == null) {
+        // Guarantees the order when there is no current context in clustered mode
+        ctx = sendNoContext;
+      }
+      sendOrPubInternal(new OutboundDeliveryContext<>(ctx, replyMessage, options, replyHandler, null));
     }
-  }
-
-  protected <T> void sendReply(OutboundDeliveryContext<T> sendContext, MessageImpl replierMessage) {
-    sendOrPub(sendContext);
   }
 
   protected <T> void sendOrPub(OutboundDeliveryContext<T> sendContext) {
-    MessageImpl message = sendContext.message;
-    if (metrics != null) {
-      metrics.messageSent(message.address(), !message.isSend(), true, false);
-    }
-    deliverMessageLocally(sendContext);
-  }
-
-  // TODO: 2018/8/2 by zmyer
-  protected <T> Handler<Message<T>> convertHandler(Handler<AsyncResult<Message<T>>> handler) {
-    return reply -> {
-      Future<Message<T>> result;
-      if (reply.body() instanceof ReplyException) {
-        // This is kind of clunky - but hey-ho
-        ReplyException exception = (ReplyException) reply.body();
-        if (metrics != null) {
-          metrics.replyFailure(reply.address(), exception.failureType());
-        }
-        result = Future.failedFuture(exception);
-      } else {
-        result = Future.succeededFuture(reply);
-      }
-      handler.handle(result);
-    };
+    sendLocally(sendContext);
   }
 
   protected void callCompletionHandlerAsync(Handler<AsyncResult<Void>> completionHandler) {
@@ -377,16 +346,12 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     }
   }
 
-  protected <T> void deliverMessageLocally(OutboundDeliveryContext<T> sendContext) {
-    if (!deliverMessageLocally(sendContext.message)) {
-      // no handlers
-      if (metrics != null) {
-        metrics.replyFailure(sendContext.message.address, ReplyFailure.NO_HANDLERS);
-      }
-      if (sendContext.handlerRegistration != null) {
-        sendContext.handlerRegistration.sendAsyncResultFailure(ReplyFailure.NO_HANDLERS, "No handlers for address "
-          + sendContext.message.address);
-      }
+  private <T> void sendLocally(OutboundDeliveryContext<T> sendContext) {
+    ReplyException failure = deliverMessageLocally(sendContext.message);
+    if (failure != null) {
+      sendContext.written(failure);
+    } else {
+      sendContext.written(null);
     }
   }
 
@@ -394,10 +359,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     return true;
   }
 
-  // TODO: 2018/8/1 by zmyer
-  protected <T> boolean deliverMessageLocally(MessageImpl msg) {
-    msg.setBus(this);
-    final ConcurrentCyclicSequence<HandlerHolder> handlers = handlerMap.get(msg.address());
+  protected ReplyException deliverMessageLocally(MessageImpl msg) {
+    ConcurrentCyclicSequence<HandlerHolder> handlers = handlerMap.get(msg.address());
     if (handlers != null) {
       if (msg.isSend()) {
         //Choose one
@@ -407,6 +370,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
         }
         if (holder != null) {
           deliverToHandler(msg, holder);
+        } else {
+          // RACY issue !!!!!
         }
       } else {
         // Publish
@@ -417,12 +382,12 @@ public class EventBusImpl implements EventBus, MetricsProvider {
           deliverToHandler(msg, holder);
         }
       }
-      return true;
+      return null;
     } else {
       if (metrics != null) {
         metrics.messageReceived(msg.address(), !msg.isSend(), isMessageLocal(msg), 0);
       }
-      return false;
+      return new ReplyException(ReplyFailure.NO_HANDLERS, "No handlers for address " + msg.address);
     }
   }
 
@@ -438,99 +403,46 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     return "__vertx.reply." + Long.toString(replySequence.incrementAndGet());
   }
 
-  // TODO: 2018/8/2 by zmyer
-  private <T> HandlerRegistration<T> createReplyHandlerRegistration(MessageImpl message,
-                                                                    DeliveryOptions options,
-                                                                    Handler<AsyncResult<Message<T>>> replyHandler) {
-    if (replyHandler != null) {
-      final long timeout = options.getSendTimeout();
-      final String replyAddress = generateReplyAddress();
-      message.setReplyAddress(replyAddress);
-      final Handler<Message<T>> simpleReplyHandler = convertHandler(replyHandler);
-      final HandlerRegistration<T> registration =
-        new HandlerRegistration<>(vertx, metrics, this, replyAddress, message.address,
-          true, replyHandler, timeout);
-      registration.handler(simpleReplyHandler);
-      return registration;
-    } else {
-      return null;
-    }
+  <T> ReplyHandler<T> createReplyHandler(MessageImpl message,
+                                                 boolean src,
+                                                 DeliveryOptions options) {
+    long timeout = options.getSendTimeout();
+    String replyAddress = generateReplyAddress();
+    message.setReplyAddress(replyAddress);
+    ReplyHandler<T> handler = new ReplyHandler<>(this, vertx.getOrCreateContext(), replyAddress, message.address, src, timeout);
+    handler.register();
+    return handler;
   }
 
-  // TODO: 2018/8/2 by zmyer
-  private <T> void sendOrPubInternal(MessageImpl message, DeliveryOptions options,
-                                     Handler<AsyncResult<Message<T>>> replyHandler) {
+  public <T> OutboundDeliveryContext<T> newSendContext(MessageImpl message, DeliveryOptions options,
+                                               ReplyHandler<T> handler, Promise<Void> writePromise) {
+    ContextInternal ctx = vertx.getContext();
+    if (ctx == null) {
+      // Guarantees the order when there is no current context in clustered mode
+      ctx = sendNoContext;
+    }
+    return new OutboundDeliveryContext<>(ctx, message, options, handler, writePromise);
+  }
+
+  public <T> void sendOrPubInternal(OutboundDeliveryContext<T> senderCtx) {
     checkStarted();
-    HandlerRegistration<T> replyHandlerRegistration = createReplyHandlerRegistration(message, options, replyHandler);
-    OutboundDeliveryContext<T> sendContext = new OutboundDeliveryContext<>(message, options, replyHandlerRegistration);
-    sendContext.next();
+    senderCtx.iter = sendInterceptors.iterator();
+    senderCtx.bus = this;
+    senderCtx.metrics = metrics;
+    senderCtx.next();
   }
 
-  protected class OutboundDeliveryContext<T> implements DeliveryContext<T> {
-
-    public final MessageImpl message;
-    public final DeliveryOptions options;
-    public final Iterator<Handler<DeliveryContext>> iter;
-    private final HandlerRegistration<T> handlerRegistration;
-    private final MessageImpl replierMessage;
-
-    private OutboundDeliveryContext(MessageImpl message, DeliveryOptions options, HandlerRegistration<T> handlerRegistration) {
-      this(message, options, handlerRegistration, null);
-    }
-
-    private OutboundDeliveryContext(MessageImpl message, DeliveryOptions options, HandlerRegistration<T> handlerRegistration,
-                                    MessageImpl replierMessage) {
-      this.message = message;
-      this.options = options;
-      this.handlerRegistration = handlerRegistration;
-      this.iter = sendInterceptors.iterator();
-      this.replierMessage = replierMessage;
-    }
-
-    @Override
-    public Message<T> message() {
-      return message;
-    }
-
-    // TODO: 2018/8/2 by zmyer
-    @Override
-    public void next() {
-      if (iter.hasNext()) {
-        Handler<DeliveryContext> handler = iter.next();
-        try {
-          if (handler != null) {
-            handler.handle(this);
-          } else {
-            next();
-          }
-        } catch (Throwable t) {
-          log.error("Failure in interceptor", t);
-        }
-      } else {
-        if (replierMessage == null) {
-          sendOrPub(this);
-        } else {
-          sendReply(this, replierMessage);
-        }
-      }
-    }
-
-    @Override
-    public boolean send() {
-      return message.isSend();
-    }
-
-    @Override
-    public Object body() {
-      return message.sentBody;
-    }
+  public <T> void sendOrPubInternal(MessageImpl message, DeliveryOptions options,
+                                    ReplyHandler<T> handler, Promise<Void> writePromise) {
+    checkStarted();
+    sendOrPubInternal(newSendContext(message, options, handler, writePromise));
   }
 
   private void unregisterAll() {
     // Unregister all handlers explicitly - don't rely on context hooks
-    for (ConcurrentCyclicSequence<HandlerHolder> handlers : handlerMap.values()) {
-      for (HandlerHolder holder : handlers) {
-        holder.getHandler().unregister();
+    for (ConcurrentCyclicSequence<HandlerHolder> handlers: handlerMap.values()) {
+      for (HandlerHolder holder: handlers) {
+        holder.getHandler().unregister(ar -> {});
       }
     }
   }
@@ -539,71 +451,20 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   private <T> void deliverToHandler(MessageImpl msg, HandlerHolder<T> holder) {
     // Each handler gets a fresh copy
     MessageImpl copied = msg.copyBeforeReceive();
-    DeliveryContext<T> receiveContext = new InboundDeliveryContext<>(copied, holder);
-
-    if (metrics != null) {
-      metrics.scheduleMessage(holder.getHandler().getMetric(), msg.isLocal());
-    }
 
     holder.getContext().runOnContext((v) -> {
       // Need to check handler is still there - the handler might have been removed after the message were sent but
       // before it was received
       try {
         if (!holder.isRemoved()) {
-          receiveContext.next();
+          holder.getHandler().receive(copied);
         }
       } finally {
         if (holder.isReplyHandler()) {
-          holder.getHandler().unregister();
+          holder.getHandler().unregister(ar -> {});
         }
       }
     });
-  }
-
-  protected class InboundDeliveryContext<T> implements DeliveryContext<T> {
-
-    private final MessageImpl message;
-    private final Iterator<Handler<DeliveryContext>> iter;
-    private final HandlerHolder<T> holder;
-
-    private InboundDeliveryContext(MessageImpl message, HandlerHolder<T> holder) {
-      this.message = message;
-      this.holder = holder;
-      this.iter = receiveInterceptors.iterator();
-    }
-
-    @Override
-    public Message<T> message() {
-      return message;
-    }
-
-    @Override
-    public void next() {
-      if (iter.hasNext()) {
-        try {
-          Handler<DeliveryContext> handler = iter.next();
-          if (handler != null) {
-            handler.handle(this);
-          } else {
-            next();
-          }
-        } catch (Throwable t) {
-          log.error("Failure in interceptor", t);
-        }
-      } else {
-        holder.getHandler().handle(message);
-      }
-    }
-
-    @Override
-    public boolean send() {
-      return message.isSend();
-    }
-
-    @Override
-    public Object body() {
-      return message.receivedBody;
-    }
   }
 
   public class HandlerEntry<T> implements Closeable {

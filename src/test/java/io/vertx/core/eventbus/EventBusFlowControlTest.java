@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -83,7 +83,7 @@ public class EventBusFlowControlTest extends VertxTestBase {
   private void sendBatch(MessageProducer<String> prod, int batchSize, int numBatches, int batchNumber) {
     while (batchNumber < numBatches) {
       for (int i = 0; i < batchSize; i++) {
-        prod.send("message-" + i);
+        prod.write("message-" + i);
       }
       if (prod.writeQueueFull()) {
         int nextBatch = batchNumber + 1;
@@ -152,7 +152,7 @@ public class EventBusFlowControlTest extends VertxTestBase {
 
     boolean drainHandlerSet = false;
     for (int i = 0; i < wqms * 2; i++) {
-      prod.send("message-" + i);
+      prod.write("message-" + i);
       if (prod.writeQueueFull() && !drainHandlerSet) {
         prod.drainHandler(v -> {
           fail("Should not be called");
@@ -173,7 +173,7 @@ public class EventBusFlowControlTest extends VertxTestBase {
       if (sequence.isEmpty()) {
         handlerContext.set(Vertx.currentContext());
       } else {
-        assertEquals(Vertx.currentContext(), handlerContext.get());
+        assertOnIOContext(handlerContext.get());
       }
       sequence.add(msg.body());
     });
@@ -184,7 +184,7 @@ public class EventBusFlowControlTest extends VertxTestBase {
     while (!prod.writeQueueFull()) {
       int val = count++;
       expected.add(val);
-      prod.send(val);
+      prod.write(val);
     }
     consumer.resume();
     assertWaitUntil(() -> !prod.writeQueueFull());

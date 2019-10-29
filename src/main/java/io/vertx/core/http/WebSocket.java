@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,6 +12,7 @@
 package io.vertx.core.http;
 
 import io.vertx.codegen.annotations.VertxGen;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 
@@ -42,28 +43,25 @@ public interface WebSocket extends WebSocketBase {
   WebSocket endHandler(Handler<Void> endHandler);
 
   @Override
-  WebSocket write(Buffer data);
-
-  @Override
   WebSocket setWriteQueueMaxSize(int maxSize);
 
   @Override
   WebSocket drainHandler(Handler<Void> handler);
 
   @Override
-  WebSocket writeFrame(WebSocketFrame frame);
+  WebSocket writeFrame(WebSocketFrame frame, Handler<AsyncResult<Void>> handler);
 
   @Override
-  WebSocket writeFinalTextFrame(String text);
+  WebSocket writeFinalTextFrame(String text, Handler<AsyncResult<Void>> handler);
 
   @Override
-  WebSocket writeFinalBinaryFrame(Buffer data);
+  WebSocket writeFinalBinaryFrame(Buffer data, Handler<AsyncResult<Void>> handler);
 
   @Override
-  WebSocket writeBinaryMessage(Buffer data);
+  WebSocket writeBinaryMessage(Buffer data, Handler<AsyncResult<Void>> handler);
 
   @Override
-  WebSocket writeTextMessage(String text);
+  WebSocket writeTextMessage(String text, Handler<AsyncResult<Void>> handler);
 
   @Override
   WebSocket closeHandler(Handler<Void> handler);

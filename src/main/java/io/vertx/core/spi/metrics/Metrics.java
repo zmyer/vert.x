@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -23,17 +23,6 @@ public interface Metrics {
   String DISABLE_METRICS_PROPERTY_NAME = "vertx.disableMetrics";
 
   boolean METRICS_ENABLED = !Boolean.getBoolean(DISABLE_METRICS_PROPERTY_NAME);
-
-  /**
-   * Whether the metrics are enabled.
-   *
-   * @return true if the metrics are enabled.
-   * @deprecated the SPI metrics should instead return a {@code null} object to signal that metrics is not provided
-   */
-  @Deprecated
-  default boolean isEnabled() {
-    return true;
-  }
 
   /**
    * Used to close out the metrics, for example when an http server/client has been closed.<p/>

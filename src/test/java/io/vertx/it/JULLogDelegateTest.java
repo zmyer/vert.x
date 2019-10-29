@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -24,8 +24,6 @@ import static org.junit.Assert.*;
 /**
  * These tests check the JUL log delegate. It analyses the output, so any change in the configuration may break the
  * tests.
- *
- * TODO Ignore these tests for now, they break the CI, because the logging has already been initialized.
  *
  * @author <a href="http://escoffier.me">Clement Escoffier</a>
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -39,12 +39,21 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
   private List<Object> list;
 
   /**
-   * Create an instance from a String of JSON
+   * Create an instance from a String of JSON, this string must be a valid array otherwise an exception will be thrown.
+   * <p/>
+   * If you are unsure of the value, you should use instead {@link Json#decodeValue(String)} and check the result is
+   * a JSON array.
    *
    * @param json the string of JSON
    */
   public JsonArray(String json) {
+    if (json == null) {
+      throw new NullPointerException();
+    }
     fromJson(json);
+    if (list == null) {
+      throw new DecodeException("Invalid JSON array: " + json);
+    }
   }
 
   /**
@@ -57,9 +66,12 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
   /**
    * Create an instance from a List. The List is not copied.
    *
-   * @param list
+   * @param list the underlying backing list
    */
   public JsonArray(List list) {
+    if (list == null) {
+      throw new NullPointerException();
+    }
     this.list = list;
   }
 
@@ -69,7 +81,13 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @param buf  the buffer of JSON.
    */
   public JsonArray(Buffer buf) {
+    if (buf == null) {
+      throw new NullPointerException();
+    }
     fromBuffer(buf);
+    if (list == null) {
+      throw new DecodeException("Invalid JSON array: " + buf);
+    }
   }
 
   /**
@@ -271,15 +289,14 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
   /**
    * Add an enum to the JSON array.
    * <p>
-   * JSON has no concept of encoding Enums, so the Enum will be converted to a String using the {@link java.lang.Enum#name}
+   * JSON has no concept of encoding Enums, so the Enum will be converted to a String using the {@link java.lang.Enum#name()}
    * method and the value added as a String.
    *
    * @param value  the value
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Enum value) {
-    Objects.requireNonNull(value);
-    list.add(value.name());
+    list.add(value != null ? value.name() : null);
     return this;
   }
 
@@ -290,8 +307,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(CharSequence value) {
-    Objects.requireNonNull(value);
-    list.add(value.toString());
+    list.add(value != null ? value.toString() : null);
     return this;
   }
 
@@ -302,7 +318,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(String value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -314,7 +329,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Integer value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -326,7 +340,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Long value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -338,7 +351,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Double value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -350,7 +362,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Float value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -362,7 +373,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Boolean value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -384,7 +394,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(JsonObject value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -396,7 +405,6 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(JsonArray value) {
-    Objects.requireNonNull(value);
     list.add(value);
     return this;
   }
@@ -410,8 +418,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(byte[] value) {
-    Objects.requireNonNull(value);
-    list.add(Base64.getEncoder().encodeToString(value));
+    list.add(value != null ? Base64.getEncoder().encodeToString(value) : null);
     return this;
   }
 
@@ -424,8 +431,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Instant value) {
-    Objects.requireNonNull(value);
-    list.add(ISO_INSTANT.format(value));
+    list.add(value != null ? ISO_INSTANT.format(value) : null);
     return this;
   }
 
@@ -436,8 +442,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray add(Object value) {
-    Objects.requireNonNull(value);
-    value = Json.checkAndCopy(value, false);
+    value = JsonObject.checkAndCopy(value, false);
     list.add(value);
     return this;
   }
@@ -449,8 +454,194 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return  a reference to this, so the API can be used fluently
    */
   public JsonArray addAll(JsonArray array) {
-    Objects.requireNonNull(array);
     list.addAll(array.list);
+    return this;
+  }
+
+  /**
+   * Set an enum to the JSON array at position {@code pos}.
+   * <p>
+   * JSON has no concept of encoding Enums, so the Enum will be converted to a String using the {@link java.lang.Enum#name()}
+   * method and the value added as a String.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Enum value) {
+    list.set(pos, value != null ? value.name() : null);
+    return this;
+  }
+
+  /**
+   * Set a CharSequence to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, CharSequence value) {
+    list.set(pos, value != null ? value.toString() : null);
+    return this;
+  }
+
+  /**
+   * Set a String to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, String value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set an Integer to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Integer value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set a Long to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Long value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set a Double to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Double value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set a Float to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Float value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set a Boolean to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Boolean value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set a null value to the JSON array at position {@code pos}.
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray setNull(int pos) {
+    list.set(pos, null);
+    return this;
+  }
+
+  /**
+   * Set a JSON object to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, JsonObject value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set another JSON array to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, JsonArray value) {
+    list.set(pos, value);
+    return this;
+  }
+
+  /**
+   * Set a binary value to the JSON array at position {@code pos}.
+   * <p>
+   * JSON has no notion of binary so the binary will be base64 encoded to a String, and the String added.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, byte[] value) {
+    list.set(pos, value != null ? Base64.getEncoder().encodeToString(value) : null);
+    return this;
+  }
+
+  /**
+   * Set a Instant value to the JSON array at position {@code pos}.
+   * <p>
+   * JSON has no notion of Temporal data so the Instant will be ISOString encoded, and the String added.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Instant value) {
+    list.set(pos, value != null ? ISO_INSTANT.format(value) : null);
+    return this;
+  }
+
+  /**
+   * Set an Object to the JSON array at position {@code pos}.
+   *
+   * @param pos position in the array
+   * @param value the value
+   *
+   * @return a reference to this, so the API can be used fluently
+   */
+  public JsonArray set(int pos, Object value) {
+    value = JsonObject.checkAndCopy(value, false);
+    list.set(pos, value);
     return this;
   }
 
@@ -546,7 +737,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return the string encoding
    */
   public String encode() {
-    return Json.encode(list);
+    return Json.CODEC.toString(this, false);
   }
 
   /**
@@ -555,7 +746,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return the buffer encoding.
    */
   public Buffer toBuffer() {
-    return Json.encodeToBuffer(list);
+    return Json.CODEC.toBuffer(this, false);
   }
 
   /**
@@ -564,7 +755,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return the string encoding
    */
   public String encodePrettily() {
-    return Json.encodePrettily(list);
+    return Json.CODEC.toString(this, true);
   }
 
   /**
@@ -576,7 +767,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
   public JsonArray copy() {
     List<Object> copiedList = new ArrayList<>(list.size());
     for (Object val: list) {
-      val = Json.checkAndCopy(val, true);
+      val = JsonObject.checkAndCopy(val, true);
       copiedList.add(val);
     }
     return new JsonArray(copiedList);
@@ -588,7 +779,7 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
    * @return a Stream
    */
   public Stream<Object> stream() {
-    return Json.asStream(iterator());
+    return JsonObject.asStream(iterator());
   }
 
   @Override
@@ -653,11 +844,11 @@ public class JsonArray implements Iterable<Object>, ClusterSerializable, Shareab
   }
 
   private void fromJson(String json) {
-    list = Json.decodeValue(json, List.class);
+    list = Json.CODEC.fromString(json, List.class);
   }
 
   private void fromBuffer(Buffer buf) {
-    list = Json.decodeValue(buf, List.class);
+    list = Json.CODEC.fromBuffer(buf, List.class);
   }
 
   private class Iter implements Iterator<Object> {

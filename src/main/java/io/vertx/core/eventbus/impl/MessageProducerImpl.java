@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -12,9 +12,12 @@
 package io.vertx.core.eventbus.impl;
 
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.*;
+import io.vertx.core.impl.VertxInternal;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -28,10 +31,10 @@ public class MessageProducerImpl<T> implements MessageProducer<T> {
   public static final String CREDIT_ADDRESS_HEADER_NAME = "__vertx.credit";
 
   private final Vertx vertx;
-  private final EventBus bus;
+  private final EventBusImpl bus;
   private final boolean send;
   private final String address;
-  private final Queue<T> pending = new ArrayDeque<>();
+  private final Queue<OutboundDeliveryContext<T>> pending = new ArrayDeque<>();
   private final MessageConsumer<Integer> creditConsumer;
   private DeliveryOptions options;
   private int maxSize = DEFAULT_WRITE_QUEUE_MAX_SIZE;
@@ -40,7 +43,7 @@ public class MessageProducerImpl<T> implements MessageProducer<T> {
 
   public MessageProducerImpl(Vertx vertx, String address, boolean send, DeliveryOptions options) {
     this.vertx = vertx;
-    this.bus = vertx.eventBus();
+    this.bus = (EventBusImpl) vertx.eventBus();
     this.address = address;
     this.send = send;
     this.options = options;
@@ -66,18 +69,6 @@ public class MessageProducerImpl<T> implements MessageProducer<T> {
   }
 
   @Override
-  public MessageProducer<T> send(T message) {
-    doSend(message, null);
-    return this;
-  }
-
-  @Override
-  public <R> MessageProducer<T> send(T message, Handler<AsyncResult<Message<R>>> replyHandler) {
-    doSend(message, replyHandler);
-    return this;
-  }
-
-  @Override
   public MessageProducer<T> exceptionHandler(Handler<Throwable> handler) {
     return this;
   }
@@ -91,13 +82,36 @@ public class MessageProducerImpl<T> implements MessageProducer<T> {
   }
 
   @Override
-  public synchronized MessageProducer<T> write(T data) {
-    if (send) {
-      doSend(data, null);
-    } else {
-      bus.publish(address, data, options);
+  public synchronized Future<Void> write(T data) {
+    Promise<Void> promise = ((VertxInternal)vertx).getOrCreateContext().promise();
+    write(data, promise);
+    return promise.future();
+  }
+
+  @Override
+  public void write(T data, Handler<AsyncResult<Void>> handler) {
+    Promise<Void> promise = null;
+    if (handler != null) {
+      promise = ((VertxInternal)vertx).getOrCreateContext().promise();
+      promise.future().setHandler(handler);
     }
-    return this;
+    write(data, promise);
+  }
+
+  private void write(T data, Promise<Void> handler) {
+    MessageImpl msg = bus.createMessage(send, address, options.getHeaders(), data, options.getCodecName());
+    OutboundDeliveryContext<T> sendCtx = bus.newSendContext(msg, options, null, handler);
+    if (send) {
+      synchronized (this) {
+        if (credits > 0) {
+          credits--;
+        } else {
+          pending.add(sendCtx);
+          return;
+        }
+      }
+    }
+    bus.sendOrPubInternal(msg, options, null, handler);
   }
 
   @Override
@@ -128,14 +142,32 @@ public class MessageProducerImpl<T> implements MessageProducer<T> {
   }
 
   @Override
-  public void end() {
-    close();
+  public Future<Void> end() {
+    return close();
   }
 
   @Override
-  public void close() {
+  public void end(Handler<AsyncResult<Void>> handler) {
+    close(null);
+  }
+
+  @Override
+  public Future<Void> close() {
+    Promise<Void> promise = Promise.promise();
+    close(promise);
+    return promise.future();
+  }
+
+  @Override
+  public void close(Handler<AsyncResult<Void>> handler) {
     if (creditConsumer != null) {
-      creditConsumer.unregister();
+      creditConsumer.unregister(handler);
+    } else {
+      vertx.runOnContext(v -> {
+        if (handler != null) {
+          handler.handle(Future.succeededFuture());
+        }
+      });
     }
   }
 
@@ -146,28 +178,15 @@ public class MessageProducerImpl<T> implements MessageProducer<T> {
     super.finalize();
   }
 
-  private synchronized <R> void doSend(T data, Handler<AsyncResult<Message<R>>> replyHandler) {
-    if (credits > 0) {
-      credits--;
-      if (replyHandler == null) {
-        bus.send(address, data, options);
-      } else {
-        bus.send(address, data, options, replyHandler);
-      }
-    } else {
-      pending.add(data);
-    }
-  }
-
   private synchronized void doReceiveCredit(int credit) {
     credits += credit;
     while (credits > 0) {
-      T data = pending.poll();
-      if (data == null) {
+      OutboundDeliveryContext<T> sendContext = pending.poll();
+      if (sendContext == null) {
         break;
       } else {
         credits--;
-        bus.send(address, data, options);
+        bus.sendOrPubInternal(sendContext);
       }
     }
     checkDrained();

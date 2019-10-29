@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -32,8 +32,8 @@ public interface ConnectionListener<C> {
   void onRecycle(long expirationTimestamp);
 
   /**
-   * Discard the connection from the pool, it will now be fully managed by the borrower.
+   * Evict the connection from the pool, it will now be fully managed by the borrower.
    */
-  void onDiscard();
+  void onEvict();
 
 }

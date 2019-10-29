@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2011-2019 Contributors to the Eclipse Foundation
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -11,9 +11,11 @@
 
 package io.vertx.core.file.impl;
 
+import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.CopyOptions;
@@ -76,23 +78,38 @@ public class FileSystemImpl implements FileSystem {
   }
 
   @Override
+  public Future<Void> copy(String from, String to) {
+    return copy(from, to, DEFAULT_OPTIONS);
+  }
+
+  @Override
   public FileSystem copy(String from, String to, CopyOptions options, Handler<AsyncResult<Void>> handler) {
-    copyInternal(from, to, options, handler).run();
+    copy(from, to, options).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> copy(String from, String to, CopyOptions options) {
+    return copyInternal(from, to, options).run();
+  }
+
   public FileSystem copyBlocking(String from, String to) {
-    copyInternal(from, to, DEFAULT_OPTIONS, null).perform();
+    copyInternal(from, to, DEFAULT_OPTIONS).perform();
     return this;
   }
 
   public FileSystem copyRecursive(String from, String to, boolean recursive, Handler<AsyncResult<Void>> handler) {
-    copyRecursiveInternal(from, to, recursive, handler).run();
+    copyRecursive(from, to, recursive).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> copyRecursive(String from, String to, boolean recursive) {
+    return copyRecursiveInternal(from, to, recursive).run();
+  }
+
   public FileSystem copyRecursiveBlocking(String from, String to, boolean recursive) {
-    copyRecursiveInternal(from, to, recursive, null).perform();
+    copyRecursiveInternal(from, to, recursive).perform();
     return this;
   }
 
@@ -101,332 +118,496 @@ public class FileSystemImpl implements FileSystem {
   }
 
   @Override
+  public Future<Void> move(String from, String to) {
+    return move(from, to, DEFAULT_OPTIONS);
+  }
+
+  @Override
   public FileSystem move(String from, String to, CopyOptions options, Handler<AsyncResult<Void>> handler) {
-    moveInternal(from, to, options, handler).run();
+    move(from, to, options).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> move(String from, String to, CopyOptions options) {
+    return moveInternal(from, to, options).run();
+  }
+
   public FileSystem moveBlocking(String from, String to) {
-    moveInternal(from, to, DEFAULT_OPTIONS, null).perform();
+    moveInternal(from, to, DEFAULT_OPTIONS).perform();
     return this;
   }
 
   public FileSystem truncate(String path, long len, Handler<AsyncResult<Void>> handler) {
-    truncateInternal(path, len, handler).run();
+    truncate(path, len).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> truncate(String path, long len) {
+    return truncateInternal(path, len).run();
+  }
+
   public FileSystem truncateBlocking(String path, long len) {
-    truncateInternal(path, len, null).perform();
+    truncateInternal(path, len).perform();
     return this;
   }
 
   public FileSystem chmod(String path, String perms, Handler<AsyncResult<Void>> handler) {
-    chmodInternal(path, perms, handler).run();
+    chmod(path, perms).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> chmod(String path, String perms) {
+    return chmodInternal(path, perms).run();
+  }
+
   public FileSystem chmodBlocking(String path, String perms) {
-    chmodInternal(path, perms, null).perform();
+    chmodInternal(path, perms).perform();
     return this;
   }
 
   public FileSystem chmodRecursive(String path, String perms, String dirPerms, Handler<AsyncResult<Void>> handler) {
-    chmodInternal(path, perms, dirPerms, handler).run();
+    chmodRecursive(path, perms, dirPerms).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> chmodRecursive(String path, String perms, String dirPerms) {
+    return chmodInternal(path, perms, dirPerms).run();
+  }
+
   public FileSystem chmodRecursiveBlocking(String path, String perms, String dirPerms) {
-    chmodInternal(path, perms, dirPerms, null).perform();
+    chmodInternal(path, perms, dirPerms).perform();
     return this;
   }
 
   public FileSystem chown(String path, String user, String group, Handler<AsyncResult<Void>> handler) {
-    chownInternal(path, user, group, handler).run();
+    chown(path, user, group).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> chown(String path, @Nullable String user, @Nullable String group) {
+    return chownInternal(path, user, group).run();
+  }
+
   public FileSystem chownBlocking(String path, String user, String group) {
-    chownInternal(path, user, group, null).perform();
+    chownInternal(path, user, group).perform();
     return this;
   }
 
   public FileSystem props(String path, Handler<AsyncResult<FileProps>> handler) {
-    propsInternal(path, handler).run();
+    props(path).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<FileProps> props(String path) {
+    return propsInternal(path).run();
   }
 
   public FileProps propsBlocking(String path) {
-    return propsInternal(path, null).perform();
+    return propsInternal(path).perform();
   }
 
   public FileSystem lprops(String path, Handler<AsyncResult<FileProps>> handler) {
-    lpropsInternal(path, handler).run();
+    lprops(path).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<FileProps> lprops(String path) {
+    return lpropsInternal(path).run();
   }
 
   public FileProps lpropsBlocking(String path) {
-    return lpropsInternal(path, null).perform();
+    return lpropsInternal(path).perform();
   }
 
   public FileSystem link(String link, String existing, Handler<AsyncResult<Void>> handler) {
-    linkInternal(link, existing, handler).run();
+    link(link, existing).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> link(String link, String existing) {
+    return linkInternal(link, existing).run();
+  }
+
   public FileSystem linkBlocking(String link, String existing) {
-    linkInternal(link, existing, null).perform();
+    linkInternal(link, existing).perform();
     return this;
   }
 
   public FileSystem symlink(String link, String existing, Handler<AsyncResult<Void>> handler) {
-    symlinkInternal(link, existing, handler).run();
+    symlink(link, existing).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> symlink(String link, String existing) {
+    return symlinkInternal(link, existing).run();
+  }
+
   public FileSystem symlinkBlocking(String link, String existing) {
-    symlinkInternal(link, existing, null).perform();
+    symlinkInternal(link, existing).perform();
     return this;
   }
 
   public FileSystem unlink(String link, Handler<AsyncResult<Void>> handler) {
-    unlinkInternal(link, handler).run();
+    unlink(link).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> unlink(String link) {
+    return unlinkInternal(link).run();
+  }
+
   public FileSystem unlinkBlocking(String link) {
-    unlinkInternal(link, null).perform();
+    unlinkInternal(link).perform();
     return this;
   }
 
   public FileSystem readSymlink(String link, Handler<AsyncResult<String>> handler) {
-    readSymlinkInternal(link, handler).run();
+    readSymlink(link).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<String> readSymlink(String link) {
+    return readSymlinkInternal(link).run();
   }
 
   public String readSymlinkBlocking(String link) {
-    return readSymlinkInternal(link, null).perform();
+    return readSymlinkInternal(link).perform();
   }
 
   public FileSystem delete(String path, Handler<AsyncResult<Void>> handler) {
-    deleteInternal(path, handler).run();
+    delete(path).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> delete(String path) {
+    return deleteInternal(path).run();
+  }
+
   public FileSystem deleteBlocking(String path) {
-    deleteInternal(path, null).perform();
+    deleteInternal(path).perform();
     return this;
   }
 
   public FileSystem deleteRecursive(String path, boolean recursive, Handler<AsyncResult<Void>> handler) {
-    deleteInternal(path, recursive, handler).run();
+    deleteRecursive(path, recursive).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> deleteRecursive(String path, boolean recursive) {
+    return deleteInternal(path, recursive).run();
+  }
+
   public FileSystem deleteRecursiveBlocking(String path, boolean recursive) {
-    deleteInternal(path, recursive, null).perform();
+    deleteInternal(path, recursive).perform();
     return this;
   }
 
   public FileSystem mkdir(String path, Handler<AsyncResult<Void>> handler) {
-    mkdirInternal(path, handler).run();
+    mkdir(path).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> mkdir(String path) {
+    return mkdirInternal(path).run();
+  }
+
   public FileSystem mkdirBlocking(String path) {
-    mkdirInternal(path, null).perform();
+    mkdirInternal(path).perform();
     return this;
   }
 
   public FileSystem mkdirs(String path, Handler<AsyncResult<Void>> handler) {
-    mkdirInternal(path, true, handler).run();
+    mkdirs(path).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> mkdirs(String path) {
+    return mkdirInternal(path, true).run();
+  }
+
   public FileSystem mkdirsBlocking(String path) {
-    mkdirInternal(path, true, null).perform();
+    mkdirInternal(path, true).perform();
     return this;
   }
 
   public FileSystem mkdir(String path, String perms, Handler<AsyncResult<Void>> handler) {
-    mkdirInternal(path, perms, handler).run();
+    mkdir(path, perms).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> mkdir(String path, String perms) {
+    return mkdirInternal(path, perms).run();
+  }
+
   public FileSystem mkdirBlocking(String path, String perms) {
-    mkdirInternal(path, perms, null).perform();
+    mkdirInternal(path, perms).perform();
     return this;
   }
 
   public FileSystem mkdirs(String path, String perms, Handler<AsyncResult<Void>> handler) {
-    mkdirInternal(path, perms, true, handler).run();
+    mkdirs(path, perms).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> mkdirs(String path, String perms) {
+    return mkdirInternal(path, perms, true).run();
+  }
+
   public FileSystem mkdirsBlocking(String path, String perms) {
-    mkdirInternal(path, perms, true, null).perform();
+    mkdirInternal(path, perms, true).perform();
     return this;
   }
 
   public FileSystem readDir(String path, Handler<AsyncResult<List<String>>> handler) {
-    readDirInternal(path, handler).run();
+    readDir(path).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<List<String>> readDir(String path) {
+    return readDirInternal(path).run();
   }
 
   public List<String> readDirBlocking(String path) {
-    return readDirInternal(path, null).perform();
+    return readDirInternal(path).perform();
   }
 
   public FileSystem readDir(String path, String filter, Handler<AsyncResult<List<String>>> handler) {
-    readDirInternal(path, filter, handler).run();
+    readDir(path, filter).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<List<String>> readDir(String path, String filter) {
+    return readDirInternal(path, filter).run();
   }
 
   public List<String> readDirBlocking(String path, String filter) {
-    return readDirInternal(path, filter, null).perform();
+    return readDirInternal(path, filter).perform();
   }
 
   public FileSystem readFile(String path, Handler<AsyncResult<Buffer>> handler) {
-    readFileInternal(path, handler).run();
+    readFile(path).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<Buffer> readFile(String path) {
+    return readFileInternal(path).run();
   }
 
   public Buffer readFileBlocking(String path) {
-    return readFileInternal(path, null).perform();
+    return readFileInternal(path).perform();
   }
 
   public FileSystem writeFile(String path, Buffer data, Handler<AsyncResult<Void>> handler) {
-    writeFileInternal(path, data, handler).run();
+    writeFile(path, data).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> writeFile(String path, Buffer data) {
+    return writeFileInternal(path, data).run();
+  }
+
   public FileSystem writeFileBlocking(String path, Buffer data) {
-    writeFileInternal(path, data, null).perform();
+    writeFileInternal(path, data).perform();
     return this;
   }
 
   public FileSystem open(String path, OpenOptions options, Handler<AsyncResult<AsyncFile>> handler) {
-    openInternal(path, options, handler).run();
+    open(path, options).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<AsyncFile> open(String path, OpenOptions options) {
+    return openInternal(path, options).run();
   }
 
   public AsyncFile openBlocking(String path, OpenOptions options) {
-    return openInternal(path, options, null).perform();
+    return openInternal(path, options).perform();
   }
 
   public FileSystem createFile(String path, Handler<AsyncResult<Void>> handler) {
-    createFileInternal(path, handler).run();
+    createFile(path).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> createFile(String path) {
+    return createFileInternal(path).run();
+  }
+
   public FileSystem createFileBlocking(String path) {
-    createFileInternal(path, null).perform();
+    createFileInternal(path).perform();
     return this;
   }
 
   public FileSystem createFile(String path, String perms, Handler<AsyncResult<Void>> handler) {
-    createFileInternal(path, perms, handler).run();
+    createFile(path, perms).setHandler(handler);
     return this;
   }
 
+  @Override
+  public Future<Void> createFile(String path, String perms) {
+    return createFileInternal(path, perms).run();
+  }
+
   public FileSystem createFileBlocking(String path, String perms) {
-    createFileInternal(path, perms, null).perform();
+    createFileInternal(path, perms).perform();
     return this;
   }
 
   public FileSystem exists(String path, Handler<AsyncResult<Boolean>> handler) {
-    existsInternal(path, handler).run();
+    exists(path).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<Boolean> exists(String path) {
+    return existsInternal(path).run();
   }
 
   public boolean existsBlocking(String path) {
-    return existsInternal(path, null).perform();
+    return existsInternal(path).perform();
   }
 
   public FileSystem fsProps(String path, Handler<AsyncResult<FileSystemProps>> handler) {
-    fsPropsInternal(path, handler).run();
+    fsProps(path).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<FileSystemProps> fsProps(String path) {
+    return fsPropsInternal(path).run();
   }
 
   public FileSystemProps fsPropsBlocking(String path) {
-    return fsPropsInternal(path, null).perform();
+    return fsPropsInternal(path).perform();
   }
-
 
   @Override
   public FileSystem createTempDirectory(String prefix, Handler<AsyncResult<String>> handler) {
-    createTempDirectoryInternal(null, prefix, null, handler).run();
+    createTempDirectory(prefix).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<String> createTempDirectory(String prefix) {
+    return createTempDirectoryInternal(null, prefix, null).run();
   }
 
   @Override
   public String createTempDirectoryBlocking(String prefix) {
-    return createTempDirectoryInternal(null, prefix, null, null).perform();
+    return createTempDirectoryInternal(null, prefix, null).perform();
   }
 
   @Override
   public FileSystem createTempDirectory(String prefix, String perms, Handler<AsyncResult<String>> handler) {
-    createTempDirectoryInternal(null, prefix, perms, handler).run();
+    createTempDirectory(prefix, perms).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<String> createTempDirectory(String prefix, String perms) {
+    return createTempDirectoryInternal(null, prefix, perms).run();
   }
 
   @Override
   public String createTempDirectoryBlocking(String prefix, String perms) {
-    return createTempDirectoryInternal(null, prefix, perms, null).perform();
+    return createTempDirectoryInternal(null, prefix, perms).perform();
   }
 
   @Override
   public FileSystem createTempDirectory(String dir, String prefix, String perms, Handler<AsyncResult<String>> handler) {
-    createTempDirectoryInternal(dir, prefix, perms, handler).run();
+    createTempDirectory(dir, prefix, perms).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<String> createTempDirectory(String dir, String prefix, String perms) {
+    return createTempDirectoryInternal(dir, prefix, perms).run();
   }
 
   @Override
   public String createTempDirectoryBlocking(String dir, String prefix, String perms) {
-    return createTempDirectoryInternal(dir, prefix, perms, null).perform();
+    return createTempDirectoryInternal(dir, prefix, perms).perform();
   }
 
   @Override
   public FileSystem createTempFile(String prefix, String suffix, Handler<AsyncResult<String>> handler) {
-    createTempFileInternal(null, prefix, suffix, null, handler).run();
+    createTempFile(prefix, suffix).setHandler(handler);
     return this;
+  }
+
+  @Override
+  public Future<String> createTempFile(String prefix, String suffix) {
+    return createTempFileInternal(null, prefix, suffix, null).run();
   }
 
   @Override
   public String createTempFileBlocking(String prefix, String suffix) {
-    return createTempFileInternal(null, prefix, suffix, null, null).perform();
+    return createTempFileInternal(null, prefix, suffix, null).perform();
   }
 
   @Override
   public FileSystem createTempFile(String prefix, String suffix, String perms, Handler<AsyncResult<String>> handler) {
-    createTempFileInternal(null, prefix, suffix, perms, handler).run();
+    createTempFile(prefix, suffix, perms).setHandler(handler);
     return this;
   }
 
   @Override
+  public Future<String> createTempFile(String prefix, String suffix, String perms) {
+    return createTempFileInternal(null, prefix, suffix, perms).run();
+  }
+
+  @Override
   public String createTempFileBlocking(String prefix, String suffix, String perms) {
-    return createTempFileInternal(null, prefix, suffix, perms, null).perform();
+    return createTempFileInternal(null, prefix, suffix, perms).perform();
   }
 
 
   @Override
   public FileSystem createTempFile(String dir, String prefix, String suffix, String perms, Handler<AsyncResult<String>> handler) {
-    createTempFileInternal(dir, prefix, suffix, perms, handler).run();
+    createTempFile(dir, prefix, suffix, perms).setHandler(handler);
     return this;
   }
 
   @Override
-  public String createTempFileBlocking(String dir, String prefix, String suffix, String perms) {
-    return createTempFileInternal(dir, prefix, suffix, perms, null).perform();
+  public Future<String> createTempFile(String dir, String prefix, String suffix, String perms) {
+    return createTempFileInternal(dir, prefix, suffix, perms).run();
   }
 
-  private BlockingAction<Void> copyInternal(String from, String to, CopyOptions options, Handler<AsyncResult<Void>> handler) {
+  @Override
+  public String createTempFileBlocking(String dir, String prefix, String suffix, String perms) {
+    return createTempFileInternal(dir, prefix, suffix, perms).perform();
+  }
+
+  private BlockingAction<Void> copyInternal(String from, String to, CopyOptions options) {
     Objects.requireNonNull(from);
     Objects.requireNonNull(to);
     Objects.requireNonNull(options);
     Set<CopyOption> copyOptionSet = toCopyOptionSet(options);
     CopyOption[] copyOptions = copyOptionSet.toArray(new CopyOption[copyOptionSet.size()]);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path source = vertx.resolveFile(from).toPath();
@@ -440,10 +621,10 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> copyRecursiveInternal(String from, String to, boolean recursive, Handler<AsyncResult<Void>> handler) {
+  private BlockingAction<Void> copyRecursiveInternal(String from, String to, boolean recursive) {
     Objects.requireNonNull(from);
     Objects.requireNonNull(to);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path source = vertx.resolveFile(from).toPath();
@@ -482,13 +663,13 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> moveInternal(String from, String to, CopyOptions options, Handler<AsyncResult<Void>> handler) {
+  private BlockingAction<Void> moveInternal(String from, String to, CopyOptions options) {
     Objects.requireNonNull(from);
     Objects.requireNonNull(to);
     Objects.requireNonNull(options);
     Set<CopyOption> copyOptionSet = toCopyOptionSet(options);
     CopyOption[] copyOptions = copyOptionSet.toArray(new CopyOption[copyOptionSet.size()]);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path source = vertx.resolveFile(from).toPath();
@@ -502,9 +683,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> truncateInternal(String p, long len, Handler<AsyncResult<Void>> handler) {
+  private BlockingAction<Void> truncateInternal(String p, long len) {
     Objects.requireNonNull(p);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         RandomAccessFile raf = null;
         try {
@@ -529,15 +710,15 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> chmodInternal(String path, String perms, Handler<AsyncResult<Void>> handler) {
-    return chmodInternal(path, perms, null, handler);
+  private BlockingAction<Void> chmodInternal(String path, String perms) {
+    return chmodInternal(path, perms, null);
   }
 
-  protected BlockingAction<Void> chmodInternal(String path, String perms, String dirPerms, Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> chmodInternal(String path, String perms, String dirPerms) {
     Objects.requireNonNull(path);
     Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(perms);
     Set<PosixFilePermission> dirPermissions = dirPerms == null ? null : PosixFilePermissions.fromString(dirPerms);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path target = vertx.resolveFile(path).toPath();
@@ -568,9 +749,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  protected BlockingAction<Void> chownInternal(String path, String user, String group, Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> chownInternal(String path, String user, String group) {
     Objects.requireNonNull(path);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path target = vertx.resolveFile(path).toPath();
@@ -598,17 +779,17 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<FileProps> propsInternal(String path, Handler<AsyncResult<FileProps>> handler) {
-    return props(path, true, handler);
+  private BlockingAction<FileProps> propsInternal(String path) {
+    return props(path, true);
   }
 
-  private BlockingAction<FileProps> lpropsInternal(String path, Handler<AsyncResult<FileProps>> handler) {
-    return props(path, false, handler);
+  private BlockingAction<FileProps> lpropsInternal(String path) {
+    return props(path, false);
   }
 
-  private BlockingAction<FileProps> props(String path, boolean followLinks, Handler<AsyncResult<FileProps>> handler) {
+  private BlockingAction<FileProps> props(String path, boolean followLinks) {
     Objects.requireNonNull(path);
-    return new BlockingAction<FileProps>(handler) {
+    return new BlockingAction<FileProps>() {
       public FileProps perform() {
         try {
           Path target = vertx.resolveFile(path).toPath();
@@ -626,18 +807,18 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> linkInternal(String link, String existing, Handler<AsyncResult<Void>> handler) {
-    return link(link, existing, false, handler);
+  private BlockingAction<Void> linkInternal(String link, String existing) {
+    return link(link, existing, false);
   }
 
-  private BlockingAction<Void> symlinkInternal(String link, String existing, Handler<AsyncResult<Void>> handler) {
-    return link(link, existing, true, handler);
+  private BlockingAction<Void> symlinkInternal(String link, String existing) {
+    return link(link, existing, true);
   }
 
-  private BlockingAction<Void> link(String link, String existing, boolean symbolic, Handler<AsyncResult<Void>> handler) {
+  private BlockingAction<Void> link(String link, String existing, boolean symbolic) {
     Objects.requireNonNull(link);
     Objects.requireNonNull(existing);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path source = vertx.resolveFile(link).toPath();
@@ -655,13 +836,13 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> unlinkInternal(String link, Handler<AsyncResult<Void>> handler) {
-    return deleteInternal(link, handler);
+  private BlockingAction<Void> unlinkInternal(String link) {
+    return deleteInternal(link);
   }
 
-  private BlockingAction<String> readSymlinkInternal(String link, Handler<AsyncResult<String>> handler) {
+  private BlockingAction<String> readSymlinkInternal(String link) {
     Objects.requireNonNull(link);
-    return new BlockingAction<String>(handler) {
+    return new BlockingAction<String>() {
       public String perform() {
         try {
           Path source = vertx.resolveFile(link).toPath();
@@ -673,13 +854,13 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> deleteInternal(String path, Handler<AsyncResult<Void>> handler) {
-    return deleteInternal(path, false, handler);
+  private BlockingAction<Void> deleteInternal(String path) {
+    return deleteInternal(path, false);
   }
 
-  private BlockingAction<Void> deleteInternal(String path, boolean recursive, Handler<AsyncResult<Void>> handler) {
+  private BlockingAction<Void> deleteInternal(String path, boolean recursive) {
     Objects.requireNonNull(path);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path source = vertx.resolveFile(path).toPath();
@@ -714,22 +895,22 @@ public class FileSystemImpl implements FileSystem {
     }
   }
 
-  private BlockingAction<Void> mkdirInternal(String path, Handler<AsyncResult<Void>> handler) {
-    return mkdirInternal(path, null, false, handler);
+  private BlockingAction<Void> mkdirInternal(String path) {
+    return mkdirInternal(path, null, false);
   }
 
-  private BlockingAction<Void> mkdirInternal(String path, boolean createParents, Handler<AsyncResult<Void>> handler) {
-    return mkdirInternal(path, null, createParents, handler);
+  private BlockingAction<Void> mkdirInternal(String path, boolean createParents) {
+    return mkdirInternal(path, null, createParents);
   }
 
-  private BlockingAction<Void> mkdirInternal(String path, String perms, Handler<AsyncResult<Void>> handler) {
-    return mkdirInternal(path, perms, false, handler);
+  private BlockingAction<Void> mkdirInternal(String path, String perms) {
+    return mkdirInternal(path, perms, false);
   }
 
-  protected BlockingAction<Void> mkdirInternal(String path, String perms, boolean createParents, Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> mkdirInternal(String path, String perms, boolean createParents) {
     Objects.requireNonNull(path);
     FileAttribute<?> attrs = perms == null ? null : PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(perms));
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path source = vertx.resolveFile(path).toPath();
@@ -754,9 +935,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  protected BlockingAction<String> createTempDirectoryInternal(String parentDir, String prefix, String perms, Handler<AsyncResult<String>> handler) {
+  protected BlockingAction<String> createTempDirectoryInternal(String parentDir, String prefix, String perms) {
     FileAttribute<?> attrs = perms == null ? null : PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(perms));
-    return new BlockingAction<String>(handler) {
+    return new BlockingAction<String>() {
       public String perform() {
         try {
           Path tmpDir;
@@ -782,9 +963,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  protected BlockingAction<String> createTempFileInternal(String parentDir, String prefix, String suffix, String perms, Handler<AsyncResult<String>> handler) {
+  protected BlockingAction<String> createTempFileInternal(String parentDir, String prefix, String suffix, String perms) {
     FileAttribute<?> attrs = perms == null ? null : PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(perms));
-    return new BlockingAction<String>(handler) {
+    return new BlockingAction<String>() {
       public String perform() {
         try {
           Path tmpFile;
@@ -810,13 +991,13 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<List<String>> readDirInternal(String path, Handler<AsyncResult<List<String>>> handler) {
-    return readDirInternal(path, null, handler);
+  private BlockingAction<List<String>> readDirInternal(String path) {
+    return readDirInternal(path, null);
   }
 
-  private BlockingAction<List<String>> readDirInternal(String p, String filter, Handler<AsyncResult<List<String>>> handler) {
+  private BlockingAction<List<String>> readDirInternal(String p, String filter) {
     Objects.requireNonNull(p);
-    return new BlockingAction<List<String>>(handler) {
+    return new BlockingAction<List<String>>() {
       public List<String> perform() {
         try {
           File file = vertx.resolveFile(p);
@@ -855,9 +1036,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Buffer> readFileInternal(String path, Handler<AsyncResult<Buffer>> handler) {
+  private BlockingAction<Buffer> readFileInternal(String path) {
     Objects.requireNonNull(path);
-    return new BlockingAction<Buffer>(handler) {
+    return new BlockingAction<Buffer>() {
       public Buffer perform() {
         try {
           Path target = vertx.resolveFile(path).toPath();
@@ -871,10 +1052,10 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Void> writeFileInternal(String path, Buffer data, Handler<AsyncResult<Void>> handler) {
+  private BlockingAction<Void> writeFileInternal(String path, Buffer data) {
     Objects.requireNonNull(path);
     Objects.requireNonNull(data);
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path target = vertx.resolveFile(path).toPath();
@@ -887,10 +1068,10 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<AsyncFile> openInternal(String p, OpenOptions options, Handler<AsyncResult<AsyncFile>> handler) {
+  private BlockingAction<AsyncFile> openInternal(String p, OpenOptions options) {
     Objects.requireNonNull(p);
     Objects.requireNonNull(options);
-    return new BlockingAction<AsyncFile>(handler) {
+    return new BlockingAction<AsyncFile>() {
       public AsyncFile perform() {
         String path = vertx.resolveFile(p).getAbsolutePath();
         return doOpen(path, options, context);
@@ -902,14 +1083,14 @@ public class FileSystemImpl implements FileSystem {
     return new AsyncFileImpl(vertx, path, options, context);
   }
 
-  private BlockingAction<Void> createFileInternal(String path, Handler<AsyncResult<Void>> handler) {
-    return createFileInternal(path, null, handler);
+  private BlockingAction<Void> createFileInternal(String path) {
+    return createFileInternal(path, null);
   }
 
-  protected BlockingAction<Void> createFileInternal(String p, String perms, Handler<AsyncResult<Void>> handler) {
+  protected BlockingAction<Void> createFileInternal(String p, String perms) {
     Objects.requireNonNull(p);
     FileAttribute<?> attrs = perms == null ? null : PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(perms));
-    return new BlockingAction<Void>(handler) {
+    return new BlockingAction<Void>() {
       public Void perform() {
         try {
           Path target = vertx.resolveFile(p).toPath();
@@ -926,9 +1107,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<Boolean> existsInternal(String path, Handler<AsyncResult<Boolean>> handler) {
+  private BlockingAction<Boolean> existsInternal(String path) {
     Objects.requireNonNull(path);
-    return new BlockingAction<Boolean>(handler) {
+    return new BlockingAction<Boolean>() {
       File file = vertx.resolveFile(path);
 
       public Boolean perform() {
@@ -937,9 +1118,9 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  private BlockingAction<FileSystemProps> fsPropsInternal(String path, Handler<AsyncResult<FileSystemProps>> handler) {
+  private BlockingAction<FileSystemProps> fsPropsInternal(String path) {
     Objects.requireNonNull(path);
-    return new BlockingAction<FileSystemProps>(handler) {
+    return new BlockingAction<FileSystemProps>() {
       public FileSystemProps perform() {
         try {
           Path target = vertx.resolveFile(path).toPath();
@@ -952,25 +1133,23 @@ public class FileSystemImpl implements FileSystem {
     };
   }
 
-  protected abstract class BlockingAction<T> implements Handler<Future<T>> {
+  protected abstract class BlockingAction<T> implements Handler<Promise<T>> {
 
-    private final Handler<AsyncResult<T>> handler;
     protected final ContextInternal context;
 
-    public BlockingAction(Handler<AsyncResult<T>> handler) {
-      this.handler = handler;
+    public BlockingAction() {
       this.context = vertx.getOrCreateContext();
     }
 
     /**
      * Run the blocking action using a thread from the worker pool.
      */
-    public void run() {
-      context.executeBlockingInternal(this, handler);
+    public Future<T> run() {
+      return context.executeBlockingInternal(this);
     }
 
     @Override
-    public void handle(Future<T> fut) {
+    public void handle(Promise<T> fut) {
       try {
         T result = perform();
         fut.complete(result);
