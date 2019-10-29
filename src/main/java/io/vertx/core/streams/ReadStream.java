@@ -31,7 +31,7 @@ public interface ReadStream<T> extends StreamBase {
   /**
    * Set an exception handler on the read stream.
    *
-   * @param handler  the exception handler
+   * @param handler the exception handler
    * @return a reference to this, so the API can be used fluently
    */
   ReadStream<T> exceptionHandler(Handler<Throwable> handler);

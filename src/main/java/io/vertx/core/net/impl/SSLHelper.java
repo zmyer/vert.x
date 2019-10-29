@@ -69,7 +69,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- *
  * This is a pretty sucky class - could do with a refactoring
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -334,7 +333,7 @@ public class SSLHelper {
   private TrustManagerFactory getTrustMgrFactory(VertxInternal vertx, String serverName) throws Exception {
     TrustManager[] mgrs = null;
     if (trustAll) {
-      mgrs = new TrustManager[]{ createTrustAllTrustManager() };
+      mgrs = new TrustManager[]{createTrustAllTrustManager()};
     } else if (trustOptions != null) {
       if (serverName != null) {
         Function<String, TrustManager[]> mapper = trustOptions.trustManagerMapper(vertx);
@@ -448,18 +447,18 @@ public class SSLHelper {
     engine.setEnabledProtocols(protocols.toArray(new String[protocols.size()]));
     if (!client) {
       switch (getClientAuth()) {
-      case REQUEST: {
-        engine.setWantClientAuth(true);
-        break;
-      }
-      case REQUIRED: {
-        engine.setNeedClientAuth(true);
-        break;
-      }
-      case NONE: {
-        engine.setNeedClientAuth(false);
-        break;
-      }
+        case REQUEST: {
+          engine.setWantClientAuth(true);
+          break;
+        }
+        case REQUIRED: {
+          engine.setNeedClientAuth(true);
+          break;
+        }
+        case NONE: {
+          engine.setNeedClientAuth(false);
+          break;
+        }
       }
     } else if (!endpointIdentificationAlgorithm.isEmpty()) {
       SSLParameters sslParameters = engine.getSSLParameters();

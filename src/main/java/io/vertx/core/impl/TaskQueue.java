@@ -21,7 +21,7 @@ import java.util.concurrent.Executor;
  * A task queue that always run all tasks in order. The executor to run the tasks is passed when
  * the tasks when the tasks are executed, this executor is not guaranteed to be used, as if several
  * tasks are queued, the original thread will be used.
- *
+ * <p>
  * More specifically, any call B to the {@link #execute(Runnable, Executor)} method that happens-after another call A to the
  * same method, will result in B's task running after A's.
  *
@@ -34,6 +34,7 @@ public class TaskQueue {
 
   static final Logger log = LoggerFactory.getLogger(TaskQueue.class);
 
+  // TODO: 2018/11/23 by zmyer
   private static class Task {
 
     private final Runnable runnable;

@@ -57,7 +57,7 @@ public class DeliveryOptions {
   /**
    * Copy constructor
    *
-   * @param other  the options to copy
+   * @param other the options to copy
    */
   public DeliveryOptions(DeliveryOptions other) {
     this.timeout = other.getSendTimeout();
@@ -69,7 +69,7 @@ public class DeliveryOptions {
   /**
    * Create a delivery options from JSON
    *
-   * @param json  the JSON
+   * @param json the JSON
    */
   public DeliveryOptions(JsonObject json) {
     this.timeout = json.getLong("timeout", DEFAULT_TIMEOUT);
@@ -123,7 +123,7 @@ public class DeliveryOptions {
   /**
    * Set the send timeout.
    *
-   * @param timeout  the timeout value, in ms.
+   * @param timeout the timeout value, in ms.
    * @return a reference to this, so the API can be used fluently
    */
   public DeliveryOptions setSendTimeout(long timeout) {
@@ -147,7 +147,7 @@ public class DeliveryOptions {
   /**
    * Set the codec name.
    *
-   * @param codecName  the codec name
+   * @param codecName the codec name
    * @return a reference to this, so the API can be used fluently
    */
   public DeliveryOptions setCodecName(String codecName) {
@@ -161,8 +161,8 @@ public class DeliveryOptions {
    * Message headers can be sent with any message and will be accessible with {@link io.vertx.core.eventbus.Message#headers}
    * at the recipient.
    *
-   * @param key  the header key
-   * @param value  the header value
+   * @param key   the header key
+   * @param value the header value
    * @return a reference to this, so the API can be used fluently
    */
   public DeliveryOptions addHeader(String key, String value) {
@@ -176,7 +176,7 @@ public class DeliveryOptions {
   /**
    * Set message headers from a multi-map.
    *
-   * @param headers  the headers
+   * @param headers the headers
    * @return a reference to this, so the API can be used fluently
    */
   @GenIgnore

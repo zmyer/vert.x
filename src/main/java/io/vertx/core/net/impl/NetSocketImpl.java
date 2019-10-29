@@ -45,10 +45,9 @@ import java.nio.charset.Charset;
 import java.util.UUID;
 
 /**
- *
  * This class is optimised for performance when used on the same event loop that is was passed to the handler with.
  * However it can be used safely from other threads.
- *
+ * <p>
  * The internal state is protected using the synchronized keyword. If always used on the same event loop, then
  * we benefit from biased locking which makes the overhead of synchronized near zero.
  *
@@ -79,14 +78,14 @@ public class NetSocketImpl extends ConnectionBase implements NetSocketInternal {
 
   // TODO: 2018/8/2 by zmyer
   public NetSocketImpl(VertxInternal vertx, ChannelHandlerContext channel, ContextInternal context,
-    SSLHelper helper, TCPMetrics metrics) {
+                       SSLHelper helper, TCPMetrics metrics) {
     this(vertx, channel, null, context, helper, metrics);
   }
 
   // TODO: 2018/8/3 by zmyer
   public NetSocketImpl(VertxInternal vertx, ChannelHandlerContext channel, SocketAddress remoteAddress,
-    ContextInternal context,
-    SSLHelper helper, TCPMetrics metrics) {
+                       ContextInternal context,
+                       SSLHelper helper, TCPMetrics metrics) {
     super(vertx, channel, context);
     this.helper = helper;
     this.writeHandlerID = "__vertx.net." + UUID.randomUUID().toString();

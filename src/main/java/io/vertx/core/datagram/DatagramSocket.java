@@ -37,6 +37,7 @@ import io.vertx.core.streams.WriteStream;
  *
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
+// TODO: 2018/11/26 by zmyer
 @VertxGen
 public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
 
@@ -45,9 +46,9 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * The {@link io.vertx.core.Handler} will be notified once the write completes.
    *
    * @param packet  the {@link io.vertx.core.buffer.Buffer} to write
-   * @param port  the host port of the remote peer
-   * @param host  the host address of the remote peer
-   * @param handler  the {@link io.vertx.core.Handler} to notify once the write completes.
+   * @param port    the host port of the remote peer
+   * @param host    the host address of the remote peer
+   * @param handler the {@link io.vertx.core.Handler} to notify once the write completes.
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -67,10 +68,10 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Write the given {@link String} to the {@link io.vertx.core.net.SocketAddress} using UTF8 encoding.
    * The {@link Handler} will be notified once the write completes.
    *
-   * @param str   the {@link String} to write
-   * @param port  the host port of the remote peer
-   * @param host  the host address of the remote peer
-   * @param handler  the {@link io.vertx.core.Handler} to notify once the write completes.
+   * @param str     the {@link String} to write
+   * @param port    the host port of the remote peer
+   * @param host    the host address of the remote peer
+   * @param handler the {@link io.vertx.core.Handler} to notify once the write completes.
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -80,11 +81,11 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Write the given {@link String} to the {@link io.vertx.core.net.SocketAddress} using the given encoding.
    * The {@link Handler} will be notified once the write completes.
    *
-   * @param str  the {@link String} to write
-   * @param enc  the charset used for encoding
-   * @param port  the host port of the remote peer
-   * @param host  the host address of the remote peer
-   * @param handler  the {@link io.vertx.core.Handler} to notify once the write completes.
+   * @param str     the {@link String} to write
+   * @param enc     the charset used for encoding
+   * @param port    the host port of the remote peer
+   * @param host    the host address of the remote peer
+   * @param handler the {@link io.vertx.core.Handler} to notify once the write completes.
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -94,7 +95,7 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Closes the {@link io.vertx.core.datagram.DatagramSocket} implementation asynchronous
    * and notifies the handler once done.
    *
-   * @param handler  the handler to notify once complete
+   * @param handler the handler to notify once complete
    */
   void close(Handler<AsyncResult<Void>> handler);
 
@@ -116,8 +117,8 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Joins a multicast group and listens for packets send to it.
    * The {@link Handler} is notified once the operation completes.
    *
-   * @param multicastAddress  the address of the multicast group to join
-   * @param  handler  then handler to notify once the operation completes
+   * @param multicastAddress the address of the multicast group to join
+   * @param handler          then handler to notify once the operation completes
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -127,10 +128,10 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Joins a multicast group and listens for packets send to it on the given network interface.
    * The {@link Handler} is notified once the operation completes.
    *
-   * @param  multicastAddress  the address of the multicast group to join
-   * @param  networkInterface  the network interface on which to listen for packets.
-   * @param  source  the address of the source for which we will listen for multicast packets
-   * @param  handler  then handler to notify once the operation completes
+   * @param multicastAddress the address of the multicast group to join
+   * @param networkInterface the network interface on which to listen for packets.
+   * @param source           the address of the source for which we will listen for multicast packets
+   * @param handler          then handler to notify once the operation completes
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -141,8 +142,8 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Leaves a multicast group and stops listening for packets send to it.
    * The {@link Handler} is notified once the operation completes.
    *
-   * @param multicastAddress  the address of the multicast group to leave
-   * @param handler  then handler to notify once the operation completes
+   * @param multicastAddress the address of the multicast group to leave
+   * @param handler          then handler to notify once the operation completes
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -152,11 +153,11 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Leaves a multicast group and stops listening for packets send to it on the given network interface.
    * The {@link Handler} is notified once the operation completes.
    *
-   * @param  multicastAddress  the address of the multicast group to join
-   * @param  networkInterface  the network interface on which to listen for packets.
-   * @param  source  the address of the source for which we will listen for multicast packets
-   * @param  handler the handler to notify once the operation completes
-   * @return  a reference to this, so the API can be used fluently
+   * @param multicastAddress the address of the multicast group to join
+   * @param networkInterface the network interface on which to listen for packets.
+   * @param source           the address of the source for which we will listen for multicast packets
+   * @param handler          the handler to notify once the operation completes
+   * @return a reference to this, so the API can be used fluently
    */
   @Fluent
   DatagramSocket unlistenMulticastGroup(String multicastAddress, String networkInterface, @Nullable String source,
@@ -166,11 +167,11 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Block the given address for the given multicast address and notifies the {@link Handler} once
    * the operation completes.
    *
-   * @param multicastAddress  the address for which you want to block the source address
-   * @param sourceToBlock  the source address which should be blocked. You will not receive an multicast packets
-   *                       for it anymore.
-   * @param handler  the handler to notify once the operation completes
-   * @return  a reference to this, so the API can be used fluently
+   * @param multicastAddress the address for which you want to block the source address
+   * @param sourceToBlock    the source address which should be blocked. You will not receive an multicast packets
+   *                         for it anymore.
+   * @param handler          the handler to notify once the operation completes
+   * @return a reference to this, so the API can be used fluently
    */
   @Fluent
   DatagramSocket blockMulticastGroup(String multicastAddress, String sourceToBlock,
@@ -180,12 +181,12 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
    * Block the given address for the given multicast address on the given network interface and notifies
    * the {@link Handler} once the operation completes.
    *
-   * @param  multicastAddress  the address for which you want to block the source address
-   * @param  networkInterface  the network interface on which the blocking should occur.
-   * @param  sourceToBlock  the source address which should be blocked. You will not receive an multicast packets
-   *                        for it anymore.
-   * @param  handler  the handler to notify once the operation completes
-   * @return  a reference to this, so the API can be used fluently
+   * @param multicastAddress the address for which you want to block the source address
+   * @param networkInterface the network interface on which the blocking should occur.
+   * @param sourceToBlock    the source address which should be blocked. You will not receive an multicast packets
+   *                         for it anymore.
+   * @param handler          the handler to notify once the operation completes
+   * @return a reference to this, so the API can be used fluently
    */
   @Fluent
   DatagramSocket blockMulticastGroup(String multicastAddress, String networkInterface, String sourceToBlock,
@@ -194,10 +195,10 @@ public interface DatagramSocket extends ReadStream<DatagramPacket>, Measured {
   /**
    * Start listening on the given port and host. The handler will be called when the socket is listening.
    *
-   * @param port  the port to listen on
-   * @param host  the host to listen on
-   * @param handler  the handler will be called when listening
-   * @return  a reference to this, so the API can be used fluently
+   * @param port    the port to listen on
+   * @param host    the host to listen on
+   * @param handler the handler will be called when listening
+   * @return a reference to this, so the API can be used fluently
    */
   @Fluent
   DatagramSocket listen(int port, String host, Handler<AsyncResult<DatagramSocket>> handler);

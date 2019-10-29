@@ -17,7 +17,6 @@ import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.Handler;
 
 /**
- *
  * Represents a stream of data that can be written to.
  * <p>
  * Any class that implements this interface can be used by a {@link Pump} to pump data from a {@code ReadStream}
@@ -32,7 +31,7 @@ public interface WriteStream<T> extends StreamBase {
   /**
    * Set an exception handler on the write stream.
    *
-   * @param handler  the exception handler
+   * @param handler the exception handler
    * @return a reference to this, so the API can be used fluently
    */
   @Override
@@ -43,7 +42,7 @@ public interface WriteStream<T> extends StreamBase {
    * asynchronously. To avoid running out of memory by putting too much on the write queue,
    * check the {@link #writeQueueFull} method before writing. This is done automatically if using a {@link Pump}.
    *
-   * @param data  the data to write
+   * @param data the data to write
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -73,7 +72,7 @@ public interface WriteStream<T> extends StreamBase {
    * {@link io.vertx.core.net.NetSocket}, the number of {@link io.vertx.core.eventbus.Message} for a
    * {@link io.vertx.core.eventbus.MessageProducer}, etc...
    *
-   * @param maxSize  the max size of the write stream
+   * @param maxSize the max size of the write stream
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent

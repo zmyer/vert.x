@@ -79,6 +79,7 @@ public class Transport {
     return transport;
   }
 
+  // TODO: 2018/11/23 by zmyer
   public static Transport transport(boolean preferNative) {
     if (preferNative) {
       Transport nativeTransport = Transport.nativeTransport();
@@ -154,18 +155,18 @@ public class Transport {
    */
   public DatagramChannel datagramChannel(InternetProtocolFamily family) {
     switch (family) {
-    case IPv4:
-      return new NioDatagramChannel(InternetProtocolFamily.IPv4);
-    case IPv6:
-      return new NioDatagramChannel(InternetProtocolFamily.IPv6);
-    default:
-      throw new UnsupportedOperationException();
+      case IPv4:
+        return new NioDatagramChannel(InternetProtocolFamily.IPv4);
+      case IPv6:
+        return new NioDatagramChannel(InternetProtocolFamily.IPv6);
+      default:
+        throw new UnsupportedOperationException();
     }
   }
 
   /**
-   * @return the type for channel
    * @param domain whether to create a unix domain channel or a socket channel
+   * @return the type for channel
    */
   public ChannelFactory<? extends Channel> channelFactory(boolean domain) {
     if (domain) {
@@ -175,8 +176,8 @@ public class Transport {
   }
 
   /**
-   * @return the type for server channel
    * @param domain whether to create a server unix domain channel or a regular server socket channel
+   * @return the type for server channel
    */
   // TODO: 2018/8/3 by zmyer
   public ChannelFactory<? extends ServerChannel> serverChannelFactory(boolean domain) {

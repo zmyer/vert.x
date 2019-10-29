@@ -47,7 +47,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- *
  * This class is thread-safe
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -165,7 +164,7 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
 
   // TODO: 2018/8/1 by zmyer
   public synchronized void listen(Handler<NetSocket> handler, final SocketAddress socketAddress,
-    final Handler<AsyncResult<Void>> listenHandler) {
+                                  final Handler<AsyncResult<Void>> listenHandler) {
     if (handler == null) {
       throw new IllegalStateException("Set connect handler first");
     }
@@ -316,16 +315,19 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return listen(port, host, null);
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public NetServer listen(int port) {
     return listen(port, "0.0.0.0", null);
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public NetServer listen(int port, Handler<AsyncResult<NetServer>> listenHandler) {
     return listen(port, "0.0.0.0", listenHandler);
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public NetServer listen(SocketAddress localAddress) {
     return listen(localAddress, null);
@@ -361,11 +363,13 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
     return listen(options.getPort(), options.getHost(), listenHandler);
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public ReadStream<NetSocket> connectStream() {
     return connectStream;
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public synchronized void close(Handler<AsyncResult<Void>> completionHandler) {
     if (creatingContext != null) {
@@ -463,7 +467,8 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
   private void connected(HandlerHolder<Handlers> handler, Channel ch) {
     NetServerImpl.this.initChannel(ch.pipeline());
 
-    VertxHandler<NetSocketImpl> nh = VertxHandler.<NetSocketImpl>create(handler.context, ctx -> new NetSocketImpl(vertx, ctx, handler.context, sslHelper, metrics));
+    VertxHandler<NetSocketImpl> nh = VertxHandler.<NetSocketImpl>create(handler.context,
+      ctx -> new NetSocketImpl(vertx, ctx, handler.context, sslHelper, metrics));
     nh.addHandler(conn -> socketMap.put(ch, conn));
     nh.removeHandler(conn -> socketMap.remove(ch));
     ch.pipeline().addLast("handler", nh);
@@ -478,8 +483,8 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
   }
 
   // TODO: 2018/8/3 by zmyer
-  private void executeCloseDone(final ContextInternal closeContext, final Handler<AsyncResult<Void>> done, Exception
-    e) {
+  private void executeCloseDone(final ContextInternal closeContext,
+                                final Handler<AsyncResult<Void>> done, Exception e) {
     if (done != null) {
       final Future<Void> fut = e == null ? Future.succeededFuture() : Future.failedFuture(e);
       closeContext.runOnContext(v -> done.handle(fut));
@@ -508,12 +513,11 @@ public class NetServerImpl implements Closeable, MetricsProvider, NetServer {
 
   /**
    * Needs to be protected using the NetServerImpl monitor as that protects the listening variable
-   In practice synchronized overhead should be close to zero assuming most access is from the same thread due
-   to biased locks
+   * In practice synchronized overhead should be close to zero assuming most access is from the same thread due
+   * to biased locks
    */
   // TODO: 2018/8/3 by zmyer
   private class NetSocketStream implements ReadStream<NetSocket> {
-
 
 
     @Override

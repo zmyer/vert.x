@@ -44,9 +44,9 @@ import java.net.InetSocketAddress;
 
 /**
  * Abstract base class for TCP connections.
- *
+ * <p>
  * This class is optimised for performance when used on the same event loop. However it can be used safely from other threads.
- *
+ * <p>
  * The internal state is protected using the synchronized keyword. If always used on the same event loop, then
  * we benefit from biased locking which makes the overhead of synchronized near zero.
  *
@@ -96,6 +96,7 @@ public abstract class ConnectionBase {
     return (VertxHandler) chctx.handler();
   }
 
+  // TODO: 2018/11/26 by zmyer
   protected synchronized final void endReadAndFlush() {
     if (read) {
       read = false;
@@ -373,6 +374,7 @@ public abstract class ConnectionBase {
     return new SocketAddressImpl(addr);
   }
 
+  // TODO: 2018/11/26 by zmyer
   final void handleRead(Object msg) {
     synchronized (this) {
       read = true;

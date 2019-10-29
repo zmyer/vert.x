@@ -50,11 +50,11 @@ public class ProxyChannelProvider extends ChannelProvider {
 
   @Override
   public void doConnect(ContextInternal context,
-                      Bootstrap bootstrap,
-                      ProxyOptions options,
-                      SocketAddress remoteAddress,
-                      Handler<Channel> channelInitializer,
-                      Handler<AsyncResult<Channel>> channelHandler) {
+                        Bootstrap bootstrap,
+                        ProxyOptions options,
+                        SocketAddress remoteAddress,
+                        Handler<Channel> channelInitializer,
+                        Handler<AsyncResult<Channel>> channelHandler) {
 
     final VertxInternal vertx = context.owner();
     final String proxyHost = options.getHost();
@@ -73,16 +73,16 @@ public class ProxyChannelProvider extends ChannelProvider {
           default:
           case HTTP:
             proxy = proxyUsername != null && proxyPassword != null
-                ? new HttpProxyHandler(proxyAddr, proxyUsername, proxyPassword) : new HttpProxyHandler(proxyAddr);
+              ? new HttpProxyHandler(proxyAddr, proxyUsername, proxyPassword) : new HttpProxyHandler(proxyAddr);
             break;
           case SOCKS5:
             proxy = proxyUsername != null && proxyPassword != null
-                ? new Socks5ProxyHandler(proxyAddr, proxyUsername, proxyPassword) : new Socks5ProxyHandler(proxyAddr);
+              ? new Socks5ProxyHandler(proxyAddr, proxyUsername, proxyPassword) : new Socks5ProxyHandler(proxyAddr);
             break;
           case SOCKS4:
             // SOCKS4 only supports a username and could authenticate the user via Ident
             proxy = proxyUsername != null ? new Socks4ProxyHandler(proxyAddr, proxyUsername)
-                : new Socks4ProxyHandler(proxyAddr);
+              : new Socks4ProxyHandler(proxyAddr);
             break;
         }
 
@@ -108,7 +108,7 @@ public class ProxyChannelProvider extends ChannelProvider {
 
               @Override
               public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
-                      throws Exception {
+                throws Exception {
                 channelHandler.handle(Future.failedFuture(cause));
               }
             });

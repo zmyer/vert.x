@@ -27,6 +27,7 @@ public final class VertxThread extends FastThreadLocalThread {
   private long execStart;
   private ContextImpl context;
 
+  // TODO: 2018/11/23 by zmyer
   public VertxThread(Runnable target, String name, boolean worker, long maxExecTime, TimeUnit maxExecTimeUnit) {
     super(target, name);
     this.worker = worker;

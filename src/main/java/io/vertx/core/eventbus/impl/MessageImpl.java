@@ -48,8 +48,8 @@ public class MessageImpl<U, V> implements Message<V> {
 
   // TODO: 2018/8/2 by zmyer
   public MessageImpl(String address, String replyAddress, MultiMap headers, U sentBody,
-    MessageCodec<U, V> messageCodec,
-    boolean send, EventBusImpl bus) {
+                     MessageCodec<U, V> messageCodec,
+                     boolean send, EventBusImpl bus) {
     this.messageCodec = messageCodec;
     this.address = address;
     this.replyAddress = replyAddress;
@@ -158,7 +158,7 @@ public class MessageImpl<U, V> implements Message<V> {
   }
 
   protected <R> void sendReply(MessageImpl msg, DeliveryOptions options,
-    Handler<AsyncResult<Message<R>>> replyHandler) {
+                               Handler<AsyncResult<Message<R>>> replyHandler) {
     if (bus != null) {
       bus.sendReply(msg, this, options, replyHandler);
     }

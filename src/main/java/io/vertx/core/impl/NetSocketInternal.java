@@ -22,12 +22,12 @@ import io.vertx.core.net.NetSocket;
  * {@link io.vertx.core.net.NetServer} and {@link io.vertx.core.net.NetClient}:
  *
  * <ul>
- *   <li>Server sharing</li>
- *   <li>SSL/TLS</li>
- *   <li>SNI</li>
- *   <li>SSL/TLS upgrade</li>
- *   <li>Write batching during read operation</li>
- *   <li>Client proxy support</li>
+ * <li>Server sharing</li>
+ * <li>SSL/TLS</li>
+ * <li>SNI</li>
+ * <li>SSL/TLS upgrade</li>
+ * <li>Write batching during read operation</li>
+ * <li>Client proxy support</li>
  * </ul>
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
@@ -45,6 +45,7 @@ public interface NetSocketInternal extends NetSocket {
    *   ChannelPipeline pipeline = so.channelHandlerContext().pipeline();
    *   pipeline.addBefore("handler", "myhandler", new MyHandler());
    * </pre></code>
+   *
    * @return the channel handler context
    */
   ChannelHandlerContext channelHandlerContext();

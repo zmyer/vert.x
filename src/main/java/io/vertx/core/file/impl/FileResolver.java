@@ -35,12 +35,12 @@ import static io.vertx.core.net.impl.URIDecoder.*;
 /**
  * Sometimes the file resources of an application are bundled into jars, or are somewhere on the classpath but not
  * available on the file system, e.g. in the case of a Vert.x webapp bundled as a fat jar.
- *
+ * <p>
  * In this case we want the application to access the resource from the classpath as if it was on the file system.
- *
+ * <p>
  * We can do this by looking for the file on the classpath, and if found, copying it to a temporary cache directory
  * on disk and serving it from there.
- *
+ * <p>
  * There is one cache dir per Vert.x instance and they are deleted on Vert.x shutdown.
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -153,17 +153,17 @@ public class FileResolver {
   private File unpackUrlResource(URL url, String fileName, ClassLoader cl, boolean isDir) {
     String prot = url.getProtocol();
     switch (prot) {
-    case "file":
-      return unpackFromFileURL(url, fileName, cl);
-    case "jar":
-      return unpackFromJarURL(url, fileName, cl);
-    case "bundle": // Apache Felix, Knopflerfish
-    case "bundleentry": // Equinox
-    case "bundleresource": // Equinox
-    case "resource":  // substratevm (graal native image)
-      return unpackFromBundleURL(url, isDir);
-    default:
-      throw new IllegalStateException("Invalid url protocol: " + prot);
+      case "file":
+        return unpackFromFileURL(url, fileName, cl);
+      case "jar":
+        return unpackFromJarURL(url, fileName, cl);
+      case "bundle": // Apache Felix, Knopflerfish
+      case "bundleentry": // Equinox
+      case "bundleresource": // Equinox
+      case "resource":  // substratevm (graal native image)
+        return unpackFromBundleURL(url, isDir);
+      default:
+        throw new IllegalStateException("Invalid url protocol: " + prot);
     }
   }
 
@@ -270,7 +270,7 @@ public class FileResolver {
    * It is possible to determine if a resource from a bundle is a directory based on whether or not the ClassLoader
    * returns null for a path (which does not already contain a trailing '/') *and* that path with an added trailing '/'
    *
-   * @param url      the url
+   * @param url the url
    * @return if the bundle resource represented by the bundle URL is a directory
    */
   private boolean isBundleUrlDirectory(URL url) {
@@ -283,14 +283,14 @@ public class FileResolver {
    * is not much we can do to get the file from it, except reading it from the url. This method copies the files by
    * reading it from the url.
    *
-   * @param url      the url
+   * @param url the url
    * @return the extracted file
    */
   private synchronized File unpackFromBundleURL(URL url, boolean isDir) {
     try {
       File file = new File(cacheDir, url.getHost() + File.separator + url.getFile());
       file.getParentFile().mkdirs();
-      if ((getClassLoader() != null && isBundleUrlDirectory(url))  || isDir) {
+      if ((getClassLoader() != null && isBundleUrlDirectory(url)) || isDir) {
         // Directory
         file.mkdirs();
       } else {

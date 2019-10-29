@@ -32,6 +32,7 @@ import java.util.Set;
  *
  * @author Janne Hietam&auml;ki
  */
+// TODO: 2018/11/26 by zmyer
 public class MemoryFileManager extends ForwardingJavaFileManager<JavaFileManager> {
   private final Map<String, ByteArrayOutputStream> compiledClasses = new HashMap<>();
   private final PackageHelper helper;

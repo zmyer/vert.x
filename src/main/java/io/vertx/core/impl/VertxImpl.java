@@ -138,6 +138,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   private final CloseHooks closeHooks;
   private final Transport transport;
 
+  // TODO: 2018/11/23 by zmyer
   private VertxImpl(VertxOptions options, Transport transport) {
     // Sanity check
     if (Vertx.currentContext() != null) {
@@ -210,13 +211,13 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     });
   }
 
+  // TODO: 2018/11/26 by zmyer
   private void createHaManager(VertxOptions options, Handler<AsyncResult<Vertx>> resultHandler) {
-    this.<Map<String, String>>executeBlocking(fut -> {
-      fut.complete(clusterManager.getSyncMap(CLUSTER_MAP_NAME));
-    }, false, ar -> {
+    this.<Map<String, String>>executeBlocking(fut -> fut.complete(clusterManager.getSyncMap(CLUSTER_MAP_NAME)), false, ar -> {
       if (ar.succeeded()) {
         Map<String, String> clusterMap = ar.result();
-        haManager = new HAManager(this, deploymentManager, clusterManager, clusterMap, options.getQuorumSize(), options.getHAGroup(), options.isHAEnabled());
+        haManager = new HAManager(this, deploymentManager, clusterManager, clusterMap, options.getQuorumSize(),
+          options.getHAGroup(), options.isHAEnabled());
         startEventBus(resultHandler);
       } else {
         log.error("Failed to start HAManager", ar.cause());
@@ -260,11 +261,13 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return Utils.isWindows() ? new WindowsFileSystem(this) : new FileSystemImpl(this);
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public DatagramSocket createDatagramSocket(DatagramSocketOptions options) {
     return DatagramSocketImpl.create(this, options);
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public DatagramSocket createDatagramSocket() {
     return createDatagramSocket(new DatagramSocketOptions());
@@ -275,11 +278,13 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return new NetServerImpl(this, options);
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public NetServer createNetServer() {
     return createNetServer(new NetServerOptions());
   }
 
+  // TODO: 2018/11/27 by zmyer
   public NetClient createNetClient(NetClientOptions options) {
     return new NetClientImpl(this, options);
   }
@@ -372,7 +377,8 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     ContextImpl ctx = getContext();
     if (ctx == null) {
       // We are running embedded - Create a context
-      ctx = createEventLoopContext(null, null, new JsonObject(), Thread.currentThread().getContextClassLoader());
+      ctx = createEventLoopContext(null, null, new JsonObject(),
+        Thread.currentThread().getContextClassLoader());
     }
     return ctx;
   }
@@ -409,7 +415,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public EventLoopContext createEventLoopContext(String deploymentID, WorkerPool workerPool, JsonObject config,
-    ClassLoader tccl) {
+                                                 ClassLoader tccl) {
     return new EventLoopContext(this, internalBlockingPool, workerPool != null ? workerPool : this.workerPool,
       deploymentID, config, tccl);
   }
@@ -417,7 +423,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public ContextImpl createWorkerContext(boolean multiThreaded, String deploymentID, WorkerPool workerPool,
-    JsonObject config, ClassLoader tccl) {
+                                         JsonObject config, ClassLoader tccl) {
     if (workerPool == null) {
       workerPool = this.workerPool;
     }
@@ -428,16 +434,19 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     }
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public DnsClient createDnsClient(int port, String host) {
     return createDnsClient(new DnsClientOptions().setHost(host).setPort(port));
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public DnsClient createDnsClient() {
     return createDnsClient(new DnsClientOptions());
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public DnsClient createDnsClient(DnsClientOptions options) {
     String host = options.getHost();
@@ -534,6 +543,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     close(null);
   }
 
+  // TODO: 2018/11/27 by zmyer
   private void closeClusterManager(Handler<AsyncResult<Void>> completionHandler) {
     if (clusterManager != null) {
       clusterManager.leave(ar -> {
@@ -549,6 +559,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     }
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public synchronized void close(Handler<AsyncResult<Void>> completionHandler) {
     if (closed || eventBus == null) {
@@ -657,7 +668,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public void deployVerticle(Verticle verticle, DeploymentOptions options,
-    Handler<AsyncResult<String>> completionHandler) {
+                             Handler<AsyncResult<String>> completionHandler) {
     if (options.getInstances() != 1) {
       throw new IllegalArgumentException("Can't specify > 1 instances for already created verticle");
     }
@@ -667,7 +678,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public void deployVerticle(Class<? extends Verticle> verticleClass, DeploymentOptions options,
-    Handler<AsyncResult<String>> completionHandler) {
+                             Handler<AsyncResult<String>> completionHandler) {
     deployVerticle(() -> {
       try {
         return verticleClass.newInstance();
@@ -680,7 +691,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public void deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options,
-    Handler<AsyncResult<String>> completionHandler) {
+                             Handler<AsyncResult<String>> completionHandler) {
     boolean closed;
     synchronized (this) {
       closed = this.closed;
@@ -721,12 +732,14 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return clusterManager.getNodeID();
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void undeploy(String deploymentID) {
     undeploy(deploymentID, res -> {
     });
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void undeploy(String deploymentID, Handler<AsyncResult<Void>> completionHandler) {
     HAManager haManager = haManager();
@@ -751,11 +764,13 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return deploymentManager.deployments();
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void registerVerticleFactory(VerticleFactory factory) {
     deploymentManager.registerVerticleFactory(factory);
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void unregisterVerticleFactory(VerticleFactory factory) {
     deploymentManager.unregisterVerticleFactory(factory);
@@ -766,9 +781,10 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return deploymentManager.verticleFactories();
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public <T> void executeBlockingInternal(Handler<Future<T>> blockingCodeHandler,
-    Handler<AsyncResult<T>> resultHandler) {
+                                          Handler<AsyncResult<T>> resultHandler) {
     ContextImpl context = getOrCreateContext();
 
     context.executeBlockingInternal(blockingCodeHandler, resultHandler);
@@ -777,7 +793,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-    Handler<AsyncResult<T>> asyncResultHandler) {
+                                  Handler<AsyncResult<T>> asyncResultHandler) {
     final ContextImpl context = getOrCreateContext();
     context.executeBlocking(blockingCodeHandler, ordered, asyncResultHandler);
   }
@@ -785,7 +801,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler,
-    Handler<AsyncResult<T>> asyncResultHandler) {
+                                  Handler<AsyncResult<T>> asyncResultHandler) {
     executeBlocking(blockingCodeHandler, true, asyncResultHandler);
   }
 
@@ -840,6 +856,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return fileResolver.resolveFile(fileName);
   }
 
+  // TODO: 2018/11/27 by zmyer
   @Override
   public void resolveAddress(String hostname, Handler<AsyncResult<InetAddress>> resultHandler) {
     addressResolver.resolveHostname(hostname, resultHandler);
@@ -855,6 +872,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     return addressResolver.nettyAddressResolverGroup();
   }
 
+  // TODO: 2018/11/26 by zmyer
   @SuppressWarnings("unchecked")
   private void deleteCacheDirAndShutdown(Handler<AsyncResult<Void>> completionHandler) {
     executeBlockingInternal(fut -> {
@@ -987,6 +1005,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
    * we benefit from biased locking which makes the overhead of synchronized near zero.
    *
    */
+  // TODO: 2018/11/26 by zmyer
   private class TimeoutStreamImpl implements TimeoutStream, Handler<Long> {
 
     private final long delay;
@@ -1038,6 +1057,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
       }
     }
 
+    // TODO: 2018/11/26 by zmyer
     @Override
     public synchronized TimeoutStream handler(Handler<Long> handler) {
       if (handler != null) {
@@ -1102,16 +1122,19 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     }
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public WorkerExecutorImpl createSharedWorkerExecutor(String name) {
     return createSharedWorkerExecutor(name, defaultWorkerPoolSize);
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public WorkerExecutorImpl createSharedWorkerExecutor(String name, int poolSize) {
     return createSharedWorkerExecutor(name, poolSize, defaultWorkerMaxExecTime);
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public synchronized WorkerExecutorImpl createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime) {
     return createSharedWorkerExecutor(name, poolSize, maxExecuteTime, TimeUnit.NANOSECONDS);
@@ -1120,7 +1143,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
   // TODO: 2018/8/1 by zmyer
   @Override
   public synchronized WorkerExecutorImpl createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime,
-    TimeUnit maxExecuteTimeUnit) {
+                                                                    TimeUnit maxExecuteTimeUnit) {
     if (poolSize < 1) {
       throw new IllegalArgumentException("poolSize must be > 0");
     }

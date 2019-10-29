@@ -78,6 +78,7 @@ public class AddressResolver {
     this.vertx = vertx;
   }
 
+  // TODO: 2018/11/27 by zmyer
   public void resolveHostname(String hostname, Handler<AsyncResult<InetAddress>> resultHandler) {
     ContextInternal callback = (ContextInternal) vertx.getOrCreateContext();
     io.netty.resolver.AddressResolver<InetSocketAddress> resolver = resolverGroup.getResolver(

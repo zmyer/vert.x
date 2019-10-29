@@ -59,6 +59,7 @@ public interface VertxInternal extends Vertx {
 
   /**
    * Get the current context
+   *
    * @return the context
    */
   ContextInternal getContext();
@@ -67,13 +68,13 @@ public interface VertxInternal extends Vertx {
    * @return event loop context
    */
   EventLoopContext createEventLoopContext(String deploymentID, WorkerPool workerPool, JsonObject config,
-    ClassLoader tccl);
+                                          ClassLoader tccl);
 
   /**
    * @return worker loop context
    */
   ContextImpl createWorkerContext(boolean multiThreaded, String deploymentID, WorkerPool pool, JsonObject config,
-    ClassLoader tccl);
+                                  ClassLoader tccl);
 
   @Override
   WorkerExecutorInternal createSharedWorkerExecutor(String name);
@@ -84,9 +85,10 @@ public interface VertxInternal extends Vertx {
   @Override
   WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime);
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   WorkerExecutorInternal createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime,
-    TimeUnit maxExecuteTimeUnit);
+                                                    TimeUnit maxExecuteTimeUnit);
 
   void simulateKill();
 
@@ -114,7 +116,7 @@ public interface VertxInternal extends Vertx {
   /**
    * Resolve an address (e.g. {@code vertx.io} into the first found A (IPv4) or AAAA (IPv6) record.
    *
-   * @param hostname the hostname to resolve
+   * @param hostname      the hostname to resolve
    * @param resultHandler the result handler
    */
   void resolveAddress(String hostname, Handler<AsyncResult<InetAddress>> resultHandler);

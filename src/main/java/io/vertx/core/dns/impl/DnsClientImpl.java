@@ -40,6 +40,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
+// TODO: 2018/11/26 by zmyer
 public final class DnsClientImpl implements DnsClient {
 
   private static final char[] HEX_TABLE = "0123456789abcdef".toCharArray();
@@ -51,6 +52,7 @@ public final class DnsClientImpl implements DnsClient {
   private final DatagramChannel channel;
   private final DnsClientOptions options;
 
+  // TODO: 2018/11/27 by zmyer
   public DnsClientImpl(VertxInternal vertx, DnsClientOptions options) {
     Objects.requireNonNull(options, "no null options accepted");
     Objects.requireNonNull(options.getHost(), "no null host accepted");
@@ -64,7 +66,7 @@ public final class DnsClientImpl implements DnsClient {
 
     this.dnsServer = new InetSocketAddress(options.getHost(), options.getPort());
     if (this.dnsServer.isUnresolved()) {
-    	throw new IllegalArgumentException("Cannot resolve the host to a valid ip address");
+      throw new IllegalArgumentException("Cannot resolve the host to a valid ip address");
     }
     this.vertx = vertx;
 
@@ -118,7 +120,7 @@ public final class DnsClientImpl implements DnsClient {
   }
 
   @Override
-  public DnsClient resolveCNAME(String name, Handler<AsyncResult<List<String> >> handler) {
+  public DnsClient resolveCNAME(String name, Handler<AsyncResult<List<String>>> handler) {
     lookupList(name, handler, DnsRecordType.CNAME);
     return this;
   }
@@ -140,7 +142,7 @@ public final class DnsClientImpl implements DnsClient {
         } else {
           List<String> txts = new ArrayList<>();
           List<List<String>> records = (List<List<String>>) event.result();
-          for (List<String> txt: records) {
+          for (List<String> txt : records) {
             txts.addAll(txt);
           }
           handler.handle(Future.succeededFuture(txts));
@@ -187,9 +189,9 @@ public final class DnsClientImpl implements DnsClient {
       if (inetAddress instanceof Inet4Address) {
         // reverse ipv4 address
         reverseName.append(addr[3] & 0xff).append(".")
-                .append(addr[2]& 0xff).append(".")
-                .append(addr[1]& 0xff).append(".")
-                .append(addr[0]& 0xff);
+          .append(addr[2] & 0xff).append(".")
+          .append(addr[1] & 0xff).append(".")
+          .append(addr[0] & 0xff);
       } else {
         // It is an ipv 6 address time to reverse it
         for (int i = 0; i < 16; i++) {
@@ -246,7 +248,7 @@ public final class DnsClientImpl implements DnsClient {
 
     public Query(String name, DnsRecordType[] types, Handler<AsyncResult<List<T>>> handler) {
       this.msg = new DatagramDnsQuery(null, dnsServer, ThreadLocalRandom.current().nextInt()).setRecursionDesired(options.isRecursionDesired());
-      for (DnsRecordType type: types) {
+      for (DnsRecordType type : types) {
         msg.addRecord(DnsSection.QUESTION, new DefaultDnsQuestion(name, type, DnsRecord.CLASS_IN));
       }
       this.fut = Future.<List<T>>future().setHandler(handler);
@@ -271,7 +273,7 @@ public final class DnsClientImpl implements DnsClient {
         }
         int count = msg.count(DnsSection.ANSWER);
         List<T> records = new ArrayList<>(count);
-        for (int idx = 0;idx < count;idx++) {
+        for (int idx = 0; idx < count; idx++) {
           DnsRecord a = msg.recordAt(DnsSection.ANSWER, idx);
           T record = RecordDecoder.decode(a);
           if (isRequestedType(a.type(), types)) {

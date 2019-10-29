@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
  * Options for configuring a verticle deployment.
  * <p>
  *
- *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 // TODO: 2018/8/1 by zmyer
@@ -88,7 +87,7 @@ public class DeploymentOptions {
   /**
    * Constructor for creating a instance from JSON
    *
-   * @param json  the JSON
+   * @param json the JSON
    */
   public DeploymentOptions(JsonObject json) {
     this();
@@ -98,7 +97,7 @@ public class DeploymentOptions {
   /**
    * Initialise the fields of this instance from the specified JSON
    *
-   * @param json  the JSON
+   * @param json the JSON
    */
   public void fromJson(JsonObject json) {
     this.config = json.getJsonObject("config");
@@ -129,7 +128,7 @@ public class DeploymentOptions {
   /**
    * Set the JSON configuration that will be passed to the verticle(s) when it's deployed
    *
-   * @param config  the JSON config
+   * @param config the JSON config
    * @return a reference to this, so the API can be used fluently
    */
   public DeploymentOptions setConfig(JsonObject config) {
@@ -211,7 +210,7 @@ public class DeploymentOptions {
   /**
    * Set whether the verticle(s) will be deployed as HA.
    *
-   * @param ha  true if to be deployed as HA, false otherwise
+   * @param ha true if to be deployed as HA, false otherwise
    * @return a reference to this, so the API can be used fluently
    */
   public DeploymentOptions setHa(boolean ha) {
@@ -254,7 +253,7 @@ public class DeploymentOptions {
   /**
    * Set the number of instances that should be deployed.
    *
-   * @param instances  the number of instances
+   * @param instances the number of instances
    * @return a reference to this, so the API can be used fluently
    */
   public DeploymentOptions setInstances(int instances) {
@@ -368,6 +367,7 @@ public class DeploymentOptions {
 
   /**
    * Set the time unit of {@code maxWorkerExecuteTime}
+   *
    * @param maxWorkerExecuteTimeUnit the time unit of {@code maxWorkerExecuteTime}
    * @return a reference to this, so the API can be used fluently
    */

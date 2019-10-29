@@ -17,7 +17,7 @@ import io.vertx.core.metrics.Measured;
 
 /**
  * An executor for executing blocking code in Vert.x .<p>
- *
+ * <p>
  * It provides the same <code>executeBlocking</code> operation than {@link io.vertx.core.Context} and
  * {@link io.vertx.core.Vertx} but on a separate worker pool.<p>
  *
@@ -42,21 +42,21 @@ public interface WorkerExecutor extends Measured {
    * In the {@code blockingCodeHandler} the current context remains the original context and therefore any task
    * scheduled in the {@code blockingCodeHandler} will be executed on the this context and not on the worker thread.
    *
-   * @param blockingCodeHandler  handler representing the blocking code to run
-   * @param resultHandler  handler that will be called when the blocking code is complete
-   * @param ordered  if true then if executeBlocking is called several times on the same context, the executions
-   *                 for that context will be executed serially, not in parallel. if false then they will be no ordering
-   *                 guarantees
-   * @param <T> the type of the result
+   * @param blockingCodeHandler handler representing the blocking code to run
+   * @param resultHandler       handler that will be called when the blocking code is complete
+   * @param ordered             if true then if executeBlocking is called several times on the same context, the executions
+   *                            for that context will be executed serially, not in parallel. if false then they will be no ordering
+   *                            guarantees
+   * @param <T>                 the type of the result
    */
   <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-    Handler<AsyncResult<@Nullable T>> resultHandler);
+                           Handler<AsyncResult<@Nullable T>> resultHandler);
 
   /**
    * Like {@link #executeBlocking(Handler, boolean, Handler)} called with ordered = true.
    */
   default <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler,
-    Handler<AsyncResult<@Nullable T>> resultHandler) {
+                                   Handler<AsyncResult<@Nullable T>> resultHandler) {
     executeBlocking(blockingCodeHandler, true, resultHandler);
   }
 

@@ -149,7 +149,8 @@ public class DnsResolverProvider implements ResolverProvider {
         DnsAddressResolverGroup group = new DnsAddressResolverGroup(channelFactory, nameServerAddressProvider) {
           @Override
           protected NameResolver<InetAddress> newNameResolver(EventLoop eventLoop,
-            ChannelFactory<? extends DatagramChannel> channelFactory, DnsServerAddressStreamProvider nameServerProvider)
+                                                              ChannelFactory<? extends DatagramChannel> channelFactory,
+                                                              DnsServerAddressStreamProvider nameServerProvider)
             throws Exception {
             DnsNameResolverBuilder builder = new DnsNameResolverBuilder((EventLoop) executor);
             builder.hostsFileEntriesResolver(new HostsFileEntriesResolver() {
@@ -164,18 +165,18 @@ public class DnsResolverProvider implements ResolverProvider {
 
               InetAddress lookup(String inetHost, ResolvedAddressTypes resolvedAddressTypes) {
                 switch (resolvedAddressTypes) {
-                case IPV4_ONLY:
-                  return entries.inet4Entries().get(inetHost);
-                case IPV6_ONLY:
-                  return entries.inet6Entries().get(inetHost);
-                case IPV4_PREFERRED:
-                  Inet4Address inet4Address = entries.inet4Entries().get(inetHost);
-                  return inet4Address != null ? inet4Address : entries.inet6Entries().get(inetHost);
-                case IPV6_PREFERRED:
-                  Inet6Address inet6Address = entries.inet6Entries().get(inetHost);
-                  return inet6Address != null ? inet6Address : entries.inet4Entries().get(inetHost);
-                default:
-                  throw new IllegalArgumentException("Unknown ResolvedAddressTypes " + resolvedAddressTypes);
+                  case IPV4_ONLY:
+                    return entries.inet4Entries().get(inetHost);
+                  case IPV6_ONLY:
+                    return entries.inet6Entries().get(inetHost);
+                  case IPV4_PREFERRED:
+                    Inet4Address inet4Address = entries.inet4Entries().get(inetHost);
+                    return inet4Address != null ? inet4Address : entries.inet6Entries().get(inetHost);
+                  case IPV6_PREFERRED:
+                    Inet6Address inet6Address = entries.inet6Entries().get(inetHost);
+                    return inet6Address != null ? inet6Address : entries.inet4Entries().get(inetHost);
+                  default:
+                    throw new IllegalArgumentException("Unknown ResolvedAddressTypes " + resolvedAddressTypes);
                 }
               }
             });

@@ -25,6 +25,7 @@ import java.util.List;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/11/30 by zmyer
 @VertxGen
 public interface CompositeFuture extends Future<CompositeFuture> {
 
@@ -71,7 +72,7 @@ public interface CompositeFuture extends Future<CompositeFuture> {
 
   /**
    * Like {@link #all(Future, Future)} but with a list of futures.<p>
-   *
+   * <p>
    * When the list is empty, the returned future will be already completed.
    */
   static CompositeFuture all(List<Future> futures) {
@@ -121,7 +122,7 @@ public interface CompositeFuture extends Future<CompositeFuture> {
 
   /**
    * Like {@link #any(Future, Future)} but with a list of futures.<p>
-   *
+   * <p>
    * When the list is empty, the returned future will be already completed.
    */
   static CompositeFuture any(List<Future> futures) {
@@ -171,7 +172,7 @@ public interface CompositeFuture extends Future<CompositeFuture> {
 
   /**
    * Like {@link #join(Future, Future)} but with a list of futures.<p>
-   *
+   * <p>
    * When the list is empty, the returned future will be already completed.
    */
   static CompositeFuture join(List<Future> futures) {
@@ -237,13 +238,13 @@ public interface CompositeFuture extends Future<CompositeFuture> {
 
   /**
    * @return a list of the current completed values. If one future is not yet resolved or is failed, {@code} null
-   *         will be used
+   * will be used
    */
   @GenIgnore
   default <T> List<T> list() {
     int size = size();
     ArrayList<T> list = new ArrayList<>(size);
-    for (int index = 0;index < size;index++) {
+    for (int index = 0; index < size; index++) {
       list.add(resultAt(index));
     }
     return list;

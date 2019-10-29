@@ -46,7 +46,7 @@ class EpollTransport extends Transport {
 
   /**
    * Return the number of of pending TFO connections in SYN-RCVD state for TCP_FASTOPEN.
-   *
+   * <p>
    * {@see #setPendingFastOpenRequestsThreshold}
    */
   public static int getPendingFastOpenRequestsThreshold() {
@@ -91,6 +91,7 @@ class EpollTransport extends Transport {
     return Epoll.unavailabilityCause();
   }
 
+  // TODO: 2018/11/23 by zmyer
   @Override
   public EventLoopGroup eventLoopGroup(int nThreads, ThreadFactory threadFactory, int ioRatio) {
     EpollEventLoopGroup eventLoopGroup = new EpollEventLoopGroup(nThreads, threadFactory);

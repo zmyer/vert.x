@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
- *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 // TODO: 2018/8/1 by zmyer
@@ -83,7 +82,7 @@ public class DeploymentManager {
 
   // TODO: 2018/8/1 by zmyer
   public void deployVerticle(Supplier<Verticle> verticleSupplier, DeploymentOptions options,
-    Handler<AsyncResult<String>> completionHandler) {
+                             Handler<AsyncResult<String>> completionHandler) {
     if (options.getInstances() < 1) {
       throw new IllegalArgumentException("Can't specify < 1 instances to deploy");
     }
@@ -135,8 +134,8 @@ public class DeploymentManager {
 
   // TODO: 2018/8/1 by zmyer
   public void deployVerticle(String identifier,
-    DeploymentOptions options,
-    Handler<AsyncResult<String>> completionHandler) {
+                             DeploymentOptions options,
+                             Handler<AsyncResult<String>> completionHandler) {
     if (options.isMultiThreaded() && !options.isWorker()) {
       throw new IllegalArgumentException("If multi-threaded then must be worker too");
     }
@@ -148,12 +147,12 @@ public class DeploymentManager {
 
   // TODO: 2018/8/1 by zmyer
   private void doDeployVerticle(String identifier,
-    String deploymentID,
-    DeploymentOptions options,
-    ContextInternal parentContext,
-    ContextInternal callingContext,
-    ClassLoader cl,
-    Handler<AsyncResult<String>> completionHandler) {
+                                String deploymentID,
+                                DeploymentOptions options,
+                                ContextInternal parentContext,
+                                ContextInternal callingContext,
+                                ClassLoader cl,
+                                Handler<AsyncResult<String>> completionHandler) {
     final List<VerticleFactory> verticleFactories = resolveFactories(identifier);
     Iterator<VerticleFactory> iter = verticleFactories.iterator();
     doDeployVerticle(iter, null, identifier, deploymentID, options, parentContext, callingContext, cl,
@@ -162,14 +161,14 @@ public class DeploymentManager {
 
   // TODO: 2018/8/1 by zmyer
   private void doDeployVerticle(Iterator<VerticleFactory> iter,
-    Throwable prevErr,
-    String identifier,
-    String deploymentID,
-    DeploymentOptions options,
-    ContextInternal parentContext,
-    ContextInternal callingContext,
-    ClassLoader cl,
-    Handler<AsyncResult<String>> completionHandler) {
+                                Throwable prevErr,
+                                String identifier,
+                                String deploymentID,
+                                DeploymentOptions options,
+                                ContextInternal parentContext,
+                                ContextInternal callingContext,
+                                ClassLoader cl,
+                                Handler<AsyncResult<String>> completionHandler) {
     if (iter.hasNext()) {
       VerticleFactory verticleFactory = iter.next();
       final Future<String> fut = Future.future();
@@ -320,11 +319,7 @@ public class DeploymentManager {
     if (prefix == null) {
       throw new IllegalArgumentException("factory.prefix() cannot be null");
     }
-    List<VerticleFactory> facts = verticleFactories.get(prefix);
-    if (facts == null) {
-      facts = new ArrayList<>();
-      verticleFactories.put(prefix, facts);
-    }
+    List<VerticleFactory> facts = verticleFactories.computeIfAbsent(prefix, k -> new ArrayList<>());
     if (facts.contains(factory)) {
       throw new IllegalArgumentException("Factory already registered");
     }
@@ -334,6 +329,7 @@ public class DeploymentManager {
     factory.init(vertx);
   }
 
+  // TODO: 2018/11/26 by zmyer
   public void unregisterVerticleFactory(VerticleFactory factory) {
     String prefix = factory.prefix();
     if (prefix == null) {
@@ -403,7 +399,6 @@ public class DeploymentManager {
   /**
    * <strong>IMPORTANT</strong> - Isolation groups are not supported on Java 9+ because the application classloader is not
    * an URLClassLoader anymore. Thus we can't extract the list of jars to configure the IsolatedClassLoader.
-   *
    */
   // TODO: 2018/8/1 by zmyer
   private ClassLoader getClassLoader(DeploymentOptions options) {
@@ -467,12 +462,14 @@ public class DeploymentManager {
     }
   }
 
+  // TODO: 2018/11/26 by zmyer
   private <T> void reportSuccess(T result, Context context, Handler<AsyncResult<T>> completionHandler) {
     if (completionHandler != null) {
       reportResult(context, completionHandler, Future.succeededFuture(result));
     }
   }
 
+  // TODO: 2018/11/26 by zmyer
   private <T> void reportResult(Context context, Handler<AsyncResult<T>> completionHandler, AsyncResult<T> result) {
     context.runOnContext(v -> {
       try {
@@ -486,10 +483,10 @@ public class DeploymentManager {
 
   // TODO: 2018/8/1 by zmyer
   private void doDeploy(String identifier, String deploymentID, DeploymentOptions options,
-    ContextInternal parentContext,
-    ContextInternal callingContext,
-    Handler<AsyncResult<String>> completionHandler,
-    ClassLoader tccl, Verticle... verticles) {
+                        ContextInternal parentContext,
+                        ContextInternal callingContext,
+                        Handler<AsyncResult<String>> completionHandler,
+                        ClassLoader tccl, Verticle... verticles) {
     JsonObject conf = options.getConfig() == null ? new JsonObject() : options.getConfig().copy(); // Copy it
     String poolName = options.getWorkerPoolName();
 
@@ -574,7 +571,7 @@ public class DeploymentManager {
 
     // TODO: 2018/8/1 by zmyer
     private DeploymentImpl(Deployment parent, String deploymentID, String verticleIdentifier,
-      DeploymentOptions options) {
+                           DeploymentOptions options) {
       this.parent = parent;
       this.deploymentID = deploymentID;
       this.verticleIdentifier = verticleIdentifier;
@@ -588,7 +585,7 @@ public class DeploymentManager {
 
     // TODO: 2018/8/1 by zmyer
     private synchronized void rollback(ContextInternal callingContext, Handler<AsyncResult<String>> completionHandler,
-      ContextImpl context, Throwable cause) {
+                                       ContextImpl context, Throwable cause) {
       if (status == ST_DEPLOYED) {
         status = ST_UNDEPLOYING;
         doUndeployChildren(callingContext, childrenResult -> {
@@ -612,7 +609,7 @@ public class DeploymentManager {
 
     // TODO: 2018/8/1 by zmyer
     private synchronized void doUndeployChildren(ContextInternal undeployingContext,
-      Handler<AsyncResult<Void>> completionHandler) {
+                                                 Handler<AsyncResult<Void>> completionHandler) {
       if (!children.isEmpty()) {
         final int size = children.size();
         AtomicInteger childCount = new AtomicInteger();
@@ -640,7 +637,7 @@ public class DeploymentManager {
 
     // TODO: 2018/8/1 by zmyer
     public synchronized void doUndeploy(ContextInternal undeployingContext,
-      Handler<AsyncResult<Void>> completionHandler) {
+                                        Handler<AsyncResult<Void>> completionHandler) {
       if (status == ST_UNDEPLOYED) {
         reportFailure(new IllegalStateException("Already undeployed"), undeployingContext, completionHandler);
         return;

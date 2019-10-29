@@ -207,7 +207,7 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
     serverOrigin = (options.isSsl() ? "https" : "http") + "://" + host + ":" + port;
     List<HttpVersion> applicationProtocols = options.getAlpnVersions();
     if (listenContext.isWorkerContext()) {
-      applicationProtocols =  applicationProtocols.stream().filter(v -> v != HttpVersion.HTTP_2).collect(Collectors.toList());
+      applicationProtocols = applicationProtocols.stream().filter(v -> v != HttpVersion.HTTP_2).collect(Collectors.toList());
     }
     sslHelper.setApplicationProtocols(applicationProtocols);
     synchronized (vertx.sharedHttpServers()) {
@@ -222,87 +222,87 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
         sslHelper.validate(vertx);
         bootstrap.childHandler(new ChannelInitializer<Channel>() {
           @Override
-            protected void initChannel(Channel ch) throws Exception {
-              if (!requestStream.accept() || !wsStream.accept()) {
-                ch.close();
-                return;
+          protected void initChannel(Channel ch) throws Exception {
+            if (!requestStream.accept() || !wsStream.accept()) {
+              ch.close();
+              return;
+            }
+            ChannelPipeline pipeline = ch.pipeline();
+            if (sslHelper.isSSL()) {
+              io.netty.util.concurrent.Future<Channel> handshakeFuture;
+              if (options.isSni()) {
+                VertxSniHandler sniHandler = new VertxSniHandler(sslHelper, vertx);
+                pipeline.addLast(sniHandler);
+                handshakeFuture = sniHandler.handshakeFuture();
+              } else {
+                SslHandler handler = new SslHandler(sslHelper.createEngine(vertx));
+                pipeline.addLast("ssl", handler);
+                handshakeFuture = handler.handshakeFuture();
               }
-              ChannelPipeline pipeline = ch.pipeline();
-              if (sslHelper.isSSL()) {
-                io.netty.util.concurrent.Future<Channel> handshakeFuture;
-                if (options.isSni()) {
-                  VertxSniHandler sniHandler = new VertxSniHandler(sslHelper, vertx);
-                  pipeline.addLast(sniHandler);
-                  handshakeFuture = sniHandler.handshakeFuture();
-                } else {
-                  SslHandler handler = new SslHandler(sslHelper.createEngine(vertx));
-                  pipeline.addLast("ssl", handler);
-                  handshakeFuture = handler.handshakeFuture();
-                }
-                handshakeFuture.addListener(future -> {
-                  if (future.isSuccess()) {
-                    if (options.isUseAlpn()) {
-                      SslHandler sslHandler = pipeline.get(SslHandler.class);
-                      String protocol = sslHandler.applicationProtocol();
-                      if ("h2".equals(protocol)) {
-                        handleHttp2(ch);
-                      } else {
-                        handleHttp1(ch);
-                      }
+              handshakeFuture.addListener(future -> {
+                if (future.isSuccess()) {
+                  if (options.isUseAlpn()) {
+                    SslHandler sslHandler = pipeline.get(SslHandler.class);
+                    String protocol = sslHandler.applicationProtocol();
+                    if ("h2".equals(protocol)) {
+                      handleHttp2(ch);
                     } else {
                       handleHttp1(ch);
                     }
                   } else {
-                    HandlerHolder<HttpHandlers> handler = httpHandlerMgr.chooseHandler(ch.eventLoop());
-                    handler.context.executeFromIO(v -> {
-                      handler.handler.exceptionHandler.handle(future.cause());
-                    });
+                    handleHttp1(ch);
                   }
-                });
-              } else {
-                if (DISABLE_H2C) {
-                  handleHttp1(ch);
                 } else {
-                  IdleStateHandler idle;
-                  if (options.getIdleTimeout() > 0) {
-                    pipeline.addLast("idle", idle = new IdleStateHandler(0, 0, options.getIdleTimeout(), options.getIdleTimeoutUnit()));
-                  } else {
-                    idle = null;
-                  }
-                  // Handler that detects whether the HTTP/2 connection preface or just process the request
-                  // with the HTTP 1.x pipeline to support H2C with prior knowledge, i.e a client that connects
-                  // and uses HTTP/2 in clear text directly without an HTTP upgrade.
-                  pipeline.addLast(new Http1xOrH2CHandler() {
-                    @Override
-                    protected void configure(ChannelHandlerContext ctx, boolean h2c) {
-                      if (idle != null) {
-                        // It will be re-added but this way we don't need to pay attention to order
-                        pipeline.remove(idle);
-                      }
-                      if (h2c) {
-                        handleHttp2(ctx.channel());
-                      } else {
-                        handleHttp1(ch);
-                      }
-                    }
-
-                    @Override
-                    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-                      if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.ALL_IDLE) {
-                        ctx.close();
-                      }
-                    }
-
-                    @Override
-                    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                      super.exceptionCaught(ctx, cause);
-                      HandlerHolder<HttpHandlers> handler = httpHandlerMgr.chooseHandler(ctx.channel().eventLoop());
-                      handler.context.executeFromIO(v -> handler.handler.exceptionHandler.handle(cause));
-                    }
+                  HandlerHolder<HttpHandlers> handler = httpHandlerMgr.chooseHandler(ch.eventLoop());
+                  handler.context.executeFromIO(v -> {
+                    handler.handler.exceptionHandler.handle(future.cause());
                   });
                 }
+              });
+            } else {
+              if (DISABLE_H2C) {
+                handleHttp1(ch);
+              } else {
+                IdleStateHandler idle;
+                if (options.getIdleTimeout() > 0) {
+                  pipeline.addLast("idle", idle = new IdleStateHandler(0, 0, options.getIdleTimeout(), options.getIdleTimeoutUnit()));
+                } else {
+                  idle = null;
+                }
+                // Handler that detects whether the HTTP/2 connection preface or just process the request
+                // with the HTTP 1.x pipeline to support H2C with prior knowledge, i.e a client that connects
+                // and uses HTTP/2 in clear text directly without an HTTP upgrade.
+                pipeline.addLast(new Http1xOrH2CHandler() {
+                  @Override
+                  protected void configure(ChannelHandlerContext ctx, boolean h2c) {
+                    if (idle != null) {
+                      // It will be re-added but this way we don't need to pay attention to order
+                      pipeline.remove(idle);
+                    }
+                    if (h2c) {
+                      handleHttp2(ctx.channel());
+                    } else {
+                      handleHttp1(ch);
+                    }
+                  }
+
+                  @Override
+                  public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+                    if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.ALL_IDLE) {
+                      ctx.close();
+                    }
+                  }
+
+                  @Override
+                  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    super.exceptionCaught(ctx, cause);
+                    HandlerHolder<HttpHandlers> handler = httpHandlerMgr.chooseHandler(ctx.channel().eventLoop());
+                    handler.context.executeFromIO(v -> handler.handler.exceptionHandler.handle(cause));
+                  }
+                });
               }
             }
+          }
         });
 
         addHandlers(this, listenContext);
@@ -314,7 +314,7 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
             } else {
               Channel serverChannel = res.result();
               if (serverChannel.localAddress() instanceof InetSocketAddress) {
-                HttpServerImpl.this.actualPort = ((InetSocketAddress)serverChannel.localAddress()).getPort();
+                HttpServerImpl.this.actualPort = ((InetSocketAddress) serverChannel.localAddress()).getPort();
               } else {
                 HttpServerImpl.this.actualPort = address.port();
               }
@@ -355,7 +355,7 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
           }
           listenContext.runOnContext((v) -> listenHandler.handle(res));
         } else if (future.failed()) {
-          listening  = false;
+          listening = false;
           // No handler - log so user can see failure
           log.error(future.cause());
         }
@@ -428,7 +428,7 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
         holder.handler.wsHandler,
         holder.handler.connectionHandler,
         holder.handler.exceptionHandler));
-      initializeWebsocketExtensions (pipeline);
+      initializeWebsocketExtensions(pipeline);
     }
     HandlerHolder<HttpHandlers> holder2 = holder;
     VertxHandler<Http1xServerConnection> handler = VertxHandler.create(holder2.context, chctx -> {
@@ -520,17 +520,17 @@ public class HttpServerImpl implements HttpServer, Closeable, MetricsProvider {
       requestStream.endHandler(null);
       Handler<AsyncResult<Void>> next = done;
       done = event -> {
-          if (event.succeeded()) {
-            if (wsEndHandler != null) {
-              wsEndHandler.handle(event.result());
-            }
-            if (requestEndHandler != null) {
-              requestEndHandler.handle(event.result());
-            }
+        if (event.succeeded()) {
+          if (wsEndHandler != null) {
+            wsEndHandler.handle(event.result());
           }
-          if (next != null) {
-            next.handle(event);
+          if (requestEndHandler != null) {
+            requestEndHandler.handle(event.result());
           }
+        }
+        if (next != null) {
+          next.handle(event);
+        }
       };
     }
 

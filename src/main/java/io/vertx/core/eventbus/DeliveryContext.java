@@ -14,7 +14,6 @@ package io.vertx.core.eventbus;
 import io.vertx.codegen.annotations.VertxGen;
 
 /**
- *
  * Encapsulates a message being delivered by Vert.x as well as providing control over the message delivery.
  * <p/>
  * Used with event bus interceptors.
@@ -26,7 +25,7 @@ import io.vertx.codegen.annotations.VertxGen;
 public interface DeliveryContext<T> {
 
   /**
-   * @return  The message being delivered
+   * @return The message being delivered
    */
   Message<T> message();
 

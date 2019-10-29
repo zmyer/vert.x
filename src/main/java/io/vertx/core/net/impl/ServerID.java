@@ -22,6 +22,7 @@ public class ServerID implements Serializable {
   public int port;
   public String host;
 
+  // TODO: 2018/11/27 by zmyer
   public ServerID(int port, String host) {
     this.port = port;
     this.host = host;

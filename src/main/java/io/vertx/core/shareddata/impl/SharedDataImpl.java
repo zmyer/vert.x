@@ -53,6 +53,7 @@ public class SharedDataImpl implements SharedData {
     localAsyncLocks = clusterManager == null ? new LocalAsyncLocks() : null;
   }
 
+  // TODO: 2018/11/29 by zmyer
   @Override
   public <K, V> void getClusterWideMap(String name, Handler<AsyncResult<AsyncMap<K, V>>> resultHandler) {
     Objects.requireNonNull(name, "name");
@@ -63,7 +64,7 @@ public class SharedDataImpl implements SharedData {
     clusterManager.<K, V>getAsyncMap(name, ar -> {
       if (ar.succeeded()) {
         // Wrap it
-        resultHandler.handle(Future.succeededFuture(new WrappedAsyncMap<K, V>(ar.result())));
+        resultHandler.handle(Future.succeededFuture(new WrappedAsyncMap<>(ar.result())));
       } else {
         resultHandler.handle(Future.failedFuture(ar.cause()));
       }
@@ -171,6 +172,7 @@ public class SharedDataImpl implements SharedData {
     }
   }
 
+  // TODO: 2018/11/29 by zmyer
   public static final class WrappedAsyncMap<K, V> implements AsyncMap<K, V> {
 
     private final AsyncMap<K, V> delegate;

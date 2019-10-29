@@ -30,6 +30,7 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
   private final VertxImpl.SharedWorkerPool pool;
   private boolean closed;
 
+  // TODO: 2018/11/26 by zmyer
   public WorkerExecutorImpl(Context ctx, VertxImpl.SharedWorkerPool pool) {
     this.ctx = ctx;
     this.pool = pool;
@@ -56,8 +57,9 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
     return pool;
   }
 
+  // TODO: 2018/11/26 by zmyer
   public synchronized <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-    Handler<AsyncResult<T>> asyncResultHandler) {
+                                               Handler<AsyncResult<T>> asyncResultHandler) {
     if (closed) {
       throw new IllegalStateException("Worker executor closed");
     }
@@ -66,6 +68,7 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
       ordered ? context.orderedTasks : null, pool.metrics());
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void close() {
     synchronized (this) {
@@ -79,6 +82,7 @@ class WorkerExecutorImpl implements MetricsProvider, WorkerExecutorInternal {
     pool.release();
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void close(Handler<AsyncResult<Void>> completionHandler) {
     close();

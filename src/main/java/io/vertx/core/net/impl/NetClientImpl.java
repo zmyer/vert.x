@@ -41,11 +41,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
  * This class is thread-safe
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/11/27 by zmyer
 public class NetClientImpl implements MetricsProvider, NetClient {
 
   private static final Logger log = LoggerFactory.getLogger(NetClientImpl.class);
@@ -220,7 +220,7 @@ public class NetClientImpl implements MetricsProvider, NetClient {
             log.debug("Failed to create connection. Will retry in " + options.getReconnectInterval() + " milliseconds");
             //Set a timer to retry connection
             vertx.setTimer(options.getReconnectInterval(), tid ->
-                doConnect(remoteAddress, serverName, connectHandler, remainingAttempts == -1 ? remainingAttempts : remainingAttempts - 1)
+              doConnect(remoteAddress, serverName, connectHandler, remainingAttempts == -1 ? remainingAttempts : remainingAttempts - 1)
             );
           });
         } else {

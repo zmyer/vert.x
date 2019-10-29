@@ -42,7 +42,7 @@ public class VertxThreadFactory implements ThreadFactory {
 
   // TODO: 2018/8/1 by zmyer
   VertxThreadFactory(String prefix, BlockedThreadChecker checker, boolean worker, long maxExecTime,
-    TimeUnit maxExecTimeUnit) {
+                     TimeUnit maxExecTimeUnit) {
     this.prefix = prefix;
     this.checker = checker;
     this.worker = worker;

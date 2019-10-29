@@ -160,6 +160,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/11/26 by zmyer
   // Remove the information on the deployment from the cluster - this is called when an HA module is undeployed
   public void removeFromHA(String depID) {
     Deployment dep = deploymentManager.getDeployment(depID);
@@ -210,6 +211,7 @@ public class HAManager {
     }
   }
 
+  // TODO: 2018/11/26 by zmyer
   public void simulateKill() {
     if (!stopped) {
       killed = true;

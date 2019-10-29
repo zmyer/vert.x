@@ -81,33 +81,29 @@ class CloseHooks {
     }
     if (copy != null && !copy.isEmpty()) {
       final int num = copy.size();
-      if (num != 0) {
-        final AtomicInteger count = new AtomicInteger();
-        final AtomicBoolean failed = new AtomicBoolean();
-        for (final Closeable hook : copy) {
-          final Future<Void> a = Future.future();
-          a.setHandler(ar -> {
-            if (ar.failed()) {
-              if (failed.compareAndSet(false, true)) {
-                // Only report one failure
-                completionHandler.handle(Future.failedFuture(ar.cause()));
-              }
-            } else {
-              if (count.incrementAndGet() == num) {
-                // closeHooksRun = true;
-                completionHandler.handle(Future.succeededFuture());
-              }
+      final AtomicInteger count = new AtomicInteger();
+      final AtomicBoolean failed = new AtomicBoolean();
+      for (final Closeable hook : copy) {
+        final Future<Void> a = Future.future();
+        a.setHandler(ar -> {
+          if (ar.failed()) {
+            if (failed.compareAndSet(false, true)) {
+              // Only report one failure
+              completionHandler.handle(Future.failedFuture(ar.cause()));
             }
-          });
-          try {
-            hook.close(a);
-          } catch (Throwable t) {
-            log.warn("Failed to run close hooks", t);
-            a.tryFail(t);
+          } else {
+            if (count.incrementAndGet() == num) {
+              // closeHooksRun = true;
+              completionHandler.handle(Future.succeededFuture());
+            }
           }
+        });
+        try {
+          hook.close(a);
+        } catch (Throwable t) {
+          log.warn("Failed to run close hooks", t);
+          a.tryFail(t);
         }
-      } else {
-        completionHandler.handle(Future.succeededFuture());
       }
     } else {
       completionHandler.handle(Future.succeededFuture());

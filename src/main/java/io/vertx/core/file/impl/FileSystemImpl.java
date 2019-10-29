@@ -57,7 +57,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- *
  * This class is thread-safe
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
@@ -700,6 +699,7 @@ public class FileSystemImpl implements FileSystem {
           Files.delete(file);
           return FileVisitResult.CONTINUE;
         }
+
         public FileVisitResult postVisitDirectory(Path dir, IOException e) throws IOException {
           if (e == null) {
             Files.delete(dir);
@@ -930,6 +930,7 @@ public class FileSystemImpl implements FileSystem {
     Objects.requireNonNull(path);
     return new BlockingAction<Boolean>(handler) {
       File file = vertx.resolveFile(path);
+
       public Boolean perform() {
         return file.exists();
       }
@@ -960,6 +961,7 @@ public class FileSystemImpl implements FileSystem {
       this.handler = handler;
       this.context = vertx.getOrCreateContext();
     }
+
     /**
      * Run the blocking action using a thread from the worker pool.
      */

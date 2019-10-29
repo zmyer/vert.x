@@ -38,19 +38,19 @@ import java.util.Objects;
  * <h3>Buffer mode</h3>
  * The buffer is either in <i>flowing</i> or <i>fetch</i> mode.
  * <ul>
- *   <i>Initially the buffer is in <i>flowing</i> mode.</i>
- *   <li>When the buffer is in <i>flowing</i> mode, elements are delivered to the {@code handler}.</li>
- *   <li>When the buffer is in <i>fetch</i> mode, only the number of requested elements will be delivered to the {@code handler}.</li>
+ * <i>Initially the buffer is in <i>flowing</i> mode.</i>
+ * <li>When the buffer is in <i>flowing</i> mode, elements are delivered to the {@code handler}.</li>
+ * <li>When the buffer is in <i>fetch</i> mode, only the number of requested elements will be delivered to the {@code handler}.</li>
  * </ul>
  * The mode can be changed with the {@link #pause()}, {@link #resume()} and {@link #fetch} methods:
  * <ul>
- *   <li>Calling {@link #resume()} sets the <i>flowing</i> mode</li>
- *   <li>Calling {@link #pause()} sets the <i>fetch</i> mode and resets the demand to {@code 0}</li>
- *   <li>Calling {@link #fetch(long)} requests a specific amount of elements and adds it to the actual demand</li>
+ * <li>Calling {@link #resume()} sets the <i>flowing</i> mode</li>
+ * <li>Calling {@link #pause()} sets the <i>fetch</i> mode and resets the demand to {@code 0}</li>
+ * <li>Calling {@link #fetch(long)} requests a specific amount of elements and adds it to the actual demand</li>
  * </ul>
  *
  * <h3>Concurrency</h3>
- *
+ * <p>
  * To avoid data races, write methods must be called from the context thread associated with the buffer, when that's
  * not the case, an {@code IllegalStateException} is thrown.
  * <p/>
@@ -63,6 +63,7 @@ import java.util.Objects;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/11/27 by zmyer
 public class InboundBuffer<E> {
 
   private final Context context;
@@ -127,9 +128,9 @@ public class InboundBuffer<E> {
   /**
    * Write an {@code iterable} of {@code elements}.
    *
-   * @see #write(E)
    * @param elements the elements to add
    * @return {@code true} if the buffer is full
+   * @see #write(E)
    */
   public boolean write(Iterable<E> elements) {
     checkContext();

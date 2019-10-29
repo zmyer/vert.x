@@ -31,7 +31,6 @@ import java.util.List;
 import static io.vertx.core.net.impl.URIDecoder.decodeURIComponent;
 
 /**
- *
  * Classloader for dynamic .java source file compilation and loading.
  *
  * @author Janne Hietam&auml;ki

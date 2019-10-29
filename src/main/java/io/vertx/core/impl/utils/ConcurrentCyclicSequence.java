@@ -74,6 +74,7 @@ public class ConcurrentCyclicSequence<T> implements Iterable<T>, Iterator<T> {
 
   /**
    * Copy the current sequence, add {@code element} at the tail of this sequence and returns it.
+   *
    * @param element the element to add
    * @return the resulting sequence
    */
@@ -125,14 +126,14 @@ public class ConcurrentCyclicSequence<T> implements Iterable<T>, Iterator<T> {
   public T next() {
     int len = elements.length;
     switch (len) {
-    case 0:
-      return null;
-    case 1:
-      return (T) elements[0];
-    default:
-      int p;
-      p = pos.getAndIncrement();
-      return (T) elements[Math.abs(p % len)];
+      case 0:
+        return null;
+      case 1:
+        return (T) elements[0];
+      default:
+        int p;
+        p = pos.getAndIncrement();
+        return (T) elements[Math.abs(p % len)];
     }
   }
 

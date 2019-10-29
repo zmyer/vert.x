@@ -64,7 +64,7 @@ public interface NetServer extends Measured {
   /**
    * Like {@link #listen} but providing a handler that will be notified when the server is listening, or fails.
    *
-   * @param listenHandler  handler that will be notified when listening or failed
+   * @param listenHandler handler that will be notified when listening or failed
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -88,8 +88,8 @@ public interface NetServer extends Measured {
   /**
    * Like {@link #listen(int, String)} but providing a handler that will be notified when the server is listening, or fails.
    *
-   * @param port  the port to listen on
-   * @param host  the host to listen on
+   * @param port          the port to listen on
+   * @param host          the host to listen on
    * @param listenHandler handler that will be notified when listening or failed
    * @return a reference to this, so the API can be used fluently
    */
@@ -112,7 +112,7 @@ public interface NetServer extends Measured {
   /**
    * Like {@link #listen(int)} but providing a handler that will be notified when the server is listening, or fails.
    *
-   * @param port  the port to listen on
+   * @param port          the port to listen on
    * @param listenHandler handler that will be notified when listening or failed
    * @return a reference to this, so the API can be used fluently
    */
@@ -134,7 +134,7 @@ public interface NetServer extends Measured {
   /**
    * Like {@link #listen(SocketAddress)} but providing a handler that will be notified when the server is listening, or fails.
    *
-   * @param localAddress the local address to listen on
+   * @param localAddress  the local address to listen on
    * @param listenHandler handler that will be notified when listening or failed
    * @return a reference to this, so the API can be used fluently
    */
@@ -161,7 +161,7 @@ public interface NetServer extends Measured {
   /**
    * Like {@link #close} but supplying a handler that will be notified when close is complete.
    *
-   * @param completionHandler  the handler
+   * @param completionHandler the handler
    */
   void close(Handler<AsyncResult<Void>> completionHandler);
 

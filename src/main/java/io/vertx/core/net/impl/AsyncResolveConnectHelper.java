@@ -60,6 +60,7 @@ public class AsyncResolveConnectHelper {
     }
   }
 
+  // TODO: 2018/11/27 by zmyer
   private static void checkPort(int port) {
     if (port < 0 || port > 65535) {
       throw new IllegalArgumentException("Invalid port " + port);
@@ -68,7 +69,7 @@ public class AsyncResolveConnectHelper {
 
   // TODO: 2018/8/1 by zmyer
   public static AsyncResolveConnectHelper doBind(VertxInternal vertx, SocketAddress socketAddress,
-    ServerBootstrap bootstrap) {
+                                                 ServerBootstrap bootstrap) {
     final AsyncResolveConnectHelper asyncResolveConnectHelper = new AsyncResolveConnectHelper();
     bootstrap.channelFactory(vertx.transport().serverChannelFactory(socketAddress.path() != null));
     if (socketAddress.path() != null) {

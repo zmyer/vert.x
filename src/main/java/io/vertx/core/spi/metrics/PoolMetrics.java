@@ -53,7 +53,7 @@ public interface PoolMetrics<T> extends Metrics {
    * The submitted tasks has completed its execution and release the resource.
    *
    * @param succeeded whether or not the task has gracefully completed
-   * @param t the timer measuring the task execution returned by {@link #begin}
+   * @param t         the timer measuring the task execution returned by {@link #begin}
    */
   default void end(T t, boolean succeeded) {
   }

@@ -71,13 +71,13 @@ abstract class ContextImpl implements ContextInternal {
 
   // TODO: 2018/8/1 by zmyer
   protected ContextImpl(VertxInternal vertx, WorkerPool internalBlockingPool, WorkerPool workerPool,
-    String deploymentID, JsonObject config, ClassLoader tccl) {
+                        String deploymentID, JsonObject config, ClassLoader tccl) {
     this(vertx, getEventLoop(vertx), internalBlockingPool, workerPool, deploymentID, config, tccl);
   }
 
   // TODO: 2018/8/1 by zmyer
   protected ContextImpl(VertxInternal vertx, EventLoop eventLoop, WorkerPool internalBlockingPool,
-    WorkerPool workerPool, String deploymentID, JsonObject config, ClassLoader tccl) {
+                        WorkerPool workerPool, String deploymentID, JsonObject config, ClassLoader tccl) {
     if (DISABLE_TCCL && !tccl.getClass().getName().equals("sun.misc.Launcher$AppClassLoader")) {
       log.warn("You have disabled TCCL checks but you have a custom TCCL to set.");
     }
@@ -195,6 +195,7 @@ abstract class ContextImpl implements ContextInternal {
     execute(value, task);
   }
 
+  // TODO: 2018/11/26 by zmyer
   private void checkEventLoopThread() {
     Thread current = Thread.currentThread();
     if (!(current instanceof VertxThread)) {
@@ -241,6 +242,7 @@ abstract class ContextImpl implements ContextInternal {
     return owner;
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public <T> void executeBlockingInternal(Handler<Future<T>> action, Handler<AsyncResult<T>> resultHandler) {
     executeBlocking(action, resultHandler, internalBlockingPool.executor(), internalOrderedTasks,
@@ -250,7 +252,7 @@ abstract class ContextImpl implements ContextInternal {
   // TODO: 2018/8/1 by zmyer
   @Override
   public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-    Handler<AsyncResult<T>> resultHandler) {
+                                  Handler<AsyncResult<T>> resultHandler) {
     executeBlocking(blockingCodeHandler, resultHandler, workerPool.executor(), ordered ? orderedTasks : null,
       workerPool.metrics());
   }
@@ -262,14 +264,14 @@ abstract class ContextImpl implements ContextInternal {
 
   @Override
   public <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, TaskQueue queue,
-    Handler<AsyncResult<T>> resultHandler) {
+                                  Handler<AsyncResult<T>> resultHandler) {
     executeBlocking(blockingCodeHandler, resultHandler, workerPool.executor(), queue, workerPool.metrics());
   }
 
   // TODO: 2018/8/1 by zmyer
   <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler,
-    Handler<AsyncResult<T>> resultHandler,
-    Executor exec, TaskQueue queue, PoolMetrics metrics) {
+                           Handler<AsyncResult<T>> resultHandler,
+                           Executor exec, TaskQueue queue, PoolMetrics metrics) {
     Object queueMetric = metrics != null ? metrics.submitted() : null;
     try {
       final Runnable command = () -> {
@@ -321,6 +323,7 @@ abstract class ContextImpl implements ContextInternal {
     return contextData;
   }
 
+  // TODO: 2018/11/23 by zmyer
   <T> boolean executeTask(T arg, Handler<T> hTask) {
     Thread th = Thread.currentThread();
     if (!(th instanceof VertxThread)) {

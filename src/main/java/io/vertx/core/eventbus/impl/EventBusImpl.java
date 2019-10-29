@@ -69,7 +69,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   @Override
   public <T> EventBus addInboundInterceptor(Handler<DeliveryContext<T>> interceptor) {
-    receiveInterceptors.add((Handler)interceptor);
+    receiveInterceptors.add((Handler) interceptor);
     return this;
   }
 
@@ -113,7 +113,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   // TODO: 2018/8/2 by zmyer
   @Override
   public <T> EventBus send(String address, Object message, DeliveryOptions options,
-    final Handler<AsyncResult<Message<T>>> replyHandler) {
+                           final Handler<AsyncResult<Message<T>>> replyHandler) {
     sendOrPubInternal(createMessage(true, address, options.getHeaders(), message, options.getCodecName()), options,
       replyHandler);
     return this;
@@ -145,11 +145,13 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     return new MessageProducerImpl<>(vertx, address, false, options);
   }
 
+  // TODO: 2018/11/30 by zmyer
   @Override
   public EventBus publish(String address, Object message) {
     return publish(address, message, new DeliveryOptions());
   }
 
+  // TODO: 2018/11/30 by zmyer
   @Override
   public EventBus publish(String address, Object message, DeliveryOptions options) {
     sendOrPubInternal(createMessage(false, address, options.getHeaders(), message, options.getCodecName()), options,
@@ -245,7 +247,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/1 by zmyer
   protected <T> HandlerHolder<T> addRegistration(String address, HandlerRegistration<T> registration,
-    boolean replyHandler, boolean localOnly) {
+                                                 boolean replyHandler, boolean localOnly) {
     Objects.requireNonNull(registration.getHandler(), "handler");
     final LocalRegistrationResult<T> result = addLocalRegistration(address, registration, replyHandler, localOnly);
     addRegistration(result.newAddress, address, replyHandler, localOnly, registration::setResult);
@@ -254,8 +256,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/1 by zmyer
   protected <T> void addRegistration(boolean newAddress, String address,
-    boolean replyHandler, boolean localOnly,
-    final Handler<AsyncResult<Void>> completionHandler) {
+                                     boolean replyHandler, boolean localOnly,
+                                     final Handler<AsyncResult<Void>> completionHandler) {
     completionHandler.handle(Future.succeededFuture());
   }
 
@@ -272,7 +274,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/1 by zmyer
   private <T> LocalRegistrationResult<T> addLocalRegistration(String address, HandlerRegistration<T> registration,
-    boolean replyHandler, boolean localOnly) {
+                                                              boolean replyHandler, boolean localOnly) {
     Objects.requireNonNull(address, "address");
 
     Context context = Vertx.currentContext();
@@ -307,7 +309,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   }
 
   protected <T> void removeRegistration(HandlerHolder<T> handlerHolder, String address,
-    Handler<AsyncResult<Void>> completionHandler) {
+                                        Handler<AsyncResult<Void>> completionHandler) {
     callCompletionHandlerAsync(completionHandler);
   }
 
@@ -328,7 +330,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
   }
 
   protected <T> void sendReply(MessageImpl replyMessage, MessageImpl replierMessage, DeliveryOptions options,
-    Handler<AsyncResult<Message<T>>> replyHandler) {
+                               Handler<AsyncResult<Message<T>>> replyHandler) {
     if (replyMessage.address() == null) {
       throw new IllegalStateException("address not specified");
     } else {
@@ -424,6 +426,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
     }
   }
 
+  // TODO: 2018/11/30 by zmyer
   protected void checkStarted() {
     if (!started) {
       throw new IllegalStateException("Event Bus is not started");
@@ -437,8 +440,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/2 by zmyer
   private <T> HandlerRegistration<T> createReplyHandlerRegistration(MessageImpl message,
-    DeliveryOptions options,
-    Handler<AsyncResult<Message<T>>> replyHandler) {
+                                                                    DeliveryOptions options,
+                                                                    Handler<AsyncResult<Message<T>>> replyHandler) {
     if (replyHandler != null) {
       final long timeout = options.getSendTimeout();
       final String replyAddress = generateReplyAddress();
@@ -456,7 +459,7 @@ public class EventBusImpl implements EventBus, MetricsProvider {
 
   // TODO: 2018/8/2 by zmyer
   private <T> void sendOrPubInternal(MessageImpl message, DeliveryOptions options,
-    Handler<AsyncResult<Message<T>>> replyHandler) {
+                                     Handler<AsyncResult<Message<T>>> replyHandler) {
     checkStarted();
     HandlerRegistration<T> replyHandlerRegistration = createReplyHandlerRegistration(message, options, replyHandler);
     OutboundDeliveryContext<T> sendContext = new OutboundDeliveryContext<>(message, options, replyHandlerRegistration);
@@ -475,7 +478,8 @@ public class EventBusImpl implements EventBus, MetricsProvider {
       this(message, options, handlerRegistration, null);
     }
 
-    private OutboundDeliveryContext(MessageImpl message, DeliveryOptions options, HandlerRegistration<T> handlerRegistration, MessageImpl replierMessage) {
+    private OutboundDeliveryContext(MessageImpl message, DeliveryOptions options, HandlerRegistration<T> handlerRegistration,
+                                    MessageImpl replierMessage) {
       this.message = message;
       this.options = options;
       this.handlerRegistration = handlerRegistration;

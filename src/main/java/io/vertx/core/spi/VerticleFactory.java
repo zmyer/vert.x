@@ -17,7 +17,6 @@ import io.vertx.core.Verticle;
 import io.vertx.core.Vertx;
 
 /**
- *
  * Has responsibility for creating verticle instances.
  * <p>
  * Implementations of this are responsible for creating verticle written in various different JVM languages and
@@ -30,6 +29,7 @@ public interface VerticleFactory {
 
   /**
    * Helper method to remove a prefix from an identifier string
+   *
    * @param identifer the identifier
    * @return The identifier without the prefix (if it had any)
    */
@@ -47,6 +47,7 @@ public interface VerticleFactory {
 
   /**
    * The order of the factory. If there is more than one matching verticle they will be tried in ascending order.
+   *
    * @return the order
    */
   default int order() {
@@ -56,6 +57,7 @@ public interface VerticleFactory {
   /**
    * Does the factory require resolution? See {@link #resolve(String, DeploymentOptions, ClassLoader, Future)} for more
    * information.
+   *
    * @return true if yes
    */
   default boolean requiresResolve() {
@@ -65,6 +67,7 @@ public interface VerticleFactory {
   /**
    * If the {@link #createVerticle(String, ClassLoader)} method might be slow Vert.x will call it using a worker
    * thread instead of an event loop if this returns true
+   *
    * @return true if {@link #createVerticle(String, ClassLoader)} should be called on a worker thread.
    */
   // TODO: 2018/8/1 by zmyer
@@ -77,20 +80,21 @@ public interface VerticleFactory {
    * verticle factory. An Example is the Vert.x service factory which takes an identifier of form `service:com.mycompany.clever-db-service"
    * then looks for a JSON file which it loads to get the real identifier (main verticle).
    *
-   * @param identifier  The identifier
-   * @param deploymentOptions  The deployment options - these can be changed inside the resolve method (e.g. to add an extra classpath)
-   * @param classLoader  The classloader
-   * @param resolution  A future which will receive the result of the resolution.
+   * @param identifier        The identifier
+   * @param deploymentOptions The deployment options - these can be changed inside the resolve method (e.g. to add an extra classpath)
+   * @param classLoader       The classloader
+   * @param resolution        A future which will receive the result of the resolution.
    */
   // TODO: 2018/8/1 by zmyer
   default void resolve(String identifier, DeploymentOptions deploymentOptions, ClassLoader classLoader,
-    Future<String> resolution) {
+                       Future<String> resolution) {
     resolution.complete(identifier);
   }
 
   /**
    * Initialise the factory
-   * @param vertx  The Vert.x instance
+   *
+   * @param vertx The Vert.x instance
    */
   // TODO: 2018/8/1 by zmyer
   default void init(Vertx vertx) {
@@ -112,7 +116,7 @@ public interface VerticleFactory {
    * start up a language engine) then make sure it is run on a worker thread by returning `true` from
    * {@link #blockingCreate()}.
    *
-   * @param verticleName  The verticle name
+   * @param verticleName The verticle name
    * @param classLoader  The class loader
    * @return The instance
    * @throws Exception

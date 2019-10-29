@@ -94,7 +94,7 @@ public interface Context {
   /**
    * Run the specified action asynchronously on the same context, some time after the current execution has completed.
    *
-   * @param action  the action to run
+   * @param action the action to run
    */
   void runOnContext(Handler<Void> action);
 
@@ -110,21 +110,22 @@ public interface Context {
    * the handler should call the {@link Future#complete} or {@link Future#complete(Object)} method, or the {@link Future#fail}
    * method if it failed.
    *
-   * @param blockingCodeHandler  handler representing the blocking code to run
-   * @param resultHandler  handler that will be called when the blocking code is complete
-   * @param ordered  if true then if executeBlocking is called several times on the same context, the executions
-   *                 for that context will be executed serially, not in parallel. if false then they will be no ordering
-   *                 guarantees
-   * @param <T> the type of the result
+   * @param blockingCodeHandler handler representing the blocking code to run
+   * @param resultHandler       handler that will be called when the blocking code is complete
+   * @param ordered             if true then if executeBlocking is called several times on the same context, the executions
+   *                            for that context will be executed serially, not in parallel. if false then they will be no ordering
+   *                            guarantees
+   * @param <T>                 the type of the result
    */
   <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, boolean ordered,
-    Handler<AsyncResult<@Nullable T>> resultHandler);
+                           Handler<AsyncResult<@Nullable T>> resultHandler);
 
   /**
    * Invoke {@link #executeBlocking(Handler, boolean, Handler)} with order = true.
-   * @param blockingCodeHandler  handler representing the blocking code to run
-   * @param resultHandler  handler that will be called when the blocking code is complete
-   * @param <T> the type of the result
+   *
+   * @param blockingCodeHandler handler representing the blocking code to run
+   * @param resultHandler       handler that will be called when the blocking code is complete
+   * @param <T>                 the type of the result
    */
   <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, Handler<AsyncResult<@Nullable T>> resultHandler);
 
@@ -180,8 +181,8 @@ public interface Context {
   /**
    * Get some data from the context.
    *
-   * @param key  the key of the data
-   * @param <T>  the type of the data
+   * @param key the key of the data
+   * @param <T> the type of the data
    * @return the data
    */
   <T> T get(String key);
@@ -191,15 +192,15 @@ public interface Context {
    * <p>
    * This can be used to share data between different handlers that share a context
    *
-   * @param key  the key of the data
-   * @param value  the data
+   * @param key   the key of the data
+   * @param value the data
    */
   void put(String key, Object value);
 
   /**
    * Remove some data from the context.
    *
-   * @param key  the key to remove
+   * @param key the key to remove
    * @return true if removed successfully, false otherwise
    */
   boolean remove(String key);
@@ -217,7 +218,7 @@ public interface Context {
 
   /**
    * Set an exception handler called when the context runs an action throwing an uncaught throwable.<p/>
-   *
+   * <p>
    * When this handler is called, {@link Vertx#currentContext()} will return this context.
    *
    * @param handler the exception handler

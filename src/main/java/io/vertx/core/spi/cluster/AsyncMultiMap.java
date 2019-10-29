@@ -17,25 +17,24 @@ import io.vertx.core.Handler;
 import java.util.function.Predicate;
 
 /**
- *
  * An asynchronous multi-map.
- *
+ * <p>
  * A multi-map holds a Set of values against each key as opposed to a single value, as with a Map. A value appears only
  * once for a key (no duplicated values for the same key).
- *
+ * <p>
  * The cluster implementation should ensure that any entries placed in the map from any node are available on any
  * node of the cluster.
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
- *
  */
 // TODO: 2018/8/2 by zmyer
 public interface AsyncMultiMap<K, V> {
 
   /**
    * Add a value to the values for that key in the map.
-   * @param k The key
-   * @param v The value
+   *
+   * @param k                 The key
+   * @param v                 The value
    * @param completionHandler This will be called when the entry has been added
    */
   void add(K k, V v, Handler<AsyncResult<Void>> completionHandler);
@@ -43,7 +42,8 @@ public interface AsyncMultiMap<K, V> {
   /**
    * Get the values from the map for the key. If the key isn't in the map, an empty {@link ChoosableIterable} must
    * be returned.
-   * @param k The key
+   *
+   * @param k             The key
    * @param resultHandler This will be called with the list of values for the key. The type of the values returned
    *                      must be {@link ChoosableIterable}
    */
@@ -51,8 +51,9 @@ public interface AsyncMultiMap<K, V> {
 
   /**
    * Remove a value from the values of that key in the map.
-   * @param k The key
-   * @param v The value
+   *
+   * @param k                 The key
+   * @param v                 The value
    * @param completionHandler This will be called with {@code true} if the value was found and {@code false} otherwise,
    *                          when the remove is complete
    */
@@ -60,7 +61,8 @@ public interface AsyncMultiMap<K, V> {
 
   /**
    * Remove the specified value from all values found {@code equals} associated to all keys in the map.
-   * @param v The value
+   *
+   * @param v                 The value
    * @param completionHandler This will be called when the remove is complete
    */
   void removeAllForValue(V v, Handler<AsyncResult<Void>> completionHandler);

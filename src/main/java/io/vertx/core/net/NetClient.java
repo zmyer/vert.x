@@ -27,6 +27,7 @@ import io.vertx.core.metrics.Measured;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/11/30 by zmyer
 @VertxGen
 public interface NetClient extends Measured {
 
@@ -36,8 +37,8 @@ public interface NetClient extends Measured {
    * {@code host} can be a valid host name or IP address. The connect is done asynchronously and on success, a
    * {@link NetSocket} instance is supplied via the {@code connectHandler} instance
    *
-   * @param port  the port
-   * @param host  the host
+   * @param port the port
+   * @param host the host
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -49,8 +50,8 @@ public interface NetClient extends Measured {
    * {@code host} can be a valid host name or IP address. The connect is done asynchronously and on success, a
    * {@link NetSocket} instance is supplied via the {@code connectHandler} instance
    *
-   * @param port the port
-   * @param host the host
+   * @param port       the port
+   * @param host       the host
    * @param serverName the SNI server name
    * @return a reference to this, so the API can be used fluently
    */
@@ -74,7 +75,7 @@ public interface NetClient extends Measured {
    * The connect is done asynchronously and on success, a {@link NetSocket} instance is supplied via the {@code connectHandler} instance
    *
    * @param remoteAddress the remote address
-   * @param serverName the SNI server name
+   * @param serverName    the SNI server name
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent

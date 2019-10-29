@@ -37,10 +37,12 @@ public class HandlerManager<T> {
   // As it is called for every HTTP message received
   private volatile boolean hasHandlers;
 
+  // TODO: 2018/11/27 by zmyer
   public HandlerManager(VertxEventLoopGroup availableWorkers) {
     this.availableWorkers = availableWorkers;
   }
 
+  // TODO: 2018/11/27 by zmyer
   public boolean hasHandlers() {
     return hasHandlers;
   }
@@ -64,6 +66,7 @@ public class HandlerManager<T> {
     hasHandlers = true;
   }
 
+  // TODO: 2018/11/27 by zmyer
   public synchronized void removeHandler(T handler, ContextInternal context) {
     EventLoop worker = context.nettyEventLoop();
     Handlers<T> handlers = handlerMap.get(worker);

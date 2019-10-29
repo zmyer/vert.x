@@ -56,7 +56,7 @@ public interface ContextInternal extends Context {
    * of the internal queue of this context.
    */
   <T> void executeBlocking(Handler<Future<T>> blockingCodeHandler, TaskQueue queue,
-    Handler<AsyncResult<T>> resultHandler);
+                           Handler<AsyncResult<T>> resultHandler);
 
   /**
    * Execute an internal task on the internal blocking ordered executor.
@@ -79,13 +79,13 @@ public interface ContextInternal extends Context {
   /**
    * Execute the context task and switch on this context if necessary, this also associates the
    * current thread with the current context so {@link Vertx#currentContext()} returns this context.<p/>
-   *
+   * <p>
    * The caller thread should be the the event loop thread of this context.<p/>
-   *
+   * <p>
    * Any exception thrown from the {@literal task} will be reported on this context.
    *
    * @param value the argument for the {@code task}
-   * @param task the task to execute with the {@code value} argument
+   * @param task  the task to execute with the {@code value} argument
    */
   <T> void executeFromIO(T value, Handler<T> task);
 

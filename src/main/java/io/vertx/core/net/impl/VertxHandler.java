@@ -25,12 +25,15 @@ import java.util.function.Function;
 /**
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
+// TODO: 2018/11/26 by zmyer
 public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexHandler {
 
+  // TODO: 2018/11/26 by zmyer
   public static ByteBuf safeBuffer(ByteBufHolder holder, ByteBufAllocator allocator) {
     return safeBuffer(holder.content(), allocator);
   }
 
+  // TODO: 2018/11/26 by zmyer
   public static ByteBuf safeBuffer(ByteBuf buf, ByteBufAllocator allocator) {
     if (buf == Unpooled.EMPTY_BUFFER) {
       return buf;
@@ -38,7 +41,7 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
     if (buf.isDirect() || buf instanceof CompositeByteBuf) {
       try {
         if (buf.isReadable()) {
-          ByteBuf buffer =  allocator.heapBuffer(buf.readableBytes());
+          ByteBuf buffer = allocator.heapBuffer(buf.readableBytes());
           buffer.writeBytes(buf);
           return buffer;
         } else {
@@ -51,13 +54,17 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
     return buf;
   }
 
-  private static final Handler<Object> NULL_HANDLER = m -> { };
+  private static final Handler<Object> NULL_HANDLER = m -> {
+  };
 
+  // TODO: 2018/11/26 by zmyer
   public static <C extends ConnectionBase> VertxHandler<C> create(C connection) {
     return create(connection.context, ctx -> connection);
   }
 
-  public static <C extends ConnectionBase> VertxHandler<C> create(ContextInternal context, Function<ChannelHandlerContext, C> connectionFactory) {
+  // TODO: 2018/11/26 by zmyer
+  public static <C extends ConnectionBase> VertxHandler<C> create(ContextInternal context,
+                                                                  Function<ChannelHandlerContext, C> connectionFactory) {
     return new VertxHandler<>(context, connectionFactory);
   }
 
@@ -69,6 +76,7 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
   private Handler<C> removeHandler;
   private Handler<Object> messageHandler;
 
+  // TODO: 2018/11/26 by zmyer
   private VertxHandler(ContextInternal context, Function<ChannelHandlerContext, C> connectionFactory) {
     this.context = context;
     this.connectionFactory = connectionFactory;
@@ -79,10 +87,11 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
    *
    * @param connection the connection
    */
+  // TODO: 2018/11/26 by zmyer
   private void setConnection(C connection) {
     conn = connection;
     endReadAndFlush = v -> conn.endReadAndFlush();
-    messageHandler = ((ConnectionBase)conn)::handleRead; // Dubious cast to make compiler happy
+    messageHandler = conn::handleRead; // Dubious cast to make compiler happy
     if (addHandler != null) {
       addHandler.handle(connection);
     }
@@ -94,11 +103,13 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
    *
    * @param error the {@code Throwable} to propagate
    */
+  // TODO: 2018/11/26 by zmyer
   void fail(Throwable error) {
     messageHandler = NULL_HANDLER;
     conn.chctx.pipeline().fireExceptionCaught(error);
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     setConnection(connectionFactory.apply(ctx));
@@ -133,6 +144,7 @@ public final class VertxHandler<C extends ConnectionBase> extends ChannelDuplexH
     return conn;
   }
 
+  // TODO: 2018/11/26 by zmyer
   @Override
   public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
     C conn = getConnection();

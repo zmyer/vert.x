@@ -20,6 +20,7 @@ import io.vertx.core.json.JsonObject;
  *
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+// TODO: 2018/11/26 by zmyer
 @DataObject(generateConverter = true)
 public class DnsClientOptions {
 
@@ -44,16 +45,16 @@ public class DnsClientOptions {
   public static final boolean DEFAULT_LOG_ENABLED = false;
 
   /**
-  * The default value for the recursion desired flag (RD) = {@code true}
-  */
+   * The default value for the recursion desired flag (RD) = {@code true}
+   */
   public static final boolean DEFAULT_RECURSION_DESIRED = true;
-  
+
   private int port = DEFAULT_PORT;
   private String host = DEFAULT_HOST;
   private long queryTimeout = DEFAULT_QUERY_TIMEOUT;
   private boolean logActivity = DEFAULT_LOG_ENABLED;
   private boolean recursionDesired = DEFAULT_RECURSION_DESIRED;
-  
+
   public DnsClientOptions() {
   }
 
@@ -72,7 +73,7 @@ public class DnsClientOptions {
   /**
    * Get the port to be used by this client in requests.
    *
-   * @return  the port
+   * @return the port
    */
   public int getPort() {
     return port;
@@ -84,7 +85,7 @@ public class DnsClientOptions {
    * @return a reference to this, so the API can be used fluently
    */
   public DnsClientOptions setPort(int port) {
-    if (port<1 && port!=DEFAULT_PORT) {
+    if (port < 1 && port != DEFAULT_PORT) {
       throw new IllegalArgumentException("DNS client port " + port + " must be > 0 or equal to DEFAULT_PORT");
     }
     this.port = port;
@@ -94,7 +95,7 @@ public class DnsClientOptions {
   /**
    * Get the host name to be used by this client in requests.
    *
-   * @return  the host name
+   * @return the host name
    */
   public String getHost() {
     return host;
@@ -157,7 +158,7 @@ public class DnsClientOptions {
   public boolean isRecursionDesired() {
     return recursionDesired;
   }
-  
+
   /**
    * Set whether or not recursion is desired
    *
@@ -168,7 +169,7 @@ public class DnsClientOptions {
     this.recursionDesired = recursionDesired;
     return this;
   }
-  
+
   public JsonObject toJson() {
     JsonObject json = new JsonObject();
     DnsClientOptionsConverter.toJson(this, json);

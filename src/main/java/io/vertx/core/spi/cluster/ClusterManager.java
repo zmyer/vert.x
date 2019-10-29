@@ -23,11 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
  * A cluster provider for Vert.x must implement this interface.
- *
+ * <p>
  * In order for HA to work correctly, all implementations of this interface MUST be implemented such that:
- *
+ * <p>
  * 1. Whenever a node joins or leaves the cluster the registered NodeListener (if any) MUST be called with the
  * appropriate join or leave event.
  * 2. For all nodes that are part of the cluster, the registered NodeListener MUST be called with the exact same
@@ -71,7 +70,6 @@ public interface ClusterManager {
 
   /**
    * Return a list of node IDs corresponding to the nodes in the cluster
-   *
    */
   List<String> getNodes();
 

@@ -53,7 +53,7 @@ public class ClusteredEventBus extends EventBusImpl {
   public static final String CLUSTER_PUBLIC_HOST_PROP_NAME = "vertx.cluster.public.host";
   public static final String CLUSTER_PUBLIC_PORT_PROP_NAME = "vertx.cluster.public.port";
 
-  private static final Buffer PONG = Buffer.buffer(new byte[]{ (byte) 1 });
+  private static final Buffer PONG = Buffer.buffer(new byte[]{(byte) 1});
   private static final String SERVER_ID_HA_KEY = "server_id";
   private static final String SUBS_MAP_NAME = "__vertx.subs";
 
@@ -70,8 +70,8 @@ public class ClusteredEventBus extends EventBusImpl {
 
   // TODO: 2018/8/1 by zmyer
   public ClusteredEventBus(VertxInternal vertx,
-    VertxOptions options,
-    ClusterManager clusterManager) {
+                           VertxOptions options,
+                           ClusterManager clusterManager) {
     super(vertx);
     this.options = options.getEventBusOptions();
     this.clusterManager = clusterManager;
@@ -189,8 +189,8 @@ public class ClusteredEventBus extends EventBusImpl {
 
   @Override
   protected <T> void addRegistration(boolean newAddress, String address,
-    boolean replyHandler, boolean localOnly,
-    Handler<AsyncResult<Void>> completionHandler) {
+                                     boolean replyHandler, boolean localOnly,
+                                     Handler<AsyncResult<Void>> completionHandler) {
     if (newAddress && subs != null && !replyHandler && !localOnly) {
       // Propagate the information
       subs.add(address, nodeInfo, completionHandler);
@@ -202,7 +202,7 @@ public class ClusteredEventBus extends EventBusImpl {
 
   @Override
   protected <T> void removeRegistration(HandlerHolder<T> lastHolder, String address,
-    Handler<AsyncResult<Void>> completionHandler) {
+                                        Handler<AsyncResult<Void>> completionHandler) {
     if (lastHolder != null && subs != null && !lastHolder.isLocalOnly()) {
       ownSubs.remove(address);
       removeSub(address, nodeInfo, completionHandler);

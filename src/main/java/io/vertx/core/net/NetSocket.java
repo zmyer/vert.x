@@ -81,7 +81,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
   /**
    * Write a {@link String} to the connection, encoded in UTF-8.
    *
-   * @param str  the string to write
+   * @param str the string to write
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -90,8 +90,8 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
   /**
    * Write a {@link String} to the connection, encoded using the encoding {@code enc}.
    *
-   * @param str  the string to write
-   * @param enc  the encoding to use
+   * @param str the string to write
+   * @param enc the encoding to use
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -101,7 +101,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Tell the operating system to stream a file as specified by {@code filename} directly from disk to the outgoing connection,
    * bypassing userspace altogether (where supported by the underlying operating system. This is a very efficient way to stream files.
    *
-   * @param filename  file name of the file to send
+   * @param filename file name of the file to send
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -113,8 +113,8 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Tell the operating system to stream a file as specified by {@code filename} directly from disk to the outgoing connection,
    * bypassing userspace altogether (where supported by the underlying operating system. This is a very efficient way to stream files.
    *
-   * @param filename  file name of the file to send
-   * @param offset offset
+   * @param filename file name of the file to send
+   * @param offset   offset
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -126,9 +126,9 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Tell the operating system to stream a file as specified by {@code filename} directly from disk to the outgoing connection,
    * bypassing userspace altogether (where supported by the underlying operating system. This is a very efficient way to stream files.
    *
-   * @param filename  file name of the file to send
-   * @param offset offset
-   * @param length length
+   * @param filename file name of the file to send
+   * @param offset   offset
+   * @param length   length
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -138,8 +138,8 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Same as {@link #sendFile(String)} but also takes a handler that will be called when the send has completed or
    * a failure has occurred
    *
-   * @param filename  file name of the file to send
-   * @param resultHandler  handler
+   * @param filename      file name of the file to send
+   * @param resultHandler handler
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -151,9 +151,9 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Same as {@link #sendFile(String, long)} but also takes a handler that will be called when the send has completed or
    * a failure has occurred
    *
-   * @param filename  file name of the file to send
-   * @param offset offset
-   * @param resultHandler  handler
+   * @param filename      file name of the file to send
+   * @param offset        offset
+   * @param resultHandler handler
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -165,10 +165,10 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Same as {@link #sendFile(String, long, long)} but also takes a handler that will be called when the send has completed or
    * a failure has occurred
    *
-   * @param filename  file name of the file to send
-   * @param offset offset
-   * @param length length
-   * @param resultHandler  handler
+   * @param filename      file name of the file to send
+   * @param offset        offset
+   * @param length        length
+   * @param resultHandler handler
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -200,7 +200,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
   /**
    * Set a handler that will be called when the NetSocket is closed
    *
-   * @param handler  the handler
+   * @param handler the handler
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -209,7 +209,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
   /**
    * Upgrade channel to use SSL/TLS. Be aware that for this to work SSL must be configured.
    *
-   * @param handler  the handler will be notified when it's upgraded
+   * @param handler the handler will be notified when it's upgraded
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -219,7 +219,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * Upgrade channel to use SSL/TLS. Be aware that for this to work SSL must be configured.
    *
    * @param serverName the server name
-   * @param handler  the handler will be notified when it's upgraded
+   * @param handler    the handler will be notified when it's upgraded
    * @return a reference to this, so the API can be used fluently
    */
   @Fluent
@@ -232,7 +232,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
 
   /**
    * @return SSLSession associated with the underlying socket. Returns null if connection is
-   *         not SSL.
+   * not SSL.
    * @see javax.net.ssl.SSLSession
    */
   @SuppressWarnings("codegen-allow-any-java-type")
@@ -244,7 +244,7 @@ public interface NetSocket extends ReadStream<Buffer>, WriteStream<Buffer> {
    * access that method.
    *
    * @return an ordered array of the peer certificates. Returns null if connection is
-   *         not SSL.
+   * not SSL.
    * @throws javax.net.ssl.SSLPeerUnverifiedException SSL peer's identity has not been verified.
    * @see javax.net.ssl.SSLSession#getPeerCertificateChain()
    * @see #sslSession()

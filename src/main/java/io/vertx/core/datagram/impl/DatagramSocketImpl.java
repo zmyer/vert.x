@@ -46,8 +46,10 @@ import java.util.Objects;
 /**
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
+// TODO: 2018/11/26 by zmyer
 public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
 
+  // TODO: 2018/11/26 by zmyer
   public static DatagramSocketImpl create(VertxInternal vertx, DatagramSocketOptions options) {
     DatagramSocketImpl socket = new DatagramSocketImpl(vertx, options);
     // Make sure object is fully initiliased to avoid race with async registration
@@ -63,6 +65,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
   private Handler<Throwable> exceptionHandler;
   private long demand;
 
+  // TODO: 2018/11/26 by zmyer
   private DatagramSocketImpl(VertxInternal vertx, DatagramSocketOptions options) {
     Transport transport = vertx.transport();
     DatagramChannel channel = transport.datagramChannel(options.isIpV6() ? InternetProtocolFamily.IPv6 : InternetProtocolFamily.IPv4);
@@ -85,6 +88,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     this.demand = Long.MAX_VALUE;
   }
 
+  // TODO: 2018/11/26 by zmyer
   private void init() {
     channel.pipeline().addLast("handler", VertxHandler.create(context, this::createConnection));
   }
@@ -109,7 +113,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
         sourceAddress = InetAddress.getByName(source);
       }
       addListener(channel.joinGroup(InetAddress.getByName(multicastAddress),
-              NetworkInterface.getByName(networkInterface), sourceAddress), handler);
+        NetworkInterface.getByName(networkInterface), sourceAddress), handler);
     } catch (Exception e) {
       notifyException(handler, e);
     }
@@ -136,7 +140,7 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
         sourceAddress = InetAddress.getByName(source);
       }
       addListener(channel.leaveGroup(InetAddress.getByName(multicastAddress),
-              NetworkInterface.getByName(networkInterface), sourceAddress), handler);
+        NetworkInterface.getByName(networkInterface), sourceAddress), handler);
     } catch (Exception e) {
       notifyException(handler, e);
     }
@@ -153,11 +157,11 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
         sourceAddress = InetAddress.getByName(sourceToBlock);
       }
       addListener(channel.block(InetAddress.getByName(multicastAddress),
-              NetworkInterface.getByName(networkInterface), sourceAddress), handler);
+        NetworkInterface.getByName(networkInterface), sourceAddress), handler);
     } catch (Exception e) {
       notifyException(handler, e);
     }
-    return  this;
+    return this;
   }
 
   @Override
@@ -344,10 +348,12 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
     super.finalize();
   }
 
+  // TODO: 2018/11/26 by zmyer
   private Connection createConnection(ChannelHandlerContext chctx) {
     return new Connection(context.owner(), chctx, context);
   }
 
+  // TODO: 2018/11/26 by zmyer
   class Connection extends ConnectionBase {
 
     public Connection(VertxInternal vertx, ChannelHandlerContext channel, ContextInternal context) {
@@ -392,17 +398,19 @@ public class DatagramSocketImpl implements DatagramSocket, MetricsProvider {
       }
     }
 
+    // TODO: 2018/11/26 by zmyer
     public void handleMessage(Object msg) {
       if (msg instanceof DatagramPacket) {
         DatagramPacket packet = (DatagramPacket) msg;
         ByteBuf content = packet.content();
-        if (content.isDirect())  {
+        if (content.isDirect()) {
           content = VertxHandler.safeBuffer(content, chctx.alloc());
         }
         handlePacket(new DatagramPacketImpl(packet.sender(), Buffer.buffer(content)));
       }
     }
 
+    // TODO: 2018/11/26 by zmyer
     void handlePacket(io.vertx.core.datagram.DatagramPacket packet) {
       Handler<io.vertx.core.datagram.DatagramPacket> handler;
       synchronized (DatagramSocketImpl.this) {

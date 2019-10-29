@@ -16,6 +16,7 @@ import io.vertx.core.Future;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
+// TODO: 2018/11/22 by zmyer
 public interface FutureFactory {
 
   <T> Future<T> future();

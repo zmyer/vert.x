@@ -67,8 +67,8 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
 
   // TODO: 2018/8/2 by zmyer
   public HandlerRegistration(Vertx vertx, EventBusMetrics metrics, EventBusImpl eventBus, String address,
-    String repliedAddress, boolean localOnly,
-    Handler<AsyncResult<Message<T>>> asyncResultHandler, long timeout) {
+                             String repliedAddress, boolean localOnly,
+                             Handler<AsyncResult<Message<T>>> asyncResultHandler, long timeout) {
     this.vertx = vertx;
     this.metrics = metrics;
     this.eventBus = eventBus;
